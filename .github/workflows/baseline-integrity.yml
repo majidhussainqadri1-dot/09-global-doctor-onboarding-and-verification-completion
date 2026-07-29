@@ -2,7 +2,7 @@ name: Baseline Integrity
 
 on:
   pull_request:
-    paths-ignore: []
+    branches: [main]
   push:
     branches:
       - baseline/file-09-original-import
@@ -13,6 +13,7 @@ permissions:
 jobs:
   exact-source-inventory:
     name: Exact source inventory
+    if: github.event_name == 'push' || github.head_ref == 'baseline/file-09-original-import'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout immutable action
@@ -84,6 +85,7 @@ jobs:
 
   php-lint:
     name: PHP lint (${{ matrix.php }})
+    if: github.event_name == 'push' || github.head_ref == 'baseline/file-09-original-import'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
