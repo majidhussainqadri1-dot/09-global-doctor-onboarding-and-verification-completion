@@ -26,6 +26,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # This second workflow-file commit intentionally triggers the one-time transfer.
           test "$(find .gdo-transfer -maxdepth 1 -type f -name 'part-*' | wc -l)" -eq 6
           cat .gdo-transfer/part-* | base64 --decode > /tmp/file09-corrective-patch.tar.gz
           echo "a379a73772200460462455fed259b6d40cc3fddf441fb83d02c8bd6d02c4eab7  /tmp/file09-corrective-patch.tar.gz" | sha256sum --check -
