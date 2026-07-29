@@ -6,6 +6,11 @@ on:
       - audit/file-09-source-review
     paths:
       - '.github/workflows/apply-file09-corrective-patch.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/apply-file09-corrective-patch.yml'
 
 permissions:
   contents: write
@@ -13,6 +18,7 @@ permissions:
 jobs:
   apply:
     name: Reconstruct, verify, and commit corrected source
+    if: github.event_name == 'push' || github.head_ref == 'audit/file-09-source-review'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout corrective branch
@@ -26,7 +32,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # This second workflow-file commit intentionally triggers the one-time transfer.
           test "$(find .gdo-transfer -maxdepth 1 -type f -name 'part-*' | wc -l)" -eq 6
           cat .gdo-transfer/part-* | base64 --decode > /tmp/file09-corrective-patch.tar.gz
           echo "a379a73772200460462455fed259b6d40cc3fddf441fb83d02c8bd6d02c4eab7  /tmp/file09-corrective-patch.tar.gz" | sha256sum --check -
