@@ -1,0 +1,155 @@
+name: Generate File 09 release records
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/generate-file09-release-records.yml'
+  push:
+    branches:
+      - audit/file-09-source-review
+    paths:
+      - '.github/workflows/generate-file09-release-records.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    name: Rebuild canonical corrective inventory
+    if: github.event_name == 'push' || github.head_ref == 'audit/file-09-source-review'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout corrective branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: audit/file-09-source-review
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Generate canonical release records
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, re
+
+          root = Path('.')
+          paths = [
+              'assets/css/admin.css',
+              'assets/css/onboarding.css',
+              'global-doctor-onboarding.php',
+              'includes/class-gdo-activator.php',
+              'includes/class-gdo-admin.php',
+              'includes/class-gdo-api.php',
+              'includes/class-gdo-application.php',
+              'includes/class-gdo-audit.php',
+              'includes/class-gdo-crypto.php',
+              'includes/class-gdo-evidence.php',
+              'includes/class-gdo-frontend.php',
+              'includes/class-gdo-membership-adapter.php',
+              'includes/class-gdo-migration.php',
+              'includes/class-gdo-notifications.php',
+              'includes/class-gdo-plugin.php',
+              'includes/class-gdo-privacy.php',
+              'includes/class-gdo-rate-limiter.php',
+              'includes/class-gdo-retention.php',
+              'includes/class-gdo-schema.php',
+              'includes/class-gdo-state.php',
+              'includes/class-gdo-storage.php',
+              'readme.txt',
+              'uninstall.php',
+          ]
+          rows = []
+          canonical = []
+          checksums = []
+          total = 0
+          php_count = 0
+          for path in paths:
+              data = (root / path).read_bytes()
+              digest = hashlib.sha256(data).hexdigest()
+              size = len(data)
+              rows.append(f'{digest}\t{size}\t{path}\n')
+              canonical.append(f'{digest}\t{size}\t{path}\n')
+              checksums.append(f'{digest}  {path}\n')
+              total += size
+              php_count += path.endswith('.php')
+
+          inventory = 'sha256\tbytes\tpath\n' + ''.join(rows)
+          (root / 'RELEASE-INVENTORY.tsv').write_text(inventory, encoding='utf-8', newline='')
+          (root / 'RELEASE-CHECKSUMS.sha256').write_text(''.join(checksums), encoding='utf-8', newline='')
+          tree = hashlib.sha256(''.join(canonical).encode('utf-8')).hexdigest()
+
+          main = (root / 'global-doctor-onboarding.php').read_text(encoding='utf-8')
+          readme = (root / 'readme.txt').read_text(encoding='utf-8')
+          version_match = re.search(r"define\(\s*'GDO_VERSION'\s*,\s*'([^']+)'\s*\)", main)
+          schema_match = re.search(r"define\(\s*'GDO_SCHEMA_VERSION'\s*,\s*(\d+)\s*\)", main)
+          if not version_match or not schema_match:
+              raise SystemExit('Version or schema constant missing')
+          version = version_match.group(1)
+          schema = int(schema_match.group(1))
+          if f'Stable tag: {version}' not in readme:
+              raise SystemExit('Stable tag does not match plugin version')
+
+          lock_path = root / 'RELEASE-LOCK.json'
+          lock = json.loads(lock_path.read_text(encoding='utf-8'))
+          lock.update({
+              'release_version': version,
+              'schema_version': schema,
+              'source_file_count': len(paths),
+              'php_file_count': php_count,
+              'source_size': total,
+              'source_tree_sha256': tree,
+              'release_inventory': 'RELEASE-INVENTORY.tsv',
+              'release_checksums': 'RELEASE-CHECKSUMS.sha256',
+              'merge_authorized': False,
+              'staging_authorized': False,
+              'production_authorized': False,
+              'live_installation_authorized': False,
+          })
+          lock_bytes = (json.dumps(lock, indent=2, sort_keys=True, ensure_ascii=False) + '\n').encode('utf-8')
+          lock_path.write_bytes(lock_bytes)
+          lock_sha = hashlib.sha256(lock_bytes).hexdigest()
+
+          verification = f'''# File 09 Corrective Release Evidence\n\n- Release: `{version}`\n- Schema: `{schema}`\n- Canonical source files: `{len(paths)}`\n- PHP files: `{php_count}`\n- Canonical source bytes: `{total}`\n- Canonical source-tree SHA-256: `{tree}`\n- RELEASE-LOCK SHA-256: `{lock_sha}`\n- Baseline commit preserved: `00967193c0825dd11e797de5b640a9eefcf421bb`\n- Merge authorized: `false`\n- Staging authorized: `false`\n- Production authorized: `false`\n\nThe source inventory and checksums are generated from the corrective branch itself. Automated syntax, architecture, security-unit, and repository-hygiene checks are required separately. WordPress staging acceptance remains a distinct gate.\n'''
+          (root / 'RELEASE-VERIFICATION.md').write_text(verification, encoding='utf-8', newline='')
+
+          manifest = (root / 'RELEASE-MANIFEST.md').read_text(encoding='utf-8').split('\n## Generated release identity', 1)[0].rstrip()
+          manifest += f'''\n\n## Generated release identity\n\n- Version: `{version}`\n- Schema: `{schema}`\n- Source files: `{len(paths)}`\n- PHP files: `{php_count}`\n- Source bytes: `{total}`\n- Source-tree SHA-256: `{tree}`\n- RELEASE-LOCK SHA-256: `{lock_sha}`\n\nNo merge, staging, production, or live-installation authorization is expressed by this manifest.\n'''
+          (root / 'RELEASE-MANIFEST.md').write_text(manifest, encoding='utf-8', newline='')
+
+          print(json.dumps({
+              'version': version,
+              'schema': schema,
+              'files': len(paths),
+              'php_files': php_count,
+              'bytes': total,
+              'tree': tree,
+              'lock_sha256': lock_sha,
+          }, indent=2))
+          PY
+
+      - name: Verify generated records and corrected source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/architecture-check.py
+          awk -F '\t' 'NR>1 && $3 ~ /\.php$/ {print $3}' RELEASE-INVENTORY.tsv | while IFS= read -r file; do php -l "$file"; done
+          php tests/security-unit.php
+          sha256sum --check RELEASE-CHECKSUMS.sha256
+          git diff --check
+
+      - name: Commit generated evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Sabri File 09 Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add RELEASE-INVENTORY.tsv RELEASE-CHECKSUMS.sha256 RELEASE-LOCK.json RELEASE-MANIFEST.md RELEASE-VERIFICATION.md
+          if git diff --cached --quiet; then
+            echo "Release records are already current."
+            exit 0
+          fi
+          git commit -m "Regenerate File 09 corrective release evidence"
+          git push origin HEAD:audit/file-09-source-review
