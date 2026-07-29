@@ -7,16 +7,20 @@ final class GDO_Rate_Limiter {
         $table = GDO_Schema::table( 'rate_limits' );
         $now = time();
         $window = max( 60, absint( $window ) );
+        $limit = max( 1, absint( $limit ) );
         $started = $now - ( $now % $window );
         $hash = hash( 'sha256', (string) $bucket . '|' . $started . '|' . wp_salt( 'nonce' ) );
         $expires = $started + $window + 60;
-        $wpdb->query( $wpdb->prepare(
+        $ok = $wpdb->query( $wpdb->prepare(
             "INSERT INTO {$table} (bucket_hash,window_started,hits,expires_at) VALUES (%s,%d,1,%d)
              ON DUPLICATE KEY UPDATE hits=IF(window_started=VALUES(window_started),hits+1,1),window_started=VALUES(window_started),expires_at=VALUES(expires_at)",
             $hash, $started, $expires
         ) );
+        if ( false === $ok ) {
+            return false;
+        }
         $hits = absint( $wpdb->get_var( $wpdb->prepare( "SELECT hits FROM {$table} WHERE bucket_hash=%s", $hash ) ) );
-        return $hits <= absint( $limit );
+        return $hits <= $limit;
     }
 
     public static function cleanup() {

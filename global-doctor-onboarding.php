@@ -13,7 +13,7 @@
 defined( 'ABSPATH' ) || exit;
 
 define( 'GDO_VERSION', '1.1.0' );
-define( 'GDO_SCHEMA_VERSION', 2 );
+define( 'GDO_SCHEMA_VERSION', 3 );
 define( 'GDO_FILE', __FILE__ );
 define( 'GDO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'GDO_URL', plugin_dir_url( __FILE__ ) );

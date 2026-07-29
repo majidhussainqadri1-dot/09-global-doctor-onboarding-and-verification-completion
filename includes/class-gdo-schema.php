@@ -15,6 +15,7 @@ final class GDO_Schema {
         global $wpdb;
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         $c = $wpdb->get_charset_collate();
+        $engine = 'ENGINE=InnoDB ' . $c;
         $apps = self::table( 'applications' );
         $evidence = self::table( 'evidence' );
         $transitions = self::table( 'transitions' );
@@ -38,11 +39,15 @@ final class GDO_Schema {
             assigned_reviewer_id bigint(20) unsigned NULL,
             recommender_id bigint(20) unsigned NULL,
             finalizer_id bigint(20) unsigned NULL,
+            recommended_decision varchar(20) NULL,
+            recommendation_reason text NULL,
+            recommendation_at datetime NULL,
             submitted_at datetime NULL,
             reviewed_at datetime NULL,
             decision_at datetime NULL,
             verified_until datetime NULL,
             revoked_at datetime NULL,
+            withdrawn_at datetime NULL,
             retention_until datetime NULL,
             legal_hold tinyint(1) unsigned NOT NULL DEFAULT 0,
             consent_version varchar(40) NULL,
@@ -53,8 +58,9 @@ final class GDO_Schema {
             UNIQUE KEY user_version (user_id,version),
             KEY user_state (user_id,state),
             KEY assigned_state (assigned_reviewer_id,state),
-            KEY verified_until (verified_until)
-        ) {$c};" );
+            KEY verified_until (verified_until),
+            KEY retention_until (retention_until)
+        ) {$engine};" );
 
         dbDelta( "CREATE TABLE {$evidence} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -72,6 +78,7 @@ final class GDO_Schema {
             key_id varchar(80) NOT NULL,
             envelope_version varchar(10) NOT NULL,
             checklist_json longtext NULL,
+            review_note text NULL,
             registry_result varchar(40) NULL,
             reviewer_id bigint(20) unsigned NULL,
             reviewed_at datetime NULL,
@@ -86,8 +93,9 @@ final class GDO_Schema {
             UNIQUE KEY app_type_version (application_id,document_type,version),
             UNIQUE KEY storage_name (storage_name),
             KEY user_status (user_id,status),
-            KEY retention_state (retention_state)
-        ) {$c};" );
+            KEY retention_state (retention_state),
+            KEY application_active (application_id,retention_state,deleted_at)
+        ) {$engine};" );
 
         dbDelta( "CREATE TABLE {$transitions} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -101,10 +109,11 @@ final class GDO_Schema {
             previous_hash char(64) NOT NULL,
             created_at datetime NOT NULL,
             PRIMARY KEY  (id),
+            UNIQUE KEY event_hash (event_hash),
             KEY application_id (application_id),
             KEY actor_id (actor_id),
             KEY created_at (created_at)
-        ) {$c};" );
+        ) {$engine};" );
 
         dbDelta( "CREATE TABLE {$consents} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -120,7 +129,7 @@ final class GDO_Schema {
             PRIMARY KEY  (id),
             UNIQUE KEY application_consent (application_id,consent_version),
             KEY user_id (user_id)
-        ) {$c};" );
+        ) {$engine};" );
 
         dbDelta( "CREATE TABLE {$access} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -136,22 +145,24 @@ final class GDO_Schema {
             KEY evidence_id (evidence_id),
             KEY reviewer_created (reviewer_id,created_at),
             KEY application_id (application_id)
-        ) {$c};" );
+        ) {$engine};" );
 
         dbDelta( "CREATE TABLE {$appeals} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             application_id bigint(20) unsigned NOT NULL,
             user_id bigint(20) unsigned NOT NULL,
+            source_state varchar(40) NOT NULL,
             status varchar(30) NOT NULL DEFAULT 'open',
             reason text NOT NULL,
             resolution text NULL,
+            decision varchar(40) NULL,
             resolver_id bigint(20) unsigned NULL,
             created_at datetime NOT NULL,
             resolved_at datetime NULL,
             PRIMARY KEY  (id),
             KEY application_status (application_id,status),
             KEY user_id (user_id)
-        ) {$c};" );
+        ) {$engine};" );
 
         dbDelta( "CREATE TABLE {$outbox} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -161,13 +172,14 @@ final class GDO_Schema {
             payload_json longtext NOT NULL,
             status varchar(20) NOT NULL DEFAULT 'pending',
             attempts int(10) unsigned NOT NULL DEFAULT 0,
+            last_error text NULL,
             available_at datetime NOT NULL,
             delivered_at datetime NULL,
             created_at datetime NOT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY event_uuid (event_uuid),
             KEY status_available (status,available_at)
-        ) {$c};" );
+        ) {$engine};" );
 
         dbDelta( "CREATE TABLE {$rates} (
             bucket_hash char(64) NOT NULL,
@@ -176,7 +188,6 @@ final class GDO_Schema {
             expires_at bigint(20) unsigned NOT NULL,
             PRIMARY KEY  (bucket_hash),
             KEY expires_at (expires_at)
-        ) {$c};" );
-
+        ) {$engine};" );
     }
 }

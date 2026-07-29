@@ -4,6 +4,7 @@ defined( 'ABSPATH' ) || exit;
 final class GDO_Evidence {
     const MAX_BYTES = 5242880;
     const MAX_PIXELS = 24000000;
+    const MAX_USER_BYTES = 52428800;
 
     public static function types() {
         return array(
@@ -47,7 +48,9 @@ final class GDO_Evidence {
         if ( false === $bytes || strlen( $bytes ) !== (int) $file['size'] ) {
             return new WP_Error( 'gdo_upload_read', __( 'The credential upload could not be read completely.', 'global-doctor-onboarding' ) );
         }
-        if ( ! class_exists( 'finfo' ) ) { return new WP_Error( 'gdo_fileinfo_missing', __( 'The server file-information extension is required.', 'global-doctor-onboarding' ) ); }
+        if ( ! class_exists( 'finfo' ) ) {
+            return new WP_Error( 'gdo_fileinfo_missing', __( 'The server file-information extension is required.', 'global-doctor-onboarding' ) );
+        }
         $finfo = new finfo( FILEINFO_MIME_TYPE );
         $mime = (string) $finfo->buffer( $bytes );
         $allowed = array( 'application/pdf', 'image/jpeg', 'image/png', 'image/webp' );
@@ -59,10 +62,10 @@ final class GDO_Evidence {
             return new WP_Error( 'gdo_scan_required', __( 'The credential could not pass the configured malware scan.', 'global-doctor-onboarding' ) );
         }
         if ( 'application/pdf' === $mime ) {
-            if ( 0 !== strpos( $bytes, '%PDF-' ) || false === strrpos( substr( $bytes, -2048 ), '%%EOF' ) ) {
+            if ( 0 !== strpos( $bytes, '%PDF-' ) || false === strrpos( substr( $bytes, -4096 ), '%%EOF' ) ) {
                 return new WP_Error( 'gdo_pdf_structure', __( 'The PDF structure is invalid.', 'global-doctor-onboarding' ) );
             }
-            if ( preg_match( '/\/(JavaScript|JS|OpenAction|Launch|EmbeddedFile|RichMedia)\b/i', $bytes ) ) {
+            if ( preg_match( '/\/(JavaScript|JS|OpenAction|AA|Launch|EmbeddedFile|RichMedia|XFA)\b/i', $bytes ) ) {
                 return new WP_Error( 'gdo_pdf_active', __( 'Active or embedded PDF content is not allowed.', 'global-doctor-onboarding' ) );
             }
         } else {
@@ -77,12 +80,7 @@ final class GDO_Evidence {
             $bytes = $safe['bytes'];
             $mime = $safe['mime'];
         }
-        return array(
-            'bytes' => $bytes,
-            'mime'  => $mime,
-            'name'  => sanitize_file_name( $file['name'] ),
-            'size'  => strlen( $bytes ),
-        );
+        return array( 'bytes'=>$bytes, 'mime'=>$mime, 'name'=>sanitize_file_name($file['name']), 'size'=>strlen($bytes) );
     }
 
     private static function safe_image_bytes( $bytes, $mime ) {
@@ -109,27 +107,40 @@ final class GDO_Evidence {
         if ( ! $ok || ! $out ) {
             return new WP_Error( 'gdo_image_encode', __( 'The credential image could not be safely re-encoded.', 'global-doctor-onboarding' ) );
         }
-        return array( 'bytes' => $out, 'mime' => $mime );
+        return array( 'bytes'=>$out, 'mime'=>$mime );
+    }
+
+    private static function quota_allows( $user_id, $new_size, $replacing_size = 0 ) {
+        global $wpdb;
+        $used = absint( $wpdb->get_var( $wpdb->prepare(
+            'SELECT COALESCE(SUM(file_size),0) FROM ' . GDO_Schema::table('evidence') . " WHERE user_id=%d AND retention_state='active' AND deleted_at IS NULL",
+            absint( $user_id )
+        ) ) );
+        $limit = absint( apply_filters( 'gdo_user_credential_quota_bytes', self::MAX_USER_BYTES, absint($user_id) ) );
+        return max( 0, $used - absint($replacing_size) ) + absint($new_size) <= $limit;
     }
 
     public static function stage_upload( $application, $type, array $file ) {
         global $wpdb;
         $type = sanitize_key( $type );
-        if ( ! isset( self::types()[ $type ] ) ) {
-            return new WP_Error( 'gdo_document_type', __( 'Unknown credential type.', 'global-doctor-onboarding' ) );
+        if ( ! $application || ! isset( self::types()[ $type ] ) || ! in_array( $application->state, array('draft','more_information','resubmitted'), true ) ) {
+            return new WP_Error( 'gdo_document_type', __( 'This credential cannot be uploaded for the current application.', 'global-doctor-onboarding' ) );
         }
         $normalized = self::normalize_upload( $file, $type );
         if ( is_wp_error( $normalized ) ) {
             return $normalized;
         }
         $current = self::current( $application->id, $type );
+        if ( ! self::quota_allows( $application->user_id, $normalized['size'], $current ? $current->file_size : 0 ) ) {
+            return new WP_Error( 'gdo_storage_quota', __( 'The private credential storage quota has been reached.', 'global-doctor-onboarding' ) );
+        }
         $version = $current ? absint( $current->version ) + 1 : 1;
         $meta = array(
-            'application_uuid'    => $application->application_uuid,
-            'application_version' => $application->version,
-            'user_id'             => $application->user_id,
-            'document_type'       => $type,
-            'document_version'    => $version,
+            'application_uuid'     => $application->application_uuid,
+            'application_version'  => $application->version,
+            'user_id'              => $application->user_id,
+            'document_type'        => $type,
+            'document_version'     => $version,
         );
         $encrypted = GDO_Crypto::encrypt( $normalized['bytes'], $meta );
         if ( is_wp_error( $encrypted ) ) {
@@ -142,41 +153,52 @@ final class GDO_Evidence {
         }
         $now = current_time( 'mysql', true );
         $data = array(
-            'application_id'     => absint( $application->id ),
-            'user_id'            => absint( $application->user_id ),
-            'document_type'      => $type,
-            'version'            => $version,
-            'status'             => 'pending_review',
-            'original_name'      => $normalized['name'],
-            'mime_type'          => $normalized['mime'],
-            'file_size'          => $normalized['size'],
-            'storage_name'       => $storage_name,
-            'ciphertext_sha256'  => $stored['sha256'],
-            'content_hmac'       => $encrypted['content_hmac'],
-            'key_id'             => $encrypted['key_id'],
-            'envelope_version'   => $encrypted['version'],
-            'retention_state'    => 'active',
-            'created_at'         => $now,
-            'updated_at'         => $now,
+            'application_id'    => absint( $application->id ),
+            'user_id'           => absint( $application->user_id ),
+            'document_type'     => $type,
+            'version'           => $version,
+            'status'            => 'pending_review',
+            'original_name'     => $normalized['name'],
+            'mime_type'         => $normalized['mime'],
+            'file_size'         => $normalized['size'],
+            'storage_name'      => $storage_name,
+            'ciphertext_sha256' => $stored['sha256'],
+            'content_hmac'      => $encrypted['content_hmac'],
+            'key_id'            => $encrypted['key_id'],
+            'envelope_version'  => $encrypted['version'],
+            'retention_state'   => 'active',
+            'created_at'        => $now,
+            'updated_at'        => $now,
         );
         $inserted = $wpdb->insert( GDO_Schema::table( 'evidence' ), $data, array( '%d','%d','%s','%d','%s','%s','%s','%d','%s','%s','%s','%s','%s','%s','%s' ) );
-        if ( ! $inserted ) {
+        if ( 1 !== $inserted ) {
             GDO_Storage::delete_verified( $storage_name, $stored['sha256'] );
             return new WP_Error( 'gdo_evidence_insert', __( 'Credential evidence could not be recorded.', 'global-doctor-onboarding' ) );
         }
+        $new_id = absint( $wpdb->insert_id );
         if ( $current ) {
-            $wpdb->update( GDO_Schema::table( 'evidence' ), array( 'retention_state'=>'superseded','updated_at'=>$now ), array( 'id'=>$current->id ), array( '%s','%s' ), array( '%d' ) );
+            $superseded = $wpdb->update( GDO_Schema::table( 'evidence' ), array( 'retention_state'=>'superseded','updated_at'=>$now ), array( 'id'=>$current->id,'retention_state'=>'active' ), array( '%s','%s' ), array( '%d','%s' ) );
+            if ( 1 !== $superseded ) {
+                $wpdb->delete( GDO_Schema::table('evidence'), array('id'=>$new_id), array('%d') );
+                GDO_Storage::delete_verified( $storage_name, $stored['sha256'] );
+                return new WP_Error( 'gdo_evidence_replace', __( 'The previous credential could not be replaced safely.', 'global-doctor-onboarding' ) );
+            }
         }
-        return array( 'id'=>absint($wpdb->insert_id), 'storage_name'=>$storage_name, 'ciphertext_sha256'=>$stored['sha256'] );
+        return array( 'id'=>$new_id, 'storage_name'=>$storage_name, 'ciphertext_sha256'=>$stored['sha256'] );
     }
 
-    public static function all_present( $application_id ) {
+    public static function all_submittable( $application_id ) {
         foreach ( array_keys( self::types() ) as $type ) {
-            if ( ! self::current( $application_id, $type ) ) {
+            $record = self::current( $application_id, $type );
+            if ( ! $record || ! in_array( $record->status, array( 'pending_review','accepted' ), true ) ) {
                 return false;
             }
         }
         return true;
+    }
+
+    public static function all_present( $application_id ) {
+        return self::all_submittable( $application_id );
     }
 
     public static function all_accepted( $application_id ) {
@@ -211,9 +233,15 @@ final class GDO_Evidence {
             'document_type'       => $record->document_type,
             'document_version'    => $record->version,
         );
-        return GDO_Crypto::decrypt( $envelope, $meta );
+        $plain = GDO_Crypto::decrypt( $envelope, $meta );
+        if ( is_wp_error( $plain ) ) {
+            return $plain;
+        }
+        if ( 'GDO2' === $record->envelope_version && ! GDO_Crypto::verify_content_hmac( $plain, $record->key_id, $record->content_hmac ) ) {
+            return new WP_Error( 'gdo_content_hmac', __( 'The decrypted credential failed its content-integrity check.', 'global-doctor-onboarding' ) );
+        }
+        return $plain;
     }
-
 
     public static function rotate_key( $evidence_id ) {
         global $wpdb;
@@ -229,35 +257,61 @@ final class GDO_Evidence {
         }
         $meta = array( 'application_uuid'=>$app->application_uuid,'application_version'=>$app->version,'user_id'=>$record->user_id,'document_type'=>$record->document_type,'document_version'=>$record->version );
         $encrypted = GDO_Crypto::encrypt( $plain, $meta );
-        if ( is_wp_error( $encrypted ) ) return $encrypted;
+        if ( is_wp_error( $encrypted ) ) {
+            return $encrypted;
+        }
         $new_name = wp_generate_uuid4() . '.gdo2';
         $stored = GDO_Storage::atomic_write( $new_name, $encrypted['bytes'] );
-        if ( is_wp_error( $stored ) ) return $stored;
-        $ok = $wpdb->update( GDO_Schema::table('evidence'), array( 'storage_name'=>$new_name,'ciphertext_sha256'=>$stored['sha256'],'content_hmac'=>$encrypted['content_hmac'],'key_id'=>$encrypted['key_id'],'updated_at'=>current_time('mysql',true) ), array('id'=>$record->id), array('%s','%s','%s','%s','%s'), array('%d') );
-        if ( false === $ok ) { GDO_Storage::delete_verified($new_name,$stored['sha256']); return new WP_Error('gdo_rotation_database',__('The rotated credential could not be committed.','global-doctor-onboarding')); }
+        if ( is_wp_error( $stored ) ) {
+            return $stored;
+        }
+        $wpdb->query( 'START TRANSACTION' );
+        $ok = $wpdb->update( GDO_Schema::table('evidence'), array( 'storage_name'=>$new_name,'ciphertext_sha256'=>$stored['sha256'],'content_hmac'=>$encrypted['content_hmac'],'key_id'=>$encrypted['key_id'],'updated_at'=>current_time('mysql',true) ), array('id'=>$record->id,'storage_name'=>$record->storage_name), array('%s','%s','%s','%s','%s'), array('%d','%s') );
+        if ( 1 !== $ok || false === $wpdb->query( 'COMMIT' ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            GDO_Storage::delete_verified( $new_name, $stored['sha256'] );
+            return new WP_Error( 'gdo_rotation_database', __( 'The rotated credential could not be committed.', 'global-doctor-onboarding' ) );
+        }
         $deleted = GDO_Storage::delete_verified( $record->storage_name, $record->ciphertext_sha256 );
-        GDO_Membership_Adapter::audit( 'doctor_credential_key_rotated', array('evidence_id'=>absint($record->id),'old_key_id'=>$record->key_id,'new_key_id'=>$encrypted['key_id'],'old_deleted'=>!is_wp_error($deleted)) );
+        if ( is_wp_error( $deleted ) ) {
+            GDO_Membership_Adapter::audit( 'doctor_credential_rotation_orphaned_old_file', array('application_id'=>absint($record->application_id),'evidence_id'=>absint($record->id),'old_storage_digest'=>hash('sha256',$record->storage_name),'error'=>$deleted->get_error_code()) );
+        }
+        GDO_Membership_Adapter::audit( 'doctor_credential_key_rotated', array('application_id'=>absint($record->application_id),'evidence_id'=>absint($record->id),'old_key_id'=>$record->key_id,'new_key_id'=>$encrypted['key_id'],'old_deleted'=>!is_wp_error($deleted)) );
         return true;
     }
 
-    public static function review( $evidence_id, $reviewer_id, $status, array $checklist, $registry_result, $validity_from, $validity_until ) {
+    public static function review( $evidence_id, $reviewer_id, $status, array $checklist, $registry_result, $validity_from, $validity_until, $review_note ) {
         global $wpdb;
-        $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id=%d', absint( $evidence_id ) ) );
-        if ( ! $record || ! in_array( $status, array( 'accepted', 'rejected', 'more_information' ), true ) ) {
+        $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . " WHERE id=%d AND retention_state='active' AND deleted_at IS NULL", absint( $evidence_id ) ) );
+        $app = $record ? GDO_Application::get( $record->application_id ) : null;
+        $status = sanitize_key( $status );
+        $review_note = sanitize_textarea_field( $review_note );
+        if ( ! $record || ! $app || 'under_review' !== $app->state || ! in_array( $status, array( 'accepted', 'rejected', 'more_information' ), true ) ) {
             return new WP_Error( 'gdo_evidence_review', __( 'Invalid credential review.', 'global-doctor-onboarding' ) );
         }
-        $required = array( 'name_match', 'document_legible', 'authenticity_method', 'scope_match' );
-        foreach ( $required as $key ) {
-            if ( empty( $checklist[ $key ] ) ) {
-                return new WP_Error( 'gdo_evidence_checklist', __( 'Complete every credential review checklist item.', 'global-doctor-onboarding' ) );
+        $clean = array(
+            'name_match'          => sanitize_key( isset($checklist['name_match']) ? $checklist['name_match'] : '' ),
+            'document_legible'    => sanitize_key( isset($checklist['document_legible']) ? $checklist['document_legible'] : '' ),
+            'authenticity_method' => sanitize_text_field( isset($checklist['authenticity_method']) ? $checklist['authenticity_method'] : '' ),
+            'scope_match'         => sanitize_key( isset($checklist['scope_match']) ? $checklist['scope_match'] : '' ),
+        );
+        if ( 'accepted' === $status ) {
+            if ( 'yes' !== $clean['name_match'] || 'yes' !== $clean['document_legible'] || 'yes' !== $clean['scope_match'] || strlen( $clean['authenticity_method'] ) < 5 ) {
+                return new WP_Error( 'gdo_evidence_checklist', __( 'Accepted credentials require a complete affirmative checklist and authenticity method.', 'global-doctor-onboarding' ) );
             }
-        }
-        if ( 'license' === $record->document_type && ( ! $registry_result || ! $validity_until ) ) {
-            return new WP_Error( 'gdo_license_review', __( 'License registry result and validity date are required.', 'global-doctor-onboarding' ) );
+            if ( 'license' === $record->document_type ) {
+                $accepted_registry = array( 'verified','active','matched' );
+                if ( ! in_array( sanitize_key($registry_result), $accepted_registry, true ) || ! $validity_until || strtotime( $validity_until . ' 23:59:59 UTC' ) <= time() ) {
+                    return new WP_Error( 'gdo_license_review', __( 'An accepted license requires a verified registry result and future validity date.', 'global-doctor-onboarding' ) );
+                }
+            }
+        } elseif ( strlen( $review_note ) < 20 ) {
+            return new WP_Error( 'gdo_evidence_note', __( 'Explain the rejection or information request in at least 20 characters.', 'global-doctor-onboarding' ) );
         }
         $data = array(
-            'status'          => sanitize_key( $status ),
-            'checklist_json'  => wp_json_encode( $checklist, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ),
+            'status'          => $status,
+            'checklist_json'  => wp_json_encode( $clean, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ),
+            'review_note'     => $review_note,
             'registry_result' => sanitize_key( $registry_result ),
             'reviewer_id'     => absint( $reviewer_id ),
             'reviewed_at'     => current_time( 'mysql', true ),
@@ -265,7 +319,10 @@ final class GDO_Evidence {
             'validity_until'  => $validity_until ? sanitize_text_field( $validity_until ) : null,
             'updated_at'      => current_time( 'mysql', true ),
         );
-        $wpdb->update( GDO_Schema::table( 'evidence' ), $data, array( 'id'=>$record->id ), array( '%s','%s','%s','%d','%s','%s','%s','%s' ), array( '%d' ) );
+        $updated = $wpdb->update( GDO_Schema::table( 'evidence' ), $data, array( 'id'=>$record->id ), array( '%s','%s','%s','%s','%d','%s','%s','%s','%s' ), array( '%d' ) );
+        if ( false === $updated ) {
+            return new WP_Error( 'gdo_evidence_review_write', __( 'The credential review could not be stored.', 'global-doctor-onboarding' ) );
+        }
         GDO_Membership_Adapter::audit( 'doctor_evidence_reviewed', array( 'application_id'=>absint($record->application_id),'evidence_id'=>absint($record->id),'reviewer_id'=>absint($reviewer_id),'status'=>$status ) );
         return true;
     }

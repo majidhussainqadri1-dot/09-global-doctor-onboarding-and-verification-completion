@@ -29,6 +29,14 @@ final class GDO_Crypto {
         return function_exists( 'openssl_encrypt' ) && ! is_wp_error( self::keyring() );
     }
 
+    private static function key( $key_id ) {
+        $ring = self::keyring();
+        if ( is_wp_error( $ring ) || ! isset( $ring['keys'][ $key_id ] ) ) {
+            return new WP_Error( 'gdo_key_unavailable', __( 'The credential key version is unavailable.', 'global-doctor-onboarding' ) );
+        }
+        return base64_decode( (string) $ring['keys'][ $key_id ], true );
+    }
+
     public static function aad( array $meta ) {
         $required = array( 'application_uuid', 'application_version', 'user_id', 'document_type', 'document_version' );
         $clean = array();
@@ -48,7 +56,10 @@ final class GDO_Crypto {
             return is_wp_error( $ring ) ? $ring : $aad;
         }
         $key_id = (string) $ring['active'];
-        $key = base64_decode( (string) $ring['keys'][ $key_id ], true );
+        $key = self::key( $key_id );
+        if ( is_wp_error( $key ) ) {
+            return $key;
+        }
         try {
             $iv = random_bytes( 12 );
         } catch ( Exception $e ) {
@@ -62,11 +73,19 @@ final class GDO_Crypto {
         $id_length = strlen( $key_id );
         $envelope = self::MAGIC . pack( 'n', $id_length ) . $key_id . $iv . $tag . $cipher;
         return array(
-            'bytes'       => $envelope,
-            'key_id'      => $key_id,
-            'version'     => self::MAGIC,
-            'content_hmac'=> hash_hmac( 'sha256', $plaintext, $key ),
+            'bytes'        => $envelope,
+            'key_id'       => $key_id,
+            'version'      => self::MAGIC,
+            'content_hmac' => hash_hmac( 'sha256', $plaintext, $key ),
         );
+    }
+
+    public static function verify_content_hmac( $plaintext, $key_id, $expected ) {
+        $key = self::key( (string) $key_id );
+        if ( is_wp_error( $key ) || ! is_string( $expected ) || 64 !== strlen( $expected ) ) {
+            return false;
+        }
+        return hash_equals( $expected, hash_hmac( 'sha256', $plaintext, $key ) );
     }
 
     public static function decrypt( $envelope, array $meta ) {
@@ -77,21 +96,30 @@ final class GDO_Crypto {
                 return new WP_Error( 'gdo_decrypt_failure', __( 'The credential envelope is invalid.', 'global-doctor-onboarding' ) );
             }
             $length = unpack( 'nlength', substr( $envelope, 4, 2 ) );
-            $id_length = absint( $length['length'] );
+            $id_length = isset( $length['length'] ) ? absint( $length['length'] ) : 0;
+            if ( $id_length < 1 || $id_length > 64 ) {
+                return new WP_Error( 'gdo_decrypt_failure', __( 'The credential envelope is invalid.', 'global-doctor-onboarding' ) );
+            }
             $offset = 6;
             $key_id = substr( $envelope, $offset, $id_length );
             $offset += $id_length;
-            if ( ! isset( $ring['keys'][ $key_id ] ) || strlen( $envelope ) < $offset + 28 ) {
+            if ( ! isset( $ring['keys'][ $key_id ] ) || strlen( $envelope ) < $offset + 29 ) {
                 return new WP_Error( 'gdo_key_unavailable', __( 'The credential key version is unavailable.', 'global-doctor-onboarding' ) );
             }
             $iv = substr( $envelope, $offset, 12 );
             $tag = substr( $envelope, $offset + 12, 16 );
             $cipher = substr( $envelope, $offset + 28 );
-            $key = base64_decode( (string) $ring['keys'][ $key_id ], true );
+            $key = self::key( $key_id );
+            if ( is_wp_error( $key ) ) {
+                return $key;
+            }
             $plain = openssl_decrypt( $cipher, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, $aad );
             return false === $plain ? new WP_Error( 'gdo_authentication_failure', __( 'Credential authentication failed.', 'global-doctor-onboarding' ) ) : $plain;
         }
         if ( 0 === strpos( $envelope, 'GDO1' ) && apply_filters( 'gdo_allow_legacy_gdo1_decrypt', false ) ) {
+            if ( strlen( $envelope ) < 33 ) {
+                return new WP_Error( 'gdo_legacy_decrypt_failure', __( 'Legacy credential decryption failed.', 'global-doctor-onboarding' ) );
+            }
             $legacy_key = hash( 'sha256', wp_salt( 'auth' ) . '|gdo-credentials', true );
             $iv = substr( $envelope, 4, 12 );
             $tag = substr( $envelope, 16, 16 );

@@ -1,32 +1,44 @@
 === Global Doctor Onboarding and Verification Completion ===
 Contributors: sabrihomeopathy
-Tags: doctor onboarding, credential verification, privacy, encrypted evidence, audit
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 1.1.0
 License: GPLv2 or later
 
-Canonical File 09 doctor application, evidence, decision, consent, audit, suspension, renewal, appeal, privacy, and retention service for the Sabri Social Homeopathy Platform.
+Canonical, versioned and independently reviewed doctor onboarding for Sabri Social Homeopathy Platform.
 
 == Description ==
-Version 1.1.0 makes File 00 authoritative for identity, active membership, sanctions, reviewer capabilities, step-up authentication, and canonical audit. File 09 owns versioned doctor applications, private credential evidence, independent review decisions, approved snapshots, expiry, revocation, and appeals. Files 03, 04, 07, and 08 consume read-only public APIs. File 19 consumes notification outbox events. File 20 owns shell navigation.
 
-Credential evidence uses AES-256-GCM GDO2 envelopes with an external versioned keyring and authenticated metadata. Private storage must be configured outside public uploads. Malware scanning is fail-closed through the gdo_credential_scan_result filter.
+File 09 owns doctor applications, credential evidence, independent decisions, lifecycle states, appeals, private evidence access, retention and read-only approved projections.
 
-== Installation ==
-1. Activate and configure File 00 Membership Core.
-2. Define GDO_KEYRING with a 32-byte base64 key and an active key ID.
-3. Define GDO_PRIVATE_STORAGE_DIR outside public uploads and verify web denial.
-4. Configure gdo_credential_scan_result to return clean only after a real scanner accepts the file.
-5. Activate File 09 and complete staging acceptance before any production use.
+It requires:
 
-== Privacy ==
-The plugin stores versioned consent, professional application data, encrypted credential evidence, review decisions, credential-access logs, appeals, audit transitions, and notification-outbox events. Privacy export is paginated. Erasure physically verifies eligible evidence deletion and anonymizes retained accountability records. Legal holds and configured retention can require limited retention.
+* File 00 Sabri Membership Core for identity, active membership, sanctions, reviewer capabilities, two-factor step-up and canonical security audit.
+* A versioned external GDO_KEYRING containing 32-byte base64 keys.
+* GDO_PRIVATE_STORAGE_DIR outside public uploads and, by default, outside WP_CONTENT_DIR.
+* A fail-closed malware scanner through the gdo_credential_scan_result filter.
+* File 19 Unified Notifications for delivery; events remain in the File 09 outbox while File 19 is unavailable.
+
+File 09 does not create roles, assign account types, send direct email, own the global application shell, or expose credential files through public URLs.
+
+== Security ==
+
+* AES-256-GCM GDO2 envelopes with versioned key identifiers and authenticated application/document metadata.
+* Password plus File 00 TOTP reviewer step-up, bound to the current WordPress session for 15 minutes.
+* Assigned reviewer, no self-review, conflict declaration, recommendation/finalization separation and purpose-bound access audit.
+* Private storage, atomic writes, verified deletion, upload quotas, rate limits, structural PDF controls and safe image re-encoding.
+* Immutable state-transition hash chain, optimistic row versions, versioned consent, appeals, expiry, suspension, revocation and renewal.
+
+== Upgrade Notice ==
+
+1.1.0 quarantines legacy records, removes the obsolete administrator-wide capability, and migrates decryptable GDO1 credential evidence into GDO2 private storage. Preserve the original WordPress salts and a verified backup until migration and staging acceptance are complete.
 
 == Changelog ==
+
 = 1.1.0 =
-* Replaced legacy role/meta authority with File 00 boundaries.
-* Added versioned applications, evidence, consent, decisions, transitions, appeals, access audit, outbox, retention, and rate limits.
-* Added independent reviewer/finalizer separation, strict state transitions, approved snapshots, expiry, suspension, revocation, and renewal.
-* Added GDO2 versioned encryption, private storage, hostile-file controls, transactional compensation, verified erasure, migration quarantine, and guarded purge.
+* Corrected the 18 release blockers identified by independent review.
+* Made File 00 authoritative and removed File 03/File 07 dependency cycles and role/account mutation.
+* Added canonical schema version 3, evidence decisions, approved snapshots, appeals, retention, outbox, access audit and guarded erasure.
+* Added versioned encryption, private storage, key rotation, hostile-upload controls and session-bound reviewer step-up.
+* Integrated File 19 and File 20 through their supported boundaries.

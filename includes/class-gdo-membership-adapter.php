@@ -21,14 +21,13 @@ final class GDO_Membership_Adapter {
         if ( ! self::available() || ! $user_id ) {
             return array();
         }
-
         $profile = (array) smc_get_profile( $user_id );
-        $profile['email_verified']   = (bool) get_user_meta( $user_id, '_smc_email_verified', true );
-        $profile['mobile_verified']  = (bool) get_user_meta( $user_id, '_smc_mobile_verified', true );
-        $profile['two_factor']       = (bool) get_user_meta( $user_id, '_smc_2fa_enabled', true );
-        $profile['identity_verified']= (bool) get_user_meta( $user_id, '_smc_identity_verified', true );
-        $profile['doctor_verified']  = (bool) get_user_meta( $user_id, '_smc_doctor_verified', true );
-        $profile['approval_version'] = absint( get_user_meta( $user_id, '_smc_approval_version', true ) );
+        $profile['email_verified']    = (bool) get_user_meta( $user_id, '_smc_email_verified', true );
+        $profile['mobile_verified']   = (bool) get_user_meta( $user_id, '_smc_mobile_verified', true );
+        $profile['two_factor']        = (bool) get_user_meta( $user_id, '_smc_2fa_enabled', true );
+        $profile['identity_verified'] = (bool) get_user_meta( $user_id, '_smc_identity_verified', true );
+        $profile['doctor_verified']   = (bool) get_user_meta( $user_id, '_smc_doctor_verified', true );
+        $profile['approval_version']  = absint( get_user_meta( $user_id, '_smc_approval_version', true ) );
         return $profile;
     }
 
@@ -58,7 +57,6 @@ final class GDO_Membership_Adapter {
         if ( ! self::available() || ! $user_id || self::sanctioned( $user_id ) ) {
             return false;
         }
-
         $profile = self::profile( $user_id );
         $minimum_age = max( 18, absint( apply_filters( 'gdo_minimum_professional_age', 18, $user_id, $profile ) ) );
         $approved = in_array( self::status( $user_id ), array( 'approved', 'verified', 'active' ), true );
@@ -68,7 +66,6 @@ final class GDO_Membership_Adapter {
         $age_verified = isset( $profile['calculated_age'] ) && absint( $profile['calculated_age'] ) >= $minimum_age;
         $age_verified = (bool) apply_filters( 'gdo_file00_professional_age_verified', $age_verified, $user_id, $profile );
         $eligible = $approved && $doctor && self::email_verified( $user_id ) && $identity_unique && $age_verified;
-
         return (bool) apply_filters( 'gdo_file00_doctor_application_eligible', $eligible, $user_id, $profile );
     }
 
@@ -88,7 +85,6 @@ final class GDO_Membership_Adapter {
         if ( ! self::available() || ! $user_id || self::sanctioned( $user_id ) ) {
             return false;
         }
-
         $map = self::capability_map();
         $required = isset( $map[ $capability ] ) ? (array) $map[ $capability ] : array( $capability );
         $allowed = false;
