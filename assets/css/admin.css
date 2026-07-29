@@ -1,2 +1,4 @@
 .gdo-admin td{vertical-align:top}.gdo-admin td form{display:grid;gap:7px;min-width:210px}.gdo-admin textarea{min-height:90px}.gdo-admin a{font-weight:600}
 
+
+.gdo-evidence-row{margin:0 0 18px;padding:12px;border:1px solid #dcdcde;background:#fff}.gdo-evidence-row form{display:grid;gap:6px;margin-top:8px}.gdo-evidence-row input,.gdo-evidence-row textarea,.gdo-evidence-row select{max-width:420px;width:100%}

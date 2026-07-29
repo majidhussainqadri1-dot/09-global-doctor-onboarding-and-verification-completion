@@ -1,24 +1,17 @@
 # File 09 — Global Doctor Onboarding and Verification Completion
 
-This branch preserves the exact extracted source baseline from the user-provided package. It is not a production release.
+Corrective source branch for **Sabri Social Homeopathy Platform**.
 
-## Canonical baseline
+## Corrective release identity
 
-- Original archive: `09-global-doctor-onboarding-and-verification-completion-1.0.0.zip`
-- Archive SHA-256: `91fbb748288081e9edc1c62e85362bba209dacafc398006fde9adf3b8a860f03`
-- Archive SHA-1: `3545f378382ef0a31468866ec17add141e5f726f`
-- Archive size: `14,934` bytes
-- Archive entries: `15`
-- Plugin version: `1.0.0`
-- Source files: `11`
-- PHP files: `8`
-- Extracted source size: `28,059` bytes
-- Source-tree SHA-256: `396cba12b609194eae9ca149967ccf35e1652df1f61480871953de4c8fe3c21c`
-- Baseline-lock SHA-256: `f80bf3861885cac6935c5b4a824fac02c1ba55dfe95f8316d6118f2478300d4a`
+- Version: `1.1.0`
+- Immutable original baseline: `00967193c0825dd11e797de5b640a9eefcf421bb`
+- Corrected source files: `23`
+- Corrected PHP files: `20`
+- Corrected source size: `111,397` bytes
+- Corrected source-tree SHA-256: `181a94ec080106c3d159bec1a1c4933f893aba0de5932c1e2dba96dd7cc0cb3e`
+- Corrective release-lock SHA-256: `5fa5a321e7395b2eb211504a715a39a876f826d41b534684884cea67998a7589`
 
-## Governance
+File 00 is mandatory and authoritative for identity, active membership, sanctions, reviewer capabilities, step-up authentication, and canonical audit. File 09 is the canonical application, private credential evidence, consent, review, verification, suspension, renewal, revocation, appeal, and approved-snapshot service. Files 03, 04, 07, and 08 consume read-only decision APIs. File 19 consumes notification outbox events. File 20 owns shell navigation.
 
-- The original ZIP is not committed.
-- Corrections are forbidden on this baseline branch.
-- Independent security, privacy, verification-governance, and dependency review are still required.
-- No merge, staging, production, or live-installation authorization is granted.
+This branch does **not** authorize merge, staging acceptance, production, or live installation. The original ZIP and all real personal or credential records are excluded.

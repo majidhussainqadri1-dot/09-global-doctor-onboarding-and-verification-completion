@@ -1,0 +1,19 @@
+{
+  "baseline_commit": "00967193c0825dd11e797de5b640a9eefcf421bb",
+  "baseline_lock_sha256": "f80bf3861885cac6935c5b4a824fac02c1ba55dfe95f8316d6118f2478300d4a",
+  "file_number": "09",
+  "live_installation_authorized": false,
+  "merge_authorized": false,
+  "module": "Global Doctor Onboarding and Verification Completion",
+  "original_archive": "09-global-doctor-onboarding-and-verification-completion-1.0.0.zip",
+  "original_archive_sha256": "91fbb748288081e9edc1c62e85362bba209dacafc398006fde9adf3b8a860f03",
+  "php_file_count": 20,
+  "production_authorized": false,
+  "release_checksums": "RELEASE-CHECKSUMS.sha256",
+  "release_inventory": "RELEASE-INVENTORY.tsv",
+  "release_version": "1.1.0",
+  "source_file_count": 23,
+  "source_size": 111397,
+  "source_tree_sha256": "181a94ec080106c3d159bec1a1c4933f893aba0de5932c1e2dba96dd7cc0cb3e",
+  "staging_authorized": false
+}
