@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - .github/workflows/bootstrap-file09-transfer.yml
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
