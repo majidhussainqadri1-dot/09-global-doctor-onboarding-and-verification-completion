@@ -6,12 +6,16 @@ on:
       - audit/file-09-source-review
     paths:
       - .github/workflows/bootstrap-file09-corrective.yml
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
   reconstruct:
+    if: >-
+      github.event_name == 'push' || github.head_ref == 'audit/file-09-source-review'
     name: Reconstruct exact corrective release
     runs-on: ubuntu-24.04
     steps:
