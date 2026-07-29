@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "file_number": "09",
+  "module": "Global Doctor Onboarding and Verification Completion",
+  "plugin_version": "1.0.0",
+  "original_archive": "09-global-doctor-onboarding-and-verification-completion-1.0.0.zip",
+  "archive_sha256": "91fbb748288081e9edc1c62e85362bba209dacafc398006fde9adf3b8a860f03",
+  "archive_sha1": "3545f378382ef0a31468866ec17add141e5f726f",
+  "archive_size": 14934,
+  "archive_entries": 15,
+  "archive_committed": false,
+  "source_file_count": 11,
+  "php_file_count": 8,
+  "source_size": 28059,
+  "source_tree_sha256": "396cba12b609194eae9ca149967ccf35e1652df1f61480871953de4c8fe3c21c",
+  "inventory_file": "SOURCE-INVENTORY.tsv",
+  "checksums_file": "CHECKSUMS.sha256",
+  "baseline_branch": "baseline/file-09-original-import"
+}
