@@ -25,54 +25,35 @@ jobs:
           ref: audit/file-09-source-review
           fetch-depth: 0
           persist-credentials: true
-      - name: Set up PHP from immutable action
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
-        with:
-          php-version: '8.3'
-          coverage: none
-      - name: Reconstruct, verify, and commit exact release
+      - name: Diagnose encoded transfer
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import base64, glob, hashlib, pathlib, re
+          import base64, glob, hashlib, pathlib, re, zlib
           files=sorted(glob.glob('.bootstrap/file09-full-corrective.b64.*'))
-          expected=[8000,8000,8000,8000,8000,8000,8000,1136]
-          if len(files)!=8:
-              raise SystemExit(f'ERROR: expected 8 chunks, found {len(files)}: {files}')
           blocks=[]
-          for index,(name,size) in enumerate(zip(files,expected)):
-              data=pathlib.Path(name).read_bytes()
-              invalid=[(i,b) for i,b in enumerate(data) if not (65<=b<=90 or 97<=b<=122 or 48<=b<=57 or b in (43,47,61,10,13,9,32))]
-              print(f'CHUNK {index}: {name} bytes={len(data)} sha256={hashlib.sha256(data).hexdigest()} equals={data.count(b"=")} invalid={invalid[:5]}')
-              if len(data)!=size:
-                  raise SystemExit(f'ERROR: chunk {index} size mismatch: {len(data)} != {size}')
-              if invalid:
-                  raise SystemExit(f'ERROR: invalid base64 bytes in chunk {index}: {invalid[:5]}')
-              compact=re.sub(rb'\s+',b'',data)
-              if index<7 and b'=' in compact:
-                  raise SystemExit(f'ERROR: premature padding in chunk {index}')
-              blocks.append(compact)
+          for index,name in enumerate(files):
+              data=re.sub(rb'\s+',b'',pathlib.Path(name).read_bytes())
+              print(f'CHUNK {index}: bytes={len(data)} sha256={hashlib.sha256(data).hexdigest()}')
+              blocks.append(data)
           encoded=b''.join(blocks)
-          print(f'AGGREGATE bytes={len(encoded)} mod4={len(encoded)%4} equals={encoded.count(b"=")} sha256={hashlib.sha256(encoded).hexdigest()}')
-          try:
-              decoded=base64.b64decode(encoded,validate=True)
-          except Exception as exc:
-              raise SystemExit(f'ERROR: strict base64 decode failed: {exc}')
-          pathlib.Path('/tmp/file09-full-corrective-1.1.0.tar.gz').write_bytes(decoded)
-          print(f'DECODED bytes={len(decoded)} sha256={hashlib.sha256(decoded).hexdigest()}')
+          print(f'AGGREGATE bytes={len(encoded)} mod4={len(encoded)%4}')
+          padded=encoded+b'A'*((-len(encoded))%4)
+          raw=base64.b64decode(padded)
+          print(f'PADDED DECODE bytes={len(raw)} sha256={hashlib.sha256(raw).hexdigest()} header={raw[:10].hex()}')
+          dec=zlib.decompressobj(16+zlib.MAX_WBITS)
+          produced=0
+          for offset,byte in enumerate(raw):
+              try:
+                  produced += len(dec.decompress(bytes((byte,))))
+              except zlib.error as exc:
+                  print(f'ZLIB FAILURE compressed_offset={offset} approximate_base64_offset={offset*4//3} produced={produced} error={exc}')
+                  break
+          else:
+              try:
+                  produced += len(dec.flush())
+                  print(f'ZLIB COMPLETED produced={produced} eof={dec.eof}')
+              except zlib.error as exc:
+                  print(f'ZLIB FLUSH FAILURE produced={produced} error={exc}')
+          raise SystemExit('Diagnostic run complete')
           PY
-          echo '8ca41e36057aaec84969b453bd657a449009641f1adac947e0720b522eb7f67b  /tmp/file09-full-corrective-1.1.0.tar.gz' | sha256sum --check --strict
-          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          tar -xzf /tmp/file09-full-corrective-1.1.0.tar.gz -C .
-          test "$(sha256sum RELEASE-LOCK.json | awk '{print $1}')" = '00c2c294939dced5161daa96467d4e49c8fe6cee0b815661f813299cc0de7cb3'
-          test "$(sha256sum BASELINE-LOCK.json | awk '{print $1}')" = 'f80bf3861885cac6935c5b4a824fac02c1ba55dfe95f8316d6118f2478300d4a'
-          python3 tests/architecture-check.py
-          awk -F '\t' 'NR>1 && $3 ~ /\.php$/ {print $3}' RELEASE-INVENTORY.tsv | while IFS= read -r file; do php -l "$file"; done
-          php -l tests/security-unit.php
-          php tests/security-unit.php
-          git diff --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'Correct File 09 verification, credential, and privacy architecture'
-          git push origin HEAD:audit/file-09-source-review
