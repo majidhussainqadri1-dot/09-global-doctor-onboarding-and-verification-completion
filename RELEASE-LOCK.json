@@ -12,8 +12,9 @@
   "release_checksums": "RELEASE-CHECKSUMS.sha256",
   "release_inventory": "RELEASE-INVENTORY.tsv",
   "release_version": "1.1.0",
+  "schema_version": 3,
   "source_file_count": 23,
-  "source_size": 111397,
-  "source_tree_sha256": "181a94ec080106c3d159bec1a1c4933f893aba0de5932c1e2dba96dd7cc0cb3e",
+  "source_size": 161992,
+  "source_tree_sha256": "f49230b0266954a21cb29f02bce917eafb4707dd463f734c64ddeaf0155f5495",
   "staging_authorized": false
 }

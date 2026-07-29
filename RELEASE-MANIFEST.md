@@ -27,3 +27,15 @@ The release replaces legacy role/meta authority with a fail-closed File 00 bound
 - Paginated privacy export and verified erasure/anonymization
 
 No merge or deployment approval is expressed by this manifest.
+
+## Generated release identity
+
+- Version: `1.1.0`
+- Schema: `3`
+- Source files: `23`
+- PHP files: `20`
+- Source bytes: `161992`
+- Source-tree SHA-256: `f49230b0266954a21cb29f02bce917eafb4707dd463f734c64ddeaf0155f5495`
+- RELEASE-LOCK SHA-256: `fb3be8657dd96005209dec3ef7c2d4d0f63696c86d3c809d5fa123cad4eae5b0`
+
+No merge, staging, production, or live-installation authorization is expressed by this manifest.
