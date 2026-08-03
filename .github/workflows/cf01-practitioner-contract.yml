@@ -95,7 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
-          test "${#files[@]}" -ge 23
+          test "${#files[@]}" -ge 25
           for file in "${files[@]}"; do php -l "$file"; done
 
       - name: Run inherited and CF-01 suites
@@ -103,6 +103,7 @@ jobs:
           set -euo pipefail
           php tests/security-unit.php
           python3 tests/architecture-check.py
+          php tests/membership-adapter.php
           php tests/cf01-practitioner-contract.php
           php tests/cf01-practitioner.php
 
@@ -116,5 +117,6 @@ jobs:
             includes/class-gdo-api.php \
             includes/class-gdo-cf01-practitioner-contract.php \
             CF01-PRACTITIONER-ELIGIBILITY-CONTRACT.md \
+            tests/membership-adapter.php \
             tests/cf01-practitioner-contract.php \
             tests/cf01-practitioner.php
