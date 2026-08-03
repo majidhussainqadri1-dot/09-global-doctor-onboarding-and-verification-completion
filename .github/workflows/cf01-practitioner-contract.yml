@@ -1,0 +1,120 @@
+name: File 09 CF-01 Practitioner Contract Integrity
+
+on:
+  pull_request:
+  push:
+    branches:
+      - codex/**
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-contract:
+    name: PHP ${{ matrix.php }} source and practitioner contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        php:
+          - '7.4'
+          - '8.3'
+    steps:
+      - name: Checkout exact immutable head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: none
+          extensions: openssl,fileinfo,gd
+
+      - name: Public repository and Git integrity
+        run: |
+          set -euo pipefail
+          git diff --check
+          test ! -f .gitmodules
+          if git ls-files -s | awk '$1 == "120000" { found=1 } END { exit !found }'; then
+            echo 'Symbolic links are prohibited.' >&2
+            exit 1
+          fi
+          if grep -RIl --exclude-dir=.git '^version https://git-lfs.github.com/spec/v1$' . | grep -q .; then
+            echo 'Git LFS pointers are prohibited.' >&2
+            exit 1
+          fi
+          test -z "$(find . -type f \( -name '*.zip' -o -name '*.sql' -o -name '*.sqlite' -o -name '.env' -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -not -path './.git/*' -print -quit)"
+          python3 - <<'PY'
+          import pathlib, re, sys
+          patterns = {
+              'private key': rb'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----',
+              'GitHub token': rb'\bgh[pousr]_[A-Za-z0-9]{20,}\b',
+              'Google API key': rb'\bAIza[0-9A-Za-z_-]{35}\b',
+              'AWS access key': rb'\bAKIA[0-9A-Z]{16}\b',
+              'JWT-like token': rb'\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b',
+          }
+          for path in pathlib.Path('.').rglob('*'):
+              if not path.is_file() or '.git' in path.parts:
+                  continue
+              data = path.read_bytes()
+              for label, pattern in patterns.items():
+                  if re.search(pattern, data):
+                      print(f'possible {label}: {path}', file=sys.stderr)
+                      raise SystemExit(1)
+          PY
+
+      - name: Verify release and contract parity
+        run: |
+          set -euo pipefail
+          grep -q 'Version: 1.1.1' global-doctor-onboarding.php
+          grep -q "define( 'GDO_VERSION', '1.1.1' )" global-doctor-onboarding.php
+          grep -q "define( 'GDO_SCHEMA_VERSION', 3 )" global-doctor-onboarding.php
+          grep -q "define( 'GDO_CF01_PRACTITIONER_CONTRACT_VERSION', '1.0.0' )" global-doctor-onboarding.php
+          grep -q 'Stable tag: 1.1.1' readme.txt
+          grep -q "'gdo.cf01.practitioner-eligibility'" includes/class-gdo-cf01-practitioner-contract.php
+
+      - name: Prohibit private File 00 and local authentication access
+        run: |
+          set -euo pipefail
+          if grep -RInE '_smc_(totp|2fa|identity_verified|doctor_verified|recovery)|SMC_Security::verify_totp' includes global-doctor-onboarding.php; then
+            echo 'File 09 must not read File 00 private authentication or verification storage.' >&2
+            exit 1
+          fi
+          if grep -nE 'get_user_meta\(|wp_check_password\(' includes/class-gdo-membership-adapter.php; then
+            echo 'File 09 adapter must use public contracts only.' >&2
+            exit 1
+          fi
+
+      - name: Lint every PHP file
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
+          test "${#files[@]}" -ge 23
+          for file in "${files[@]}"; do php -l "$file"; done
+
+      - name: Run inherited and CF-01 suites
+        run: |
+          set -euo pipefail
+          php tests/security-unit.php
+          python3 tests/architecture-check.py
+          php tests/cf01-practitioner-contract.php
+          php tests/cf01-practitioner.php
+
+      - name: Record exact source evidence
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          sha256sum \
+            global-doctor-onboarding.php \
+            includes/class-gdo-membership-adapter.php \
+            includes/class-gdo-api.php \
+            includes/class-gdo-cf01-practitioner-contract.php \
+            CF01-PRACTITIONER-ELIGIBILITY-CONTRACT.md \
+            tests/cf01-practitioner-contract.php \
+            tests/cf01-practitioner.php
