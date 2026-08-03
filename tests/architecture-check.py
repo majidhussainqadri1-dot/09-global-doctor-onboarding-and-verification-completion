@@ -67,6 +67,10 @@ for token in (
 adapter = (root / 'includes/class-gdo-membership-adapter.php').read_text(encoding='utf-8')
 if 'get_user_meta(' in adapter or 'wp_check_password(' in adapter:
     fail('File 09 adapter must not read File 00 metadata or verify passwords')
+if 'SMC_Contracts::assertions' not in adapter or "FILE00_BASE_VERSION  = '1.1.2'" not in adapter:
+    fail('File 09 must consume the exact File 00 general membership contract')
+if "! empty( $base['approved'] )" not in adapter or "! empty( $base['email_verified'] )" not in adapter or "! empty( $base['phone_verified'] )" not in adapter:
+    fail('File 09 application eligibility must use explicit non-circular membership fields')
 
 for pattern in (r'\badd_role\s*\(', r'->add_role\s*\(', r'->remove_role\s*\(', r'->add_cap\s*\(', r'->set_role\s*\('):
     if re.search(pattern, text):
@@ -80,12 +84,15 @@ required_markers = (
     'gdo_credential_scan_result', 'gdo_get_verification_decision',
     'review_note', 'recommended_decision', 'source_state', 'last_error',
     'verify_step_up', 'recent_step_up',
+    'SMC_Contracts::assertions',
     'SMC_CF01_Contract::membership_assertion',
     'SA_Professional_Reauthentication::verify_and_record',
     'SA_Professional_Reauthentication::assertion',
     'gdo.cf01.practitioner-eligibility',
     'grants_clinical_authorization',
     'professional_scope_restrictions_not_structured',
+    'GDO_Application::fingerprint',
+    "'PAKISTAN' => 'PK'",
     'smc_review_verification', 'smc_view_private_documents', 'smc_manage_membership',
 )
 for token in required_markers:
