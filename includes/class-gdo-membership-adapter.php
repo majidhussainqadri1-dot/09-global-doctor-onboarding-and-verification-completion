@@ -139,6 +139,7 @@ final class GDO_Membership_Adapter {
 				$allowed = true;
 				break;
 			}
+		}
 		return (bool) apply_filters( 'gdo_file00_capability', $allowed, $capability, $user_id, $required );
 	}
 
