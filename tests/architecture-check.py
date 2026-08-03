@@ -1,6 +1,5 @@
 from pathlib import Path
 import re
-import sys
 
 root = Path(__file__).resolve().parents[1]
 source_paths = [
@@ -13,6 +12,7 @@ text = '\n'.join(p.read_text(encoding='utf-8') for p in source_paths)
 def fail(message):
     print('ERROR:', message)
     raise SystemExit(1)
+
 
 required_files = {
     'global-doctor-onboarding.php',
@@ -30,6 +30,7 @@ required_files = {
     'includes/class-gdo-retention.php',
     'includes/class-gdo-migration.php',
     'includes/class-gdo-api.php',
+    'includes/class-gdo-cf01-practitioner-contract.php',
     'uninstall.php',
 }
 missing = sorted(p for p in required_files if not (root / p).is_file())
@@ -38,9 +39,14 @@ if missing:
 
 main = (root / 'global-doctor-onboarding.php').read_text(encoding='utf-8')
 readme = (root / 'readme.txt').read_text(encoding='utf-8')
-if 'Version: 1.1.0' not in main or "define( 'GDO_VERSION', '1.1.0' );" not in main or "define( 'GDO_SCHEMA_VERSION', 3 );" not in main:
-    fail('plugin or schema version mismatch')
-if 'Stable tag: 1.1.0' not in readme:
+if (
+    'Version: 1.1.1' not in main
+    or "define( 'GDO_VERSION', '1.1.1' );" not in main
+    or "define( 'GDO_SCHEMA_VERSION', 3 );" not in main
+    or "define( 'GDO_CF01_PRACTITIONER_CONTRACT_VERSION', '1.0.0' );" not in main
+):
+    fail('plugin, schema, or practitioner-contract version mismatch')
+if 'Stable tag: 1.1.1' not in readme:
     fail('readme stable tag mismatch')
 
 runtime_text = '\n'.join(
@@ -50,10 +56,21 @@ runtime_text = '\n'.join(
 for token in (
     'SPD_Helpers', 'SDD_Helpers', 'sabri_doctor_pending', 'sabri_doctor_verified',
     "'_spd_", "'_sa_", 'wp_mail(', 'manage_global_doctor_verification',
-    'sabri_unified_notifications_enqueue', '_smc_recent_step_up_at'
+    'sabri_unified_notifications_enqueue', '_smc_recent_step_up_at',
+    '_smc_totp_secret', '_smc_totp_secret_enc', '_smc_2fa_enabled',
+    '_smc_identity_verified', '_smc_doctor_verified', '_smc_recovery',
+    'SMC_Security::verify_totp',
 ):
     if token in runtime_text:
-        fail('legacy or forbidden runtime authority token: ' + token)
+        fail('legacy, private, or forbidden runtime authority token: ' + token)
+
+adapter = (root / 'includes/class-gdo-membership-adapter.php').read_text(encoding='utf-8')
+if 'get_user_meta(' in adapter or 'wp_check_password(' in adapter:
+    fail('File 09 adapter must not read File 00 metadata or verify passwords')
+if 'SMC_Contracts::assertions' not in adapter or "FILE00_BASE_VERSION  = '1.1.2'" not in adapter:
+    fail('File 09 must consume the exact File 00 general membership contract')
+if "! empty( $base['approved'] )" not in adapter or "! empty( $base['email_verified'] )" not in adapter or "! empty( $base['phone_verified'] )" not in adapter:
+    fail('File 09 application eligibility must use explicit non-circular membership fields')
 
 for pattern in (r'\badd_role\s*\(', r'->add_role\s*\(', r'->remove_role\s*\(', r'->add_cap\s*\(', r'->set_role\s*\('):
     if re.search(pattern, text):
@@ -66,7 +83,16 @@ required_markers = (
     'Cache-Control: private, no-store', 'X-Robots-Tag: noindex',
     'gdo_credential_scan_result', 'gdo_get_verification_decision',
     'review_note', 'recommended_decision', 'source_state', 'last_error',
-    'verify_step_up', 'wp_check_password', 'SMC_Security::verify_totp',
+    'verify_step_up', 'recent_step_up',
+    'SMC_Contracts::assertions',
+    'SMC_CF01_Contract::membership_assertion',
+    'SA_Professional_Reauthentication::verify_and_record',
+    'SA_Professional_Reauthentication::assertion',
+    'gdo.cf01.practitioner-eligibility',
+    'grants_clinical_authorization',
+    'professional_scope_restrictions_not_structured',
+    'GDO_Application::fingerprint',
+    "'PAKISTAN' => 'PK'",
     'smc_review_verification', 'smc_view_private_documents', 'smc_manage_membership',
 )
 for token in required_markers:
