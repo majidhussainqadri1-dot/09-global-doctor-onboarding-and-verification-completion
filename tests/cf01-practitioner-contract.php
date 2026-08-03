@@ -33,15 +33,23 @@ gdo_cf01_static_assert( false !== strpos( $contract, "'appointment_does_not_crea
 gdo_cf01_static_assert( false !== strpos( $contract, "'prescription_sign'" ) && false !== strpos( $contract, "'professional_scope_restrictions_not_structured'" ), 'prescription signing fails closed without structured scope restrictions' );
 gdo_cf01_static_assert( false !== strpos( $contract, "'break_glass'" ), 'break-glass professional eligibility is explicitly modeled' );
 gdo_cf01_static_assert( false !== strpos( $contract, 'apply_monotonic_filter' ), 'extension filtering is monotonic and revoke-only' );
-gdo_cf01_static_assert( false !== strpos( $adapter, 'SMC_CF01_Contract::membership_assertion' ), 'File 09 consumes File 00 public membership contract' );
+gdo_cf01_static_assert( false !== strpos( $adapter, 'SMC_CF01_Contract::membership_assertion' ), 'File 09 consumes File 00 opaque-subject contract' );
+gdo_cf01_static_assert( false !== strpos( $adapter, 'SMC_Contracts::assertions' ), 'File 09 consumes exact File 00 general membership contract' );
+gdo_cf01_static_assert( false !== strpos( $adapter, "const FILE00_BASE_VERSION  = '1.1.2'" ), 'File 00 general contract version is exact' );
 gdo_cf01_static_assert( false !== strpos( $adapter, 'SA_Professional_Reauthentication::verify_and_record' ), 'File 09 consumes File 02 professional reauthentication contract' );
 gdo_cf01_static_assert( false === strpos( $adapter, 'get_user_meta(' ), 'membership adapter does not read File 00 metadata directly' );
 gdo_cf01_static_assert( false === strpos( $adapter, 'wp_check_password(' ), 'File 09 does not verify passwords inside its adapter' );
+gdo_cf01_static_assert( false !== strpos( $adapter, "! empty( \$base['email_verified'] )" ), 'email assurance uses explicit File 00 field' );
+gdo_cf01_static_assert( false !== strpos( $adapter, "! empty( \$base['phone_verified'] )" ), 'phone assurance uses explicit File 00 field' );
+gdo_cf01_static_assert( false !== strpos( $adapter, "! empty( \$base['approved'] )" ), 'application eligibility uses approved membership without circular professional verification' );
 foreach ( array( '_smc_totp_secret', '_smc_totp_secret_enc', '_smc_2fa_enabled', '_smc_identity_verified', '_smc_doctor_verified', '_smc_recovery' ) as $private_key ) {
 	gdo_cf01_static_assert( false === strpos( $includes, $private_key ), 'private File 00 storage key is absent: ' . $private_key );
 }
 gdo_cf01_static_assert( false !== strpos( $api, "'row_version'" ), 'decision API exposes optimistic row version' );
 gdo_cf01_static_assert( false !== strpos( $api, "'checked_at'" ), 'decision API exposes action-time check timestamp' );
+gdo_cf01_static_assert( false !== strpos( $contract, 'GDO_Application::fingerprint' ), 'provider independently verifies approved snapshot fingerprint' );
+gdo_cf01_static_assert( false !== strpos( $contract, "'license' === \$type && '' === \$until" ), 'license evidence requires explicit validity' );
+gdo_cf01_static_assert( false !== strpos( $contract, "'PAKISTAN' => 'PK'" ), 'Pakistan name and ISO alias normalize consistently' );
 gdo_cf01_static_assert( false === strpos( $contract, "'license_number'" ), 'public practitioner assertion excludes license number' );
 gdo_cf01_static_assert( false !== strpos( $contract, 'gdo_cf01_practitioner_assertion' ), 'owner-executed practitioner assertion function exists' );
 gdo_cf01_static_assert( false !== strpos( $contract, 'gdo_cf01_practitioner_contract' ), 'contract metadata function exists' );
