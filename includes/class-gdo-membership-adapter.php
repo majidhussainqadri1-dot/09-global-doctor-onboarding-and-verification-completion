@@ -8,14 +8,19 @@ defined( 'ABSPATH' ) || exit;
  * consumes versioned public assertions and exposes narrowly scoped decisions.
  */
 final class GDO_Membership_Adapter {
-	const FILE00_CONTRACT = 'smc.cf01.membership-assurance';
-	const FILE00_VERSION  = '1.0.0';
-	const FILE02_CONTRACT = 'sa.professional-reauthentication';
-	const FILE02_VERSION  = '1.0.0';
+	const FILE00_CONTRACT      = 'smc.cf01.membership-assurance';
+	const FILE00_VERSION       = '1.0.0';
+	const FILE00_BASE_VERSION  = '1.1.2';
+	const FILE02_CONTRACT      = 'sa.professional-reauthentication';
+	const FILE02_VERSION       = '1.0.0';
 
 	public static function available() {
 		return defined( 'SMC_VERSION' )
 			&& version_compare( (string) SMC_VERSION, '1.2.7', '>=' )
+			&& defined( 'SMC_CONTRACT_VERSION' )
+			&& self::FILE00_BASE_VERSION === (string) SMC_CONTRACT_VERSION
+			&& class_exists( 'SMC_Contracts' )
+			&& is_callable( array( 'SMC_Contracts', 'assertions' ) )
 			&& defined( 'SMC_CF01_CONTRACT_VERSION' )
 			&& self::FILE00_VERSION === (string) SMC_CF01_CONTRACT_VERSION
 			&& class_exists( 'SMC_CF01_Contract' )
@@ -28,6 +33,15 @@ final class GDO_Membership_Adapter {
 			&& class_exists( 'SA_Professional_Reauthentication' )
 			&& is_callable( array( 'SA_Professional_Reauthentication', 'verify_and_record' ) )
 			&& is_callable( array( 'SA_Professional_Reauthentication', 'assertion' ) );
+	}
+
+	public static function base_assertion( $user_id ) {
+		$user_id = absint( $user_id );
+		if ( ! self::available() || ! $user_id ) {
+			return array();
+		}
+		$assertion = SMC_Contracts::assertions( $user_id );
+		return self::valid_base_assertion( $assertion, $user_id ) ? $assertion : array();
 	}
 
 	public static function membership_assertion( $user_id, $action = 'clinical_identity_link', $purpose = 'professional_verification', $jurisdiction = '' ) {
@@ -51,68 +65,65 @@ final class GDO_Membership_Adapter {
 			return array();
 		}
 		$profile = function_exists( 'smc_get_profile' ) ? (array) smc_get_profile( $user_id ) : array();
-		$assertion = self::membership_assertion( $user_id );
-		if ( ! $assertion ) {
+		$base = self::base_assertion( $user_id );
+		$subject = self::membership_assertion( $user_id );
+		if ( ! $base ) {
 			return $profile;
 		}
-		$membership = isset( $assertion['membership'] ) && is_array( $assertion['membership'] ) ? $assertion['membership'] : array();
-		$age = isset( $assertion['age_context'] ) && is_array( $assertion['age_context'] ) ? $assertion['age_context'] : array();
-		$subject = isset( $assertion['subject'] ) && is_array( $assertion['subject'] ) ? $assertion['subject'] : array();
-		$profile['account_type']      = isset( $membership['membership_type'] ) ? sanitize_key( $membership['membership_type'] ) : '';
-		$profile['membership_status'] = isset( $membership['status'] ) ? sanitize_key( $membership['status'] ) : 'unknown';
-		$profile['email_verified']    = in_array( isset( $membership['identity_assurance'] ) ? $membership['identity_assurance'] : 'none', array( 'basic', 'verified' ), true );
-		$profile['mobile_verified']   = 'verified' === ( isset( $membership['identity_assurance'] ) ? $membership['identity_assurance'] : 'none' );
-		$profile['two_factor']        = ! empty( $membership['two_factor_ready'] );
-		$profile['identity_verified'] = in_array( isset( $membership['identity_assurance'] ) ? $membership['identity_assurance'] : 'none', array( 'basic', 'verified' ), true );
-		$profile['doctor_verified']   = 'verified' === ( isset( $membership['identity_assurance'] ) ? $membership['identity_assurance'] : 'none' );
-		$profile['approval_version']  = absint( isset( $subject['record_version'] ) ? $subject['record_version'] : 0 );
-		$profile['platform_uuid']     = isset( $subject['platform_uuid'] ) ? (string) $subject['platform_uuid'] : '';
-		$profile['calculated_age']    = ! empty( $age['known'] ) ? absint( $age['age_years'] ) : 0;
+		$profile['account_type']      = sanitize_key( $base['membership_type'] );
+		$profile['membership_status'] = sanitize_key( $base['status'] );
+		$profile['email_verified']    = ! empty( $base['email_verified'] );
+		$profile['mobile_verified']   = ! empty( $base['phone_verified'] );
+		$profile['two_factor']        = ! empty( $base['two_factor_ready'] );
+		$profile['identity_verified'] = ! empty( $base['email_verified'] ) && ! empty( $base['phone_verified'] );
+		$profile['doctor_verified']   = ! empty( $base['professional_verified'] ); // Legacy display compatibility only; never File 09 authority.
+		$profile['approval_version']  = $subject && isset( $subject['subject']['record_version'] ) ? absint( $subject['subject']['record_version'] ) : 0;
+		$profile['platform_uuid']     = $subject && isset( $subject['subject']['platform_uuid'] ) ? (string) $subject['subject']['platform_uuid'] : '';
+		$profile['calculated_age']    = $subject && ! empty( $subject['age_context']['known'] ) ? absint( $subject['age_context']['age_years'] ) : 0;
 		return $profile;
 	}
 
 	public static function status( $user_id ) {
-		$assertion = self::membership_assertion( $user_id );
-		return isset( $assertion['membership']['status'] ) ? sanitize_key( $assertion['membership']['status'] ) : 'dependency_missing';
+		$base = self::base_assertion( $user_id );
+		return isset( $base['status'] ) ? sanitize_key( $base['status'] ) : 'dependency_missing';
 	}
 
 	public static function account_type( $user_id ) {
-		$assertion = self::membership_assertion( $user_id );
-		if ( isset( $assertion['membership']['membership_type'] ) && '' !== (string) $assertion['membership']['membership_type'] ) {
-			return sanitize_key( $assertion['membership']['membership_type'] );
-		}
-		return isset( $assertion['membership']['account_class'] ) ? sanitize_key( $assertion['membership']['account_class'] ) : '';
+		$base = self::base_assertion( $user_id );
+		return isset( $base['membership_type'] ) ? sanitize_key( $base['membership_type'] ) : '';
 	}
 
 	public static function email_verified( $user_id ) {
-		$assertion = self::membership_assertion( $user_id );
-		$assurance = isset( $assertion['membership']['identity_assurance'] ) ? $assertion['membership']['identity_assurance'] : 'none';
-		return in_array( $assurance, array( 'basic', 'verified' ), true );
+		$base = self::base_assertion( $user_id );
+		return ! empty( $base['email_verified'] );
 	}
 
 	public static function sanctioned( $user_id ) {
-		$assertion = self::membership_assertion( $user_id );
-		if ( ! $assertion ) {
+		$base = self::base_assertion( $user_id );
+		if ( ! $base ) {
 			return true;
 		}
-		return ! empty( $assertion['membership']['suspended'] )
-			|| in_array( isset( $assertion['membership']['status'] ) ? $assertion['membership']['status'] : 'unknown', array( 'suspended', 'rejected', 'revoked', 'blocked', 'banned' ), true );
+		return ! empty( $base['suspended'] )
+			|| in_array( sanitize_key( $base['status'] ), array( 'suspended', 'rejected', 'revoked', 'expired', 'appeal_review', 'erasure_pending', 'invalid_application', 'blocked', 'banned' ), true );
 	}
 
 	public static function is_active_doctor_candidate( $user_id ) {
 		$user_id = absint( $user_id );
-		$assertion = self::membership_assertion( $user_id, 'clinical_identity_link', 'doctor_application' );
-		if ( ! $assertion || 'allow' !== $assertion['result'] || self::sanctioned( $user_id ) ) {
+		$base = self::base_assertion( $user_id );
+		$subject = self::membership_assertion( $user_id, 'clinical_identity_link', 'doctor_application' );
+		if ( ! $base || ! $subject || self::sanctioned( $user_id ) ) {
 			return false;
 		}
-		$type = self::account_type( $user_id );
-		$age = isset( $assertion['age_context'] ) && is_array( $assertion['age_context'] ) ? $assertion['age_context'] : array();
-		$assurance = isset( $assertion['membership']['identity_assurance'] ) ? $assertion['membership']['identity_assurance'] : 'none';
-		$eligible = in_array( $type, array( 'doctor', 'sabri_doctor' ), true )
+		$age = isset( $subject['age_context'] ) && is_array( $subject['age_context'] ) ? $subject['age_context'] : array();
+		$eligible = 'doctor' === sanitize_key( $base['membership_type'] )
+			&& ! empty( $base['approved'] )
+			&& ! empty( $base['email_verified'] )
+			&& ! empty( $base['phone_verified'] )
+			&& ! empty( $base['two_factor_ready'] )
+			&& ! empty( $base['guardian_verified'] )
 			&& ! empty( $age['known'] )
-			&& absint( $age['age_years'] ) >= max( 18, absint( apply_filters( 'gdo_minimum_professional_age', 18, $user_id, $assertion ) ) )
-			&& in_array( $assurance, array( 'basic', 'verified' ), true );
-		return (bool) apply_filters( 'gdo_file00_doctor_application_eligible', $eligible, $user_id, $assertion );
+			&& absint( $age['age_years'] ) >= max( 18, absint( apply_filters( 'gdo_minimum_professional_age', 18, $user_id, $base, $subject ) ) );
+		return (bool) apply_filters( 'gdo_file00_doctor_application_eligible', $eligible, $user_id, $base, $subject );
 	}
 
 	private static function capability_map() {
@@ -128,7 +139,8 @@ final class GDO_Membership_Adapter {
 	public static function can( $capability, $user_id = 0 ) {
 		$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
 		$capability = sanitize_key( $capability );
-		if ( ! self::available() || ! $user_id || self::sanctioned( $user_id ) ) {
+		$base = self::base_assertion( $user_id );
+		if ( ! $base || ! $user_id || empty( $base['approved'] ) || self::sanctioned( $user_id ) ) {
 			return false;
 		}
 		$map = self::capability_map();
@@ -212,6 +224,18 @@ final class GDO_Membership_Adapter {
 			&& isset( $assertion['subject']['platform_uuid'] )
 			&& self::valid_uuid( $subject_uuid )
 			&& hash_equals( (string) $assertion['subject']['platform_uuid'], (string) $subject_uuid );
+	}
+
+	private static function valid_base_assertion( $assertion, $user_id ) {
+		$required = array( 'contract_version', 'user_id', 'membership_type', 'status', 'approved', 'suspended', 'two_factor_ready', 'phone_verified', 'email_verified', 'guardian_verified' );
+		if ( ! is_array( $assertion ) || self::FILE00_BASE_VERSION !== ( isset( $assertion['contract_version'] ) ? (string) $assertion['contract_version'] : '' ) ) {
+			return false;
+		}
+		foreach ( $required as $field ) {
+			if ( ! array_key_exists( $field, $assertion ) ) {
+				return false;
+			}
+		return absint( $assertion['user_id'] ) === absint( $user_id );
 	}
 
 	private static function valid_membership_assertion( $assertion ) {
