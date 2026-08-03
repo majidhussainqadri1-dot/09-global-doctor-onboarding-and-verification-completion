@@ -235,6 +235,7 @@ final class GDO_Membership_Adapter {
 			if ( ! array_key_exists( $field, $assertion ) ) {
 				return false;
 			}
+		}
 		return absint( $assertion['user_id'] ) === absint( $user_id );
 	}
 
