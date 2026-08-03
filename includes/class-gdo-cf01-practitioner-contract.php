@@ -70,30 +70,39 @@ final class GDO_CF01_Practitioner_Contract {
 			return $result;
 		}
 
-		$membership = GDO_Membership_Adapter::membership_assertion(
+		$subject = GDO_Membership_Adapter::membership_assertion(
 			$user_id,
 			'clinical_identity_link',
 			'cf01_practitioner_' . $purpose,
 			isset( $context['jurisdiction'] ) ? $context['jurisdiction'] : ''
 		);
-		if ( ! $membership ) {
+		$base = GDO_Membership_Adapter::base_assertion( $user_id );
+		if ( ! $subject || ! $base ) {
 			$result['reason_code'] = 'file00_contract_invalid';
 			return $result;
 		}
 		$result['subject'] = array(
-			'platform_uuid' => (string) $membership['subject']['platform_uuid'],
+			'platform_uuid' => (string) $subject['subject']['platform_uuid'],
 			'source_owner'  => 'File 00',
-			'membership_record_version' => absint( isset( $membership['subject']['record_version'] ) ? $membership['subject']['record_version'] : 0 ),
+			'membership_record_version' => absint( isset( $subject['subject']['record_version'] ) ? $subject['subject']['record_version'] : 0 ),
 		);
 		$result['membership'] = array(
-			'status'    => sanitize_key( isset( $membership['membership']['status'] ) ? $membership['membership']['status'] : 'unknown' ),
-			'active'    => ! empty( $membership['membership']['active'] ),
-			'suspended' => ! empty( $membership['membership']['suspended'] ),
-			'identity_assurance' => sanitize_key( isset( $membership['membership']['identity_assurance'] ) ? $membership['membership']['identity_assurance'] : 'none' ),
+			'status'             => sanitize_key( $base['status'] ),
+			'approved'           => ! empty( $base['approved'] ),
+			'suspended'          => ! empty( $base['suspended'] ),
+			'email_verified'     => ! empty( $base['email_verified'] ),
+			'phone_verified'     => ! empty( $base['phone_verified'] ),
+			'two_factor_ready'   => ! empty( $base['two_factor_ready'] ),
+			'guardian_verified'  => ! empty( $base['guardian_verified'] ),
 		);
-		if ( 'allow' !== $membership['result'] || ! empty( $result['membership']['suspended'] ) ) {
+		if ( empty( $base['approved'] ) || ! empty( $base['suspended'] ) ) {
 			$result['result'] = 'deny';
-			$result['reason_code'] = 'membership_' . sanitize_key( isset( $membership['reason_code'] ) ? $membership['reason_code'] : 'denied' );
+			$result['reason_code'] = 'membership_not_current';
+			return $result;
+		}
+		if ( empty( $base['email_verified'] ) || empty( $base['phone_verified'] ) || empty( $base['two_factor_ready'] ) || empty( $base['guardian_verified'] ) ) {
+			$result['result'] = 'deny';
+			$result['reason_code'] = 'membership_identity_assurance_incomplete';
 			return $result;
 		}
 
@@ -186,24 +195,33 @@ final class GDO_CF01_Practitioner_Contract {
 			}
 		}
 		$checked = strtotime( (string) $decision['checked_at'] );
+		$verified_until = strtotime( (string) $decision['verified_until'] . ' UTC' );
 		return absint( $decision['application_id'] ) > 0
 			&& self::valid_uuid( $decision['application_uuid'] )
 			&& absint( $decision['version'] ) > 0
 			&& absint( $decision['row_version'] ) > 0
+			&& 1 === preg_match( '/^[a-f0-9]{64}$/i', (string) $decision['fingerprint'] )
 			&& false !== $checked
+			&& false !== $verified_until
+			&& $verified_until > time()
 			&& $checked >= time() - 120
 			&& $checked <= time() + 60;
 	}
 
 	private static function valid_snapshot( $snapshot, $decision ) {
-		return is_array( $snapshot )
-			&& 3 === absint( isset( $snapshot['schema'] ) ? $snapshot['schema'] : 0 )
-			&& isset( $snapshot['application_uuid'], $snapshot['application_version'], $snapshot['profile'], $snapshot['evidence'], $snapshot['verified_until'] )
-			&& hash_equals( (string) $decision['application_uuid'], (string) $snapshot['application_uuid'] )
-			&& absint( $decision['version'] ) === absint( $snapshot['application_version'] )
-			&& is_array( $snapshot['profile'] )
-			&& is_array( $snapshot['evidence'] )
-			&& hash_equals( (string) $decision['verified_until'], gmdate( 'Y-m-d H:i:s', strtotime( (string) $snapshot['verified_until'] . ' 23:59:59 UTC' ) ) );
+		if ( ! is_array( $snapshot )
+			|| 3 !== absint( isset( $snapshot['schema'] ) ? $snapshot['schema'] : 0 )
+			|| ! isset( $snapshot['application_uuid'], $snapshot['application_version'], $snapshot['profile'], $snapshot['evidence'], $snapshot['verified_until'] )
+			|| ! hash_equals( (string) $decision['application_uuid'], (string) $snapshot['application_uuid'] )
+			|| absint( $decision['version'] ) !== absint( $snapshot['application_version'] )
+			|| ! is_array( $snapshot['profile'] )
+			|| ! is_array( $snapshot['evidence'] )
+			|| ! hash_equals( (string) $decision['verified_until'], gmdate( 'Y-m-d H:i:s', strtotime( (string) $snapshot['verified_until'] . ' 23:59:59 UTC' ) ) ) ) {
+			return false;
+		}
+		$computed = GDO_Application::fingerprint( (array) $snapshot['profile'], (array) $snapshot['evidence'] );
+		return 1 === preg_match( '/^[a-f0-9]{64}$/i', (string) $computed )
+			&& hash_equals( (string) $decision['fingerprint'], (string) $computed );
 	}
 
 	private static function evidence_projection( $snapshot ) {
@@ -225,6 +243,9 @@ final class GDO_CF01_Practitioner_Contract {
 				return false;
 			}
 			$until = trim( (string) $evidence[ $type ]['validity_until'] );
+			if ( 'license' === $type && '' === $until ) {
+				return false;
+			}
 			if ( '' !== $until ) {
 				$expires = strtotime( $until . ' 23:59:59 UTC' );
 				if ( false === $expires || $expires <= time() ) {
@@ -300,7 +321,15 @@ final class GDO_CF01_Practitioner_Contract {
 
 	private static function normalize_country( $value ) {
 		$value = strtoupper( trim( wp_strip_all_tags( (string) $value ) ) );
-		return preg_replace( '/[^A-Z0-9]/', '', $value );
+		$value = preg_replace( '/[^A-Z0-9]/', '', $value );
+		$aliases = array(
+			'PK' => 'PK', 'PAK' => 'PK', 'PAKISTAN' => 'PK',
+			'IN' => 'IN', 'IND' => 'IN', 'INDIA' => 'IN',
+			'US' => 'US', 'USA' => 'US', 'UNITEDSTATES' => 'US', 'UNITEDSTATESOFAMERICA' => 'US',
+			'GB' => 'GB', 'GBR' => 'GB', 'UK' => 'GB', 'UNITEDKINGDOM' => 'GB',
+		);
+		$aliases = (array) apply_filters( 'gdo_cf01_country_aliases', $aliases );
+		return isset( $aliases[ $value ] ) ? sanitize_key( $aliases[ $value ] ) : sanitize_key( $value );
 	}
 
 	private static function trace_id( $value ) {
