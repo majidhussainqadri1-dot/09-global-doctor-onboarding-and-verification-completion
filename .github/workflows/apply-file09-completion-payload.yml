@@ -1,0 +1,84 @@
+name: Apply File 09 Completion Payload
+
+on:
+  push:
+    branches:
+      - codex/file09-complete-master-plan-1.2.0
+    paths:
+      - tools/file09-completion-payload.tar.gz.b64
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          ref: codex/file09-complete-master-plan-1.2.0
+
+      - name: Decode and apply bounded payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=tools/file09-completion-payload.tar.gz.b64
+          if [[ ! -f "$payload" ]]; then
+            echo "Payload already consumed; nothing to apply."
+            exit 0
+          fi
+          base64 --decode "$payload" > /tmp/file09-completion.tar.gz
+          echo "ef6cb2bab5ab88484d7c14b55b60871451d8abf32bdb358cbabf209de54c35a1  /tmp/file09-completion.tar.gz" | sha256sum --check
+          python3 - <<'PY'
+          import tarfile
+          from pathlib import PurePosixPath
+          archive='/tmp/file09-completion.tar.gz'
+          with tarfile.open(archive,'r:gz') as tf:
+              members=tf.getmembers()
+              if len(members) != 51:
+                  raise SystemExit(f'unexpected payload count: {len(members)}')
+              for member in members:
+                  path=PurePosixPath(member.name)
+                  if member.isdir() or member.issym() or member.islnk() or path.is_absolute() or '..' in path.parts:
+                      raise SystemExit(f'unsafe payload member: {member.name}')
+                  if not member.isfile():
+                      raise SystemExit(f'unsupported payload member: {member.name}')
+              tf.extractall('.')
+          PY
+          rm -f "$payload" /tmp/file09-completion.tar.gz
+          rmdir tools 2>/dev/null || true
+
+      - name: Verify final source before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
+          for file in "${php_files[@]}"; do php -l "$file" >/dev/null; done
+          php tests/security-unit.php
+          php tests/membership-adapter.php
+          php tests/policy-runtime.php
+          php tests/cf01-practitioner-contract.php
+          php tests/cf01-practitioner.php
+          python3 tests/architecture-check.py
+          python3 tests/completion-security.py
+          python3 tests/release-integrity.py
+          node --check assets/js/onboarding.js
+
+      - name: Commit exact verified tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No completion changes remain to commit."
+            exit 0
+          fi
+          git commit -m "Complete File 09 master-plan implementation candidate 1.2.0"
+          git push origin HEAD:codex/file09-complete-master-plan-1.2.0
