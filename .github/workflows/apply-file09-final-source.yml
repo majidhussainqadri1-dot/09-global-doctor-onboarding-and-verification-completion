@@ -28,7 +28,7 @@ jobs:
           marker=tools/upload/file09-final.ready
           test -f "$marker"
           mapfile -t chunks < <(find tools/upload -maxdepth 1 -type f -name 'file09-final.part-*' -print | sort)
-          test "${#chunks[@]}" -eq 11
+          test "${#chunks[@]}" -eq 22
           cat "${chunks[@]}" > /tmp/file09-final.b64
           base64 --decode /tmp/file09-final.b64 > /tmp/file09-final.tar.gz
           echo "7def9247f1c130a5c8344d2ca20026320e2ec5cf82684a2c46c53315b99987aa  /tmp/file09-final.tar.gz" | sha256sum --check
