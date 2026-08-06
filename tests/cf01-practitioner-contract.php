@@ -21,8 +21,8 @@ function gdo_cf01_static_assert( $condition, $message ) {
 	echo "PASS: {$message}\n";
 }
 
-gdo_cf01_static_assert( false !== strpos( $main, 'Version: 1.1.1' ), 'plugin header is File 09 1.1.1' );
-gdo_cf01_static_assert( false !== strpos( $main, "define( 'GDO_VERSION', '1.1.1' )" ), 'runtime version is File 09 1.1.1' );
+gdo_cf01_static_assert( false !== strpos( $main, 'Version: 1.2.0' ), 'plugin header is File 09 1.2.0' );
+gdo_cf01_static_assert( false !== strpos( $main, "define( 'GDO_VERSION', '1.2.0' )" ), 'runtime version is File 09 1.2.0' );
 gdo_cf01_static_assert( false !== strpos( $main, "define( 'GDO_CF01_PRACTITIONER_CONTRACT_VERSION', '1.0.0' )" ), 'practitioner contract version is explicit' );
 gdo_cf01_static_assert( false !== strpos( $main, 'class-gdo-cf01-practitioner-contract.php' ), 'practitioner provider loads from bootstrap' );
 gdo_cf01_static_assert( false !== strpos( $contract, "'gdo.cf01.practitioner-eligibility'" ), 'contract name is exact' );

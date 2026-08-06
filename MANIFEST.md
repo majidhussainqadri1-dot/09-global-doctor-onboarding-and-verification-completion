@@ -1,24 +1,11 @@
-# File 09 Corrective Manifest
+# File 09 current source manifest
 
-## Runtime source
-
-- `23` files
-- `20` PHP files
-- `111,397` bytes
-- Source-tree SHA-256: `181a94ec080106c3d159bec1a1c4933f893aba0de5932c1e2dba96dd7cc0cb3e`
-
-## Governance and QA
-
-- `RELEASE-INVENTORY.tsv`
-- `RELEASE-CHECKSUMS.sha256`
-- `RELEASE-LOCK.json`
-- `RELEASE-MANIFEST.md`
-- `CORRECTIVE-PROVENANCE.md`
-- `CORRECTIVE-REVIEW.md`
-- `MIGRATION.md`
-- `STAGING-ACCEPTANCE.md`
-- `tests/architecture-check.py`
-- `tests/security-unit.php`
-- `.github/workflows/corrective-integrity.yml`
-
-The original source archive is not committed.
+- Runtime candidate: `1.2.0`
+- Schema: `6`
+- Canonical package folder: `global-doctor-onboarding-09/`
+- Canonical release candidate: `global-doctor-onboarding-09-1.2.0-RC1.zip`
+- Release allowlist: `RELEASE-FILES.txt`
+- Package builder: `tools/build-release.py`
+- Package verifier: `tools/verify-release.py`
+- Requirements map: `TRACEABILITY.md`
+- Exact GitHub head and artifact hashes are recorded by CI, not preclaimed here.

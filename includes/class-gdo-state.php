@@ -9,11 +9,11 @@ final class GDO_State {
             'under_review'           => array( 'more_information', 'recommended', 'rejected', 'withdrawn' ),
             'more_information'       => array( 'resubmitted', 'withdrawn' ),
             'resubmitted'            => array( 'under_review', 'withdrawn' ),
-            'recommended'            => array( 'verified', 'rejected', 'under_review' ),
+            'recommended'            => array( 'verified', 'rejected', 'under_review', 'withdrawn' ),
             'verified'               => array( 'suspended', 'revoked', 'expired', 'renewal_due' ),
             'renewal_due'            => array( 'resubmitted', 'expired', 'revoked', 'withdrawn' ),
-            'suspended'              => array( 'appeal_pending', 'reinstated', 'revoked', 'expired' ),
-            'appeal_pending'         => array( 'under_review', 'suspended', 'reinstated', 'rejected', 'revoked' ),
+            'suspended'              => array( 'appeal_pending', 'reinstated', 'revoked', 'expired', 'withdrawn' ),
+            'appeal_pending'         => array( 'under_review', 'suspended', 'reinstated', 'rejected', 'revoked', 'withdrawn' ),
             'reinstated'             => array( 'verified', 'suspended', 'revoked', 'expired', 'renewal_due' ),
             'rejected'               => array( 'appeal_pending', 'withdrawn' ),
             'expired'                => array( 'resubmitted', 'revoked', 'withdrawn' ),
@@ -33,7 +33,7 @@ final class GDO_State {
     }
 
     public static function public_verified( $state ) {
-        return in_array( $state, array( 'verified', 'reinstated' ), true );
+        return in_array( $state, array( 'verified', 'reinstated', 'renewal_due' ), true );
     }
 
     public static function retention_deadline( $state ) {

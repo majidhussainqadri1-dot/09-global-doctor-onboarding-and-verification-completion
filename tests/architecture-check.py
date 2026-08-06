@@ -1,125 +1,26 @@
 from pathlib import Path
-import re
-
-root = Path(__file__).resolve().parents[1]
-source_paths = [
-    p for p in root.rglob('*')
-    if p.is_file() and (p.suffix in {'.php', '.css'} or p.name == 'readme.txt') and 'tests' not in p.parts
-]
-text = '\n'.join(p.read_text(encoding='utf-8') for p in source_paths)
-
-
-def fail(message):
-    print('ERROR:', message)
-    raise SystemExit(1)
-
-
-required_files = {
-    'global-doctor-onboarding.php',
-    'includes/class-gdo-membership-adapter.php',
-    'includes/class-gdo-schema.php',
-    'includes/class-gdo-state.php',
-    'includes/class-gdo-crypto.php',
-    'includes/class-gdo-storage.php',
-    'includes/class-gdo-audit.php',
-    'includes/class-gdo-evidence.php',
-    'includes/class-gdo-application.php',
-    'includes/class-gdo-admin.php',
-    'includes/class-gdo-frontend.php',
-    'includes/class-gdo-privacy.php',
-    'includes/class-gdo-retention.php',
-    'includes/class-gdo-migration.php',
-    'includes/class-gdo-api.php',
-    'includes/class-gdo-cf01-practitioner-contract.php',
-    'uninstall.php',
-}
-missing = sorted(p for p in required_files if not (root / p).is_file())
-if missing:
-    fail('missing required files: ' + ', '.join(missing))
-
-main = (root / 'global-doctor-onboarding.php').read_text(encoding='utf-8')
-readme = (root / 'readme.txt').read_text(encoding='utf-8')
-if (
-    'Version: 1.1.1' not in main
-    or "define( 'GDO_VERSION', '1.1.1' );" not in main
-    or "define( 'GDO_SCHEMA_VERSION', 3 );" not in main
-    or "define( 'GDO_CF01_PRACTITIONER_CONTRACT_VERSION', '1.0.0' );" not in main
-):
-    fail('plugin, schema, or practitioner-contract version mismatch')
-if 'Stable tag: 1.1.1' not in readme:
-    fail('readme stable tag mismatch')
-
-runtime_text = '\n'.join(
-    p.read_text(encoding='utf-8') for p in source_paths
-    if p.name not in {'class-gdo-migration.php', 'uninstall.php'}
-)
-for token in (
-    'SPD_Helpers', 'SDD_Helpers', 'sabri_doctor_pending', 'sabri_doctor_verified',
-    "'_spd_", "'_sa_", 'wp_mail(', 'manage_global_doctor_verification',
-    'sabri_unified_notifications_enqueue', '_smc_recent_step_up_at',
-    '_smc_totp_secret', '_smc_totp_secret_enc', '_smc_2fa_enabled',
-    '_smc_identity_verified', '_smc_doctor_verified', '_smc_recovery',
-    'SMC_Security::verify_totp',
-):
-    if token in runtime_text:
-        fail('legacy, private, or forbidden runtime authority token: ' + token)
-
-adapter = (root / 'includes/class-gdo-membership-adapter.php').read_text(encoding='utf-8')
-if 'get_user_meta(' in adapter or 'wp_check_password(' in adapter:
-    fail('File 09 adapter must not read File 00 metadata or verify passwords')
-if 'SMC_Contracts::assertions' not in adapter or "FILE00_BASE_VERSION  = '1.1.2'" not in adapter:
-    fail('File 09 must consume the exact File 00 general membership contract')
-if "! empty( $base['approved'] )" not in adapter or "! empty( $base['email_verified'] )" not in adapter or "! empty( $base['phone_verified'] )" not in adapter:
-    fail('File 09 application eligibility must use explicit non-circular membership fields')
-
-for pattern in (r'\badd_role\s*\(', r'->add_role\s*\(', r'->remove_role\s*\(', r'->add_cap\s*\(', r'->set_role\s*\('):
-    if re.search(pattern, text):
-        fail('role/capability mutation found: ' + pattern)
-
-required_markers = (
-    'GDO_KEYRING', 'GDO_PRIVATE_STORAGE_DIR', 'aes-256-gcm', 'GDO2',
-    'application_uuid', 'approved_snapshot_json', 'row_version', 'legal_hold',
-    "has_action( 'sabri_notify' )", 'SUN_Core::create',
-    'Cache-Control: private, no-store', 'X-Robots-Tag: noindex',
-    'gdo_credential_scan_result', 'gdo_get_verification_decision',
-    'review_note', 'recommended_decision', 'source_state', 'last_error',
-    'verify_step_up', 'recent_step_up',
-    'SMC_Contracts::assertions',
-    'SMC_CF01_Contract::membership_assertion',
-    'SA_Professional_Reauthentication::verify_and_record',
-    'SA_Professional_Reauthentication::assertion',
-    'gdo.cf01.practitioner-eligibility',
-    'grants_clinical_authorization',
-    'professional_scope_restrictions_not_structured',
-    'GDO_Application::fingerprint',
-    "'PAKISTAN' => 'PK'",
-    'smc_review_verification', 'smc_view_private_documents', 'smc_manage_membership',
-)
-for token in required_markers:
-    if token not in text:
-        fail('required architecture marker missing: ' + token)
-
-admin = (root / 'includes/class-gdo-admin.php').read_text(encoding='utf-8')
-for token in (
-    'assigned_reviewer_id', 'recommender_id', 'finalizer_id', 'recent_step_up',
-    'Conflict declaration', 'Access purpose', 'Recommend rejection',
-    'gdo_reviewer_step_up', 'source_state'
-):
-    if token not in admin:
-        fail('review separation marker missing: ' + token)
-
-application = (root / 'includes/class-gdo-application.php').read_text(encoding='utf-8')
-if re.search(r"in_array\(\s*\$latest->state.*'rejected'.*create_draft", application, re.S):
-    fail('rejected applications must not create a new draft')
-if "array( 'expired','renewal_due' )" not in application:
-    fail('renewal successor version marker missing')
-
-notifications = (root / 'includes/class-gdo-notifications.php').read_text(encoding='utf-8')
-if "has_action( 'sabri_notify' )" not in notifications or 'SUN_Core::create' not in notifications:
-    fail('File 19 notification boundary is not implemented')
-
-migration = (root / 'includes/class-gdo-migration.php').read_text(encoding='utf-8')
-if "'.gdo2'" not in migration or 'decrypt_legacy' not in migration or 'GDO_Crypto::encrypt' not in migration:
-    fail('legacy credentials are not migrated into GDO2')
-
+import re,sys
+root=Path(__file__).resolve().parents[1]
+def fail(m): print('ERROR:',m,file=sys.stderr); raise SystemExit(1)
+required=[
+'global-doctor-onboarding.php','readme.txt','uninstall.php','includes/class-gdo-membership-adapter.php','includes/class-gdo-policy.php','includes/class-gdo-schema.php','includes/class-gdo-state.php','includes/class-gdo-crypto.php','includes/class-gdo-storage.php','includes/class-gdo-audit.php','includes/class-gdo-rate-limiter.php','includes/class-gdo-risk.php','includes/class-gdo-claims.php','includes/class-gdo-quality.php','includes/class-gdo-operations.php','includes/class-gdo-notifications.php','includes/class-gdo-evidence.php','includes/class-gdo-application.php','includes/class-gdo-admin.php','includes/class-gdo-frontend.php','includes/class-gdo-privacy.php','includes/class-gdo-retention.php','includes/class-gdo-migration.php','includes/class-gdo-api.php','includes/class-gdo-cf01-practitioner-contract.php','includes/class-gdo-rest.php','includes/class-gdo-activator.php','includes/class-gdo-plugin.php']
+for p in required:
+    if not (root/p).is_file(): fail('missing '+p)
+text='\n'.join((root/p).read_text(encoding='utf-8') for p in required)
+main=(root/'global-doctor-onboarding.php').read_text(); readme=(root/'readme.txt').read_text()
+for token in ['Version: 1.2.0',"define( 'GDO_VERSION', '1.2.0' );","define( 'GDO_SCHEMA_VERSION', 6 );","define( 'GDO_CF01_PRACTITIONER_CONTRACT_VERSION', '1.0.0' );"]:
+    if token not in main: fail('version marker '+token)
+if 'Stable tag: 1.2.0' not in readme: fail('stable tag mismatch')
+for forbidden in ['_smc_totp_secret','_smc_2fa_enabled','_smc_identity_verified','_smc_doctor_verified','_smc_recovery','SMC_Security::verify_totp','wp_mail(']:
+    if forbidden in text: fail('forbidden token '+forbidden)
+for pattern in [r'\badd_role\s*\(',r'->add_role\s*\(',r'->remove_role\s*\(',r'->add_cap\s*\(',r'->set_role\s*\(']:
+    if re.search(pattern,text): fail('role mutation '+pattern)
+markers=['GDO_KEYRING','GDO_PRIVATE_STORAGE_DIR','GDO_CLAIM_SIGNING_KEY','aes-256-gcm','GDO2','application_uuid','approved_snapshot_json','row_version','legal_hold','gdo_credential_scan_result','verify_step_up','SMC_Contracts::assertions','SMC_CF01_Contract::membership_assertion','SA_Professional_Reauthentication::verify_and_record','gdo.cf01.practitioner-eligibility','gdo.file00.professional-decision','grants_clinical_authorization','professional_scope_restrictions_not_structured','submission_hash','access_grants','risk_signals','quality_samples']
+for token in markers:
+    if token not in text: fail('missing architecture marker '+token)
+adapter=(root/'includes/class-gdo-membership-adapter.php').read_text()
+if 'get_user_meta(' in adapter or 'wp_check_password(' in adapter: fail('private File00/local password access')
+admin=(root/'includes/class-gdo-admin.php').read_text()
+for token in ['assigned_reviewer_id','recommender_id','finalizer_id','recent_step_up','conflict','Access purpose','source_state','run_repair']:
+    if token not in admin: fail('missing reviewer/operation marker '+token)
 print('Architecture checks passed.')

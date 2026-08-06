@@ -1,7 +1,7 @@
 <?php
 
 define( 'ABSPATH', __DIR__ . '/' );
-define( 'GDO_VERSION', '1.1.1' );
+define( 'GDO_VERSION', '1.2.0' );
 
 $GLOBALS['gdo_user_exists'] = true;
 $GLOBALS['gdo_restriction_verified'] = false;

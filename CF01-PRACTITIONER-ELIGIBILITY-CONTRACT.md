@@ -2,10 +2,10 @@
 
 ## Status
 
-- File 09 candidate runtime: `1.1.1`.
+- File 09 candidate runtime: `1.2.0`.
 - Contract: `gdo.cf01.practitioner-eligibility` `1.0.0`.
 - Native owner: File 09.
-- State: implementation candidate only; unmerged and unaccepted.
+- State: 1.2.0 implementation candidate; staging and production remain unaccepted.
 - CF-01 clinical runtime, staging, production and live deployment are not authorized by this document.
 
 ## Purpose
@@ -22,7 +22,7 @@ An `allow` answer is not clinical authorization. CF-01 must separately validate 
 |---|---|---|
 | File 00 | `smc.cf01.membership-assurance` `1.0.0` | opaque subject UUID, membership status, suspension, identity assurance and record version |
 | File 02 | `sa.professional-reauthentication` `1.0.0` | current-password plus session-bound AAL2 reviewer authentication; not part of the practitioner assertion itself |
-| File 09 | approved snapshot schema `3` | current professional decision, evidence status, validity and bounded scope projection |
+| File 09 | approved snapshot schema `6` | current professional decision, evidence status, validity and bounded scope projection |
 
 Unknown, unavailable, stale or incompatible dependencies fail closed.
 

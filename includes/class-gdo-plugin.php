@@ -5,6 +5,8 @@ final class GDO_Plugin {
     public function run() {
         add_action( 'admin_notices', array($this,'dependency_notice') );
         add_action( 'wp_logout', array('GDO_Membership_Adapter','clear_step_up') );
+        (new GDO_REST())->hooks();
+        add_action( 'smc_professional_claim_acknowledged', array($this,'claim_acknowledged'), 10, 4 );
         if ( ! GDO_Membership_Adapter::available() ) {
             return;
         }
@@ -18,6 +20,7 @@ final class GDO_Plugin {
         add_action( 'template_redirect', array($this,'private_headers') );
         add_filter( 'wp_robots', array($this,'robots') );
         add_filter( 'sabri_file20_navigation_items', array($this,'shell_item') );
+        add_filter( 'sabri_file20_module_health', array($this,'shell_health') );
     }
 
     public function dependency_notice() {
@@ -26,6 +29,17 @@ final class GDO_Plugin {
         }
         if ( ! GDO_Membership_Adapter::available() ) {
             echo '<div class="notice notice-error"><p><strong>File 09:</strong> File 00 Membership Core is required. Verification remains fail-closed.</p></div>';
+            return;
+        }
+        if ( GDO_Operations::safe_mode() ) {
+            echo '<div class="notice notice-warning"><p><strong>File 09:</strong> Safe Mode is active. All application and verification mutations are disabled.</p></div>';
+        }
+        if ( ! GDO_Membership_Adapter::authentication_available() ) {
+            echo '<div class="notice notice-error"><p><strong>File 09:</strong> File 02 professional reauthentication is unavailable; reviewer actions remain fail-closed.</p></div>';
+            return;
+        }
+        if ( ! defined( 'GDO_CLAIM_SIGNING_KEY' ) || strlen( (string) GDO_CLAIM_SIGNING_KEY ) < 32 ) {
+            echo '<div class="notice notice-error"><p><strong>File 09:</strong> Configure a private professional-claim signing key; decisions remain fail-closed.</p></div>';
             return;
         }
         if ( ! GDO_Crypto::available() ) {
@@ -76,8 +90,26 @@ final class GDO_Plugin {
 
     public function assets() {
         global $post;
-        if($post instanceof WP_Post&&has_shortcode($post->post_content,'gdo_doctor_application'))wp_enqueue_style('gdo-onboarding',GDO_URL.'assets/css/onboarding.css',array(),GDO_VERSION);
+        if ( $post instanceof WP_Post && has_shortcode( $post->post_content, 'gdo_doctor_application' ) ) {
+            wp_enqueue_style( 'gdo-onboarding', GDO_URL . 'assets/css/onboarding.css', array(), GDO_VERSION );
+            wp_enqueue_script( 'gdo-onboarding', GDO_URL . 'assets/js/onboarding.js', array(), GDO_VERSION, true );
+            wp_localize_script( 'gdo-onboarding', 'gdoOnboarding', array(
+                'restUrl'=>esc_url_raw( rest_url( GDO_REST::NAMESPACE_VERSION . '/application' ) ),
+                'nonce'=>wp_create_nonce( 'wp_rest' ),
+                'autosaveDelay'=>1500,
+                'messages'=>array( 'saving'=>__('Saving…','global-doctor-onboarding'), 'saved'=>__('Draft saved','global-doctor-onboarding'), 'conflict'=>__('The draft changed elsewhere. Reload before continuing.','global-doctor-onboarding') ),
+            ) );
+        }
     }
     public function admin_assets($hook){if(false!==strpos($hook,'global-doctor-verification'))wp_enqueue_style('gdo-admin',GDO_URL.'assets/css/admin.css',array(),GDO_VERSION);}
     public function shell_item($items){$items['doctor-application']=array('label'=>'Doctor Application','url'=>self::application_url(),'capability'=>'read');return $items;}
+
+    public function shell_health( $health ) {
+        $health['file09'] = GDO_Operations::health();
+        return $health;
+    }
+
+    public function claim_acknowledged( $application_id, $claim_version, $status, $reason = '' ) {
+        GDO_Claims::acknowledge( $application_id, $claim_version, $status, $reason );
+    }
 }

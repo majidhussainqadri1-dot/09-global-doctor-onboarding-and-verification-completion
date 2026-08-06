@@ -3,7 +3,7 @@
  * Plugin Name: Global Doctor Onboarding and Verification Completion
  * Plugin URI: https://www.sabrihomeopathy.com/
  * Description: Canonical doctor application, private credential evidence, independent review, verification, suspension, renewal, appeal, privacy, and audit workflow.
- * Version: 1.1.1
+ * Version: 1.2.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: Dr. Allama Majid Hussain Sabri
@@ -12,8 +12,8 @@
  */
 defined( 'ABSPATH' ) || exit;
 
-define( 'GDO_VERSION', '1.1.1' );
-define( 'GDO_SCHEMA_VERSION', 3 );
+define( 'GDO_VERSION', '1.2.0' );
+define( 'GDO_SCHEMA_VERSION', 6 );
 define( 'GDO_CF01_PRACTITIONER_CONTRACT_VERSION', '1.0.0' );
 define( 'GDO_FILE', __FILE__ );
 define( 'GDO_DIR', plugin_dir_path( __FILE__ ) );
@@ -21,12 +21,17 @@ define( 'GDO_URL', plugin_dir_url( __FILE__ ) );
 
 $gdo_files = array(
 	'class-gdo-membership-adapter.php',
+	'class-gdo-policy.php',
 	'class-gdo-schema.php',
 	'class-gdo-state.php',
 	'class-gdo-crypto.php',
 	'class-gdo-storage.php',
 	'class-gdo-audit.php',
 	'class-gdo-rate-limiter.php',
+	'class-gdo-risk.php',
+	'class-gdo-claims.php',
+	'class-gdo-quality.php',
+	'class-gdo-operations.php',
 	'class-gdo-notifications.php',
 	'class-gdo-evidence.php',
 	'class-gdo-application.php',
@@ -37,6 +42,7 @@ $gdo_files = array(
 	'class-gdo-migration.php',
 	'class-gdo-api.php',
 	'class-gdo-cf01-practitioner-contract.php',
+	'class-gdo-rest.php',
 	'class-gdo-activator.php',
 	'class-gdo-plugin.php',
 );
