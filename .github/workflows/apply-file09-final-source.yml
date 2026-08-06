@@ -29,6 +29,35 @@ jobs:
           test -f "$marker"
           mapfile -t chunks < <(find tools/upload -maxdepth 1 -type f -name 'file09-final.part-*' -print | sort)
           test "${#chunks[@]}" -eq 22
+          cat > /tmp/file09-expected-blobs <<'EOF'
+          file09-final.part-00 e4ddf5ef8824fd8d4f60550c2dcd2db241d95c08
+          file09-final.part-01 93c954255c17f3c97e64ed5954c5fb57b9566549
+          file09-final.part-02 59236bc40038c9ec0657d1bcaf8498a1751b3584
+          file09-final.part-03 5bcb900fd514b3e1232fb8ebeda0e88f919049e4
+          file09-final.part-04 7596516212f71dfe4c1c4a15b512d52cc6a230fb
+          file09-final.part-05 26caa112e94ea36557a21e99f0b97940e047fa1f
+          file09-final.part-06 74a7b4531c00caa47b7567c7c36af85f67fc2d27
+          file09-final.part-07 5bd51f6a7d4b1d6237ef2dd689fd70534a37a44d
+          file09-final.part-08 86bd3606a3fd90cada0985faf556cc69e0788785
+          file09-final.part-09 374e03066579f78f4960cd9b6146192836ffc245
+          file09-final.part-10 b096d54e6257c7bb4bc6d9bd42355eed02ada3de
+          file09-final.part-11 aa542de2fd9a770a14104964b1f221e618d29e72
+          file09-final.part-12 c41f5423bc6670cd486a232a929701db391c7dd9
+          file09-final.part-13 004de8cc9844210a2abb9d69fd8dc86de17fcd7f
+          file09-final.part-14 ea6cb652f3e2b1ad3eed8f808847b3a85ca574a4
+          file09-final.part-15 f58f5b14ae148cda4ae556ee191cc4f977b6762a
+          file09-final.part-16a ada0b7ff9debbe4179e33e2df5df60171222e135
+          file09-final.part-16b e445f2efec49822069a0a12855068b8b766c809d
+          file09-final.part-17a ed6dc73f655ec92b4b4731c1b45e54b998c010e6
+          file09-final.part-17b 3bff65400750729b11fdb1419bc11ff927c66992
+          file09-final.part-18a e34012d857b771d3f09ef066df21373e61b9286b
+          file09-final.part-18b 995c17c75a97fafa9da3be030198246128874cbb
+          EOF
+          while read -r name expected; do
+            actual=$(git hash-object "tools/upload/$name")
+            printf '%s expected=%s actual=%s\n' "$name" "$expected" "$actual"
+            test "$actual" = "$expected"
+          done < /tmp/file09-expected-blobs
           cat "${chunks[@]}" > /tmp/file09-final.b64
           base64 --decode /tmp/file09-final.b64 > /tmp/file09-final.tar.gz
           echo "7def9247f1c130a5c8344d2ca20026320e2ec5cf82684a2c46c53315b99987aa  /tmp/file09-final.tar.gz" | sha256sum --check
@@ -55,7 +84,7 @@ jobs:
           with tarfile.open('/tmp/file09-final.tar.gz','r:gz') as tf:
               tf.extractall('.')
           PY
-          rm -f /tmp/file09-final.b64 /tmp/file09-final.tar.gz
+          rm -f /tmp/file09-final.b64 /tmp/file09-final.tar.gz /tmp/file09-expected-blobs
 
       - name: Verify exact replacement tree
         shell: bash
