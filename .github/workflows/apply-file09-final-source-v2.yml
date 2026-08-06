@@ -41,7 +41,7 @@ jobs:
                   path=PurePosixPath(member.name)
                   if not member.isfile() or member.issym() or member.islnk() or path.is_absolute() or '..' in path.parts:
                       raise SystemExit(f'unsafe payload member: {member.name}')
-PY
+          PY
 
       - name: Replace branch tree with verified source
         shell: bash
@@ -52,7 +52,7 @@ PY
           import tarfile
           with tarfile.open('/tmp/file09-final.tar.gz','r:gz') as tf:
               tf.extractall('.')
-PY
+          PY
           rm -f /tmp/file09-final.tar.gz
 
       - name: Run complete source and release verification
