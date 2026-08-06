@@ -27,7 +27,7 @@ jobs:
           set -euo pipefail
           test -f tools/finalize/file09-rc2.ready
           mapfile -t chunks < <(find tools/finalize -maxdepth 1 -type f -name 'file09-rc2.part-*' -print | sort)
-          test "${#chunks[@]}" -eq 3
+          test "${#chunks[@]}" -eq 12
           cat "${chunks[@]}" > /tmp/file09-rc2.b64
           base64 --decode /tmp/file09-rc2.b64 > /tmp/file09-rc2.tar.gz
           echo "18f319c0186908929a1597f5f6d1f76d8a6dc396e06621a84cf869d161f6af4f  /tmp/file09-rc2.tar.gz" | sha256sum --check
