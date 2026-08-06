@@ -1,0 +1,99 @@
+name: Apply File 09 Final Source V3
+
+on:
+  push:
+    branches:
+      - codex/file09-master-plan-1.2.0-final
+    paths:
+      - tools/upload/file09-final-v3.ready
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-and-push:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout controlled branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          ref: codex/file09-master-plan-1.2.0-final
+
+      - name: Reconstruct exact payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f tools/upload/file09-final-v3.ready
+          mapfile -t chunks < <(find tools/upload -maxdepth 1 -type f -name 'file09-final.part-*' -print | sort)
+          test "${#chunks[@]}" -eq 25
+          cat "${chunks[@]}" | base64 --decode > /tmp/file09-final.tar.gz
+          echo "7def9247f1c130a5c8344d2ca20026320e2ec5cf82684a2c46c53315b99987aa  /tmp/file09-final.tar.gz" | sha256sum --check
+          python3 - <<'PY'
+          import tarfile
+          from pathlib import PurePosixPath
+          with tarfile.open('/tmp/file09-final.tar.gz','r:gz') as tf:
+              members=tf.getmembers()
+              if len(members) != 74:
+                  raise SystemExit(f'unexpected payload member count: {len(members)}')
+              for member in members:
+                  path=PurePosixPath(member.name)
+                  if not member.isfile() or member.issym() or member.islnk() or path.is_absolute() or '..' in path.parts:
+                      raise SystemExit(f'unsafe payload member: {member.name}')
+          PY
+
+      - name: Replace working tree and preserve push-authorized workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -a .github/workflows /tmp/branch-workflows
+          git rm -r --ignore-unmatch .
+          python3 - <<'PY'
+          import tarfile
+          with tarfile.open('/tmp/file09-final.tar.gz','r:gz') as tf:
+              tf.extractall('.')
+          PY
+          rm -f /tmp/file09-final.tar.gz
+
+      - name: Verify exact final source and release
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test -z "$(find . -type f \( -name '*.zip' -o -name '*.sql' -o -name '*.sqlite' -o -name '.env' -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -not -path './.git/*' -print -quit)"
+          mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
+          test "${#php_files[@]}" -eq 32
+          for file in "${php_files[@]}"; do php -l "$file" >/dev/null; done
+          node --check assets/js/onboarding.js
+          php tests/security-unit.php
+          php tests/membership-adapter.php
+          php tests/policy-runtime.php
+          php tests/cf01-practitioner-contract.php
+          php tests/cf01-practitioner.php
+          python3 tests/architecture-check.py
+          python3 tests/completion-security.py
+          python3 tests/release-integrity.py
+          sha256sum --check RELEASE-CHECKSUMS.sha256
+          python3 tools/build-release.py --output /tmp/file09-build-a
+          python3 tools/build-release.py --output /tmp/file09-build-b
+          cmp /tmp/file09-build-a/global-doctor-onboarding-09-1.2.0-RC1.zip /tmp/file09-build-b/global-doctor-onboarding-09-1.2.0-RC1.zip
+          python3 tools/verify-release.py /tmp/file09-build-a/global-doctor-onboarding-09-1.2.0-RC1.zip RELEASE-FILES.txt
+
+      - name: Restore workflow directory for permitted push
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .github/workflows
+          mkdir -p .github
+          cp -a /tmp/branch-workflows .github/workflows
+
+      - name: Commit verified non-workflow source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Complete File 09 master-plan candidate 1.2.0"
+          git push origin HEAD:codex/file09-master-plan-1.2.0-final
