@@ -5,7 +5,7 @@ on:
     branches:
       - codex/file09-complete-master-plan-1.2.0
     paths:
-      - tools/file09-completion-payload.tar.gz.b64
+      - tools/file09-completion-payload.ready
   workflow_dispatch:
 
 permissions:
@@ -26,12 +26,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          payload=tools/file09-completion-payload.tar.gz.b64
-          if [[ ! -f "$payload" ]]; then
+          marker=tools/file09-completion-payload.ready
+          if [[ ! -f "$marker" ]]; then
             echo "Payload already consumed; nothing to apply."
             exit 0
           fi
-          base64 --decode "$payload" > /tmp/file09-completion.tar.gz
+          mapfile -t chunks < <(find tools -maxdepth 1 -type f -name 'file09-completion-payload.part-*' -print | sort)
+          [[ ${#chunks[@]} -eq 9 ]]
+          cat "${chunks[@]}" > /tmp/file09-completion.b64
+          base64 --decode /tmp/file09-completion.b64 > /tmp/file09-completion.tar.gz
           echo "ef6cb2bab5ab88484d7c14b55b60871451d8abf32bdb358cbabf209de54c35a1  /tmp/file09-completion.tar.gz" | sha256sum --check
           python3 - <<'PY'
           import tarfile
@@ -49,7 +52,7 @@ jobs:
                       raise SystemExit(f'unsupported payload member: {member.name}')
               tf.extractall('.')
           PY
-          rm -f "$payload" /tmp/file09-completion.tar.gz
+          rm -f "$marker" "${chunks[@]}" /tmp/file09-completion.b64 /tmp/file09-completion.tar.gz
           rmdir tools 2>/dev/null || true
 
       - name: Verify final source before commit
