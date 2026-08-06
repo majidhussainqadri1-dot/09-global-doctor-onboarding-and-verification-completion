@@ -1,0 +1,38 @@
+name: Export File 09 Completion Source
+
+on:
+  push:
+    branches:
+      - codex/file09-complete-master-plan-1.2.0
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Build public-safe source archive
+        run: |
+          set -euo pipefail
+          test -z "$(find . -type f \( -name '*.sql' -o -name '*.sqlite' -o -name '.env' -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -not -path './.git/*' -print -quit)"
+          mkdir -p export
+          git archive --format=zip --output=export/file09-source-${GITHUB_SHA}.zip HEAD
+          sha256sum export/file09-source-${GITHUB_SHA}.zip > export/file09-source-${GITHUB_SHA}.zip.sha256
+
+      - name: Upload source archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: file09-completion-source
+          path: export/
+          if-no-files-found: error
+          retention-days: 14
