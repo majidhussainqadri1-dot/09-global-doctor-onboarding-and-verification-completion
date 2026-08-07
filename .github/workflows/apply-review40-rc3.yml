@@ -1,0 +1,65 @@
+name: Apply File 09 Review40 RC3 Corrections
+
+on:
+  push:
+    branches:
+      - codex/file09-1.2.0-rc2-final
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact helper head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Apply corrected release-source patch
+        run: |
+          set -euo pipefail
+          cat .review40/p00 .review40/p01 .review40/p02 .review40/p03 | base64 -d > /tmp/file09-review40.patch.gz
+          gzip -dc /tmp/file09-review40.patch.gz > /tmp/file09-review40.patch
+          git apply --whitespace=nowarn /tmp/file09-review40.patch
+          rm -rf .review40
+          rm -f .github/workflows/apply-review40-rc3.yml
+      - name: Pre-commit complete assurance
+        run: |
+          set -euo pipefail
+          git diff --check
+          test ! -f .gitmodules
+          test -z "$(find . -type f \( -name '*.zip' -o -name '*.sql' -o -name '*.sqlite' -o -name '.env' -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -not -path './.git/*' -print -quit)"
+          find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l
+          node --check assets/js/onboarding.js
+          php tests/security-unit.php
+          php tests/membership-adapter.php
+          php tests/policy-runtime.php
+          php tests/cf01-practitioner-contract.php
+          php tests/cf01-practitioner.php
+          php tests/cross-file-contracts.php
+          python3 tests/architecture-check.py
+          python3 tests/completion-security.py
+          python3 tests/release-integrity.py
+          python3 tests/rc2-adversarial.py
+          python3 tests/final-hardening.py
+          python3 tests/forty-round-assurance.py
+          python3 tests/review40-adversarial.py
+          rm -rf dist-a dist-b
+          python3 tools/build-release.py --output dist-a
+          python3 tools/build-release.py --output dist-b
+          cmp dist-a/global-doctor-onboarding-09-1.2.0-RC3.zip dist-b/global-doctor-onboarding-09-1.2.0-RC3.zip
+          python3 tools/verify-release.py dist-a/global-doctor-onboarding-09-1.2.0-RC3.zip RELEASE-FILES.txt
+          rm -rf dist-a dist-b
+      - name: Commit corrected exact source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix(file09): complete 40-round RC3 corrections and retest'
+          git push origin HEAD:codex/file09-1.2.0-rc2-final

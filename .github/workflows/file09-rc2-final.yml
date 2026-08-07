@@ -1,4 +1,4 @@
-name: File 09 RC2 Final Assurance
+name: File 09 RC3 Forty-Round Final Assurance
 
 on:
   pull_request:
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   verify:
-    name: PHP ${{ matrix.php }} source and adversarial assurance
+    name: PHP ${{ matrix.php }} source and 40-round adversarial assurance
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -57,6 +57,7 @@ jobs:
           python3 tests/rc2-adversarial.py
           python3 tests/final-hardening.py
           python3 tests/forty-round-assurance.py
+          python3 tests/review40-adversarial.py
       - name: Exact-head source evidence
         run: |
           git rev-parse HEAD | tee exact-head.txt
@@ -65,7 +66,7 @@ jobs:
           wc -l exact-source-checksums.sha256
 
   package:
-    name: Deterministic RC2 package
+    name: Deterministic RC3 package
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -87,8 +88,8 @@ jobs:
           set -euo pipefail
           python3 tools/build-release.py --output dist-a
           python3 tools/build-release.py --output dist-b
-          cmp dist-a/global-doctor-onboarding-09-1.2.0-RC2.zip dist-b/global-doctor-onboarding-09-1.2.0-RC2.zip
-          python3 tools/verify-release.py dist-a/global-doctor-onboarding-09-1.2.0-RC2.zip RELEASE-FILES.txt
+          cmp dist-a/global-doctor-onboarding-09-1.2.0-RC3.zip dist-b/global-doctor-onboarding-09-1.2.0-RC3.zip
+          python3 tools/verify-release.py dist-a/global-doctor-onboarding-09-1.2.0-RC3.zip RELEASE-FILES.txt
           rm -rf dist && mv dist-a dist && rm -rf dist-b
           git rev-parse HEAD > dist/EXACT-HEAD.txt
           test "$(cat dist/EXACT-HEAD.txt)" = "$EXPECTED_SHA"
@@ -96,7 +97,7 @@ jobs:
       - name: Upload exact-head release artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: file09-1.2.0-rc2-${{ env.EXPECTED_SHA }}
+          name: file09-1.2.0-rc3-${{ env.EXPECTED_SHA }}
           path: dist/
           if-no-files-found: error
           retention-days: 30
