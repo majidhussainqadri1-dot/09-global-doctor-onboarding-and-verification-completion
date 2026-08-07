@@ -1,0 +1,62 @@
+name: File 09 Refresh Release Metadata
+
+on:
+  push:
+    branches:
+      - codex/file09-1.2.0-rc2-final
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout branch head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: codex/file09-1.2.0-rc2-final
+          fetch-depth: 0
+      - name: Regenerate SBOM and release lock
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import datetime, hashlib, json, re
+          root = Path('.')
+          release_files = [x.strip() for x in (root/'RELEASE-FILES.txt').read_text(encoding='utf-8').splitlines() if x.strip()]
+          files = []
+          relationships = [{'spdxElementId':'SPDXRef-DOCUMENT','relationshipType':'DESCRIBES','relatedSpdxElement':'SPDXRef-Package'}]
+          used = set()
+          for rel in release_files:
+              if rel == 'SBOM.spdx.json':
+                  continue
+              p = root/rel
+              if not p.is_file():
+                  raise SystemExit('missing release file: '+rel)
+              ident = 'SPDXRef-File-' + re.sub(r'[^A-Za-z0-9.-]+','-',rel).strip('-')
+              base = ident
+              n = 2
+              while ident in used:
+                  ident = f'{base}-{n}'; n += 1
+              used.add(ident)
+              files.append({'SPDXID':ident,'fileName':'./'+rel,'checksums':[{'algorithm':'SHA256','checksumValue':hashlib.sha256(p.read_bytes()).hexdigest()}],'licenseConcluded':'NOASSERTION','licenseInfoInFiles':['NOASSERTION'],'copyrightText':'NOASSERTION'})
+              relationships.append({'spdxElementId':'SPDXRef-Package','relationshipType':'CONTAINS','relatedSpdxElement':ident})
+          now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
+          seed = hashlib.sha256(('\n'.join(release_files)+now).encode()).hexdigest()[:16]
+          sbom = {'SPDXID':'SPDXRef-DOCUMENT','spdxVersion':'SPDX-2.3','dataLicense':'CC0-1.0','name':'File 09 Global Doctor Onboarding 1.2.0 RC2','documentNamespace':f'https://sabrihomeopathy.com/spdx/file09/1.2.0/rc2/{seed}','creationInfo':{'created':now,'creators':['Organization: Sabri Social Homeopathy Platform','Tool: File09-RC2-Release-Metadata-3.0']},'annotations':[{'annotationDate':now,'annotationType':'OTHER','annotator':'Tool: File09-RC2-Release-Metadata-3.0','comment':'SBOM.spdx.json is excluded from its own checksum list to avoid self-reference.'}],'packages':[{'SPDXID':'SPDXRef-Package','name':'global-doctor-onboarding-09','versionInfo':'1.2.0-RC2','downloadLocation':'NOASSERTION','filesAnalyzed':True,'licenseConcluded':'GPL-2.0-or-later','licenseDeclared':'GPL-2.0-or-later','copyrightText':'NOASSERTION'}],'files':files,'relationships':relationships}
+          (root/'SBOM.spdx.json').write_text(json.dumps(sbom,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          lock = json.loads((root/'RELEASE-LOCK.json').read_text(encoding='utf-8'))
+          lock['release_file_count'] = len(release_files)
+          (root/'RELEASE-LOCK.json').write_text(json.dumps(lock,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          PY
+      - name: Commit refreshed metadata
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add SBOM.spdx.json RELEASE-LOCK.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Refresh File 09 release metadata'
+          git push origin HEAD:codex/file09-1.2.0-rc2-final
