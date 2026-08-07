@@ -69,3 +69,16 @@ A Must requirement is not accepted merely because code is named below. The exact
 | Independent assigned appeal reviewer | `GDO_Admin::assign_appeal/resolve_appeal` | `tests/rc2-adversarial.py` |
 | File 03/07/08 fail-closed public projections | `GDO_Integration_Contracts` | `tests/cross-file-contracts.php` |
 | Exact-head deterministic RC2 package | `.github/workflows/file09-rc2-final.yml`, `tools/build-release.py` | two-build byte comparison + package parity |
+
+## Four-plan harmonization addendum — 7 Aug 2026
+
+| Governing concern | Corrected implementation evidence |
+| --- | --- |
+| Current File 00 contract | `GDO_Membership_Adapter` pins general contract 1.2.0 and consumes high-trust fields. |
+| Non-circular File 09 entry | Requires approved doctor membership, current identity evidence, verified contacts, 2FA and adult age; it does not require pre-existing File 09 professional approval. |
+| Professional truth | File 09 decision, not File 00 display compatibility, controls doctor verification. |
+| CF-01 boundary | Current File 00 professional/identity assurance + File 09 decision/snapshot/evidence; no unconditional adult guardian gate. |
+| Snapshot lifecycle | Schema 3..current is integrity-checked; reinstatement refreshes validity metadata. |
+| Action-time safety | Verification/reinstatement/claims recheck current File 00 assurance; reinstatement also rechecks unresolved high-risk state. |
+| File 20 ownership | Local wrapper is `gdo-application`, never a second platform shell. |
+| Required fields | Phone remains required; WhatsApp is optional unless future approved policy changes it. |

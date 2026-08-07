@@ -64,12 +64,13 @@ final class GDO_Application {
 			return new WP_Error( 'gdo_experience', __( 'Professional experience must be a valid number of years.', 'global-doctor-onboarding' ) );
 		}
 		foreach ( array( 'phone','whatsapp' ) as $field ) {
-			if ( empty( $profile[ $field ] ) && $allow_incomplete ) {
+			$value = isset( $profile[ $field ] ) ? trim( (string) $profile[ $field ] ) : '';
+			if ( '' === $value && ( $allow_incomplete || ! in_array( $field, $required, true ) ) ) {
 				continue;
 			}
-			$digits = preg_replace( '/\D+/', '', isset( $profile[ $field ] ) ? $profile[ $field ] : '' );
+			$digits = preg_replace( '/\D+/', '', $value );
 			if ( strlen( $digits ) < 7 || strlen( $digits ) > 18 ) {
-				return new WP_Error( 'gdo_phone', __( 'Provide a valid professional phone and WhatsApp number.', 'global-doctor-onboarding' ) );
+				return new WP_Error( 'gdo_phone', __( 'Provide a valid professional contact number.', 'global-doctor-onboarding' ) );
 			}
 		}
 		return true;
@@ -280,16 +281,41 @@ final class GDO_Application {
 		return true;
 	}
 
-	public static function approved_snapshot( $application_id ) {
-		$app = self::get( $application_id );
-		if ( ! $app || empty( $app->approved_snapshot_json ) || empty( $app->approved_fingerprint ) || ! GDO_State::public_verified( $app->state ) ) {
+	public static function stored_approved_snapshot( $application_or_id ) {
+		$app = is_object( $application_or_id ) ? $application_or_id : self::get( $application_or_id );
+		if ( ! $app || empty( $app->approved_snapshot_json ) || empty( $app->approved_fingerprint ) ) {
 			return array();
 		}
 		$snapshot = json_decode( $app->approved_snapshot_json, true );
-		if ( ! is_array( $snapshot ) || empty( $snapshot['profile'] ) || empty( $snapshot['evidence'] ) ) {
+		$schema = is_array( $snapshot ) && isset( $snapshot['schema'] ) ? absint( $snapshot['schema'] ) : 0;
+		if ( ! is_array( $snapshot ) || $schema < 3 || ! defined( 'GDO_SCHEMA_VERSION' ) || $schema > absint( GDO_SCHEMA_VERSION )
+			|| empty( $snapshot['application_uuid'] ) || ! hash_equals( (string) $app->application_uuid, (string) $snapshot['application_uuid'] )
+			|| absint( $app->version ) !== absint( isset( $snapshot['application_version'] ) ? $snapshot['application_version'] : 0 )
+			|| ! isset( $snapshot['profile'], $snapshot['evidence'], $snapshot['verified_until'] ) || ! is_array( $snapshot['profile'] ) || ! is_array( $snapshot['evidence'] ) ) {
 			return array();
 		}
 		$computed = self::fingerprint( (array) $snapshot['profile'], (array) $snapshot['evidence'] );
-		return hash_equals( (string) $app->approved_fingerprint, $computed ) ? $snapshot : array();
+		return 1 === preg_match( '/^[a-f0-9]{64}$/i', (string) $computed ) && hash_equals( (string) $app->approved_fingerprint, $computed ) ? $snapshot : array();
+	}
+
+	public static function approved_snapshot( $application_id ) {
+		$app = self::get( $application_id );
+		return $app && GDO_State::public_verified( $app->state ) ? self::stored_approved_snapshot( $app ) : array();
+	}
+
+	public static function refresh_approved_snapshot( $application_or_id, $verified_until, $actor_id ) {
+		$app = is_object( $application_or_id ) ? $application_or_id : self::get( $application_or_id );
+		$snapshot = self::stored_approved_snapshot( $app );
+		$timestamp = strtotime( trim( (string) $verified_until ) . ' 23:59:59 UTC' );
+		if ( ! $app || ! $snapshot || false === $timestamp || $timestamp <= time() ) {
+			return new WP_Error( 'gdo_snapshot_refresh_invalid', __( 'The approved professional snapshot cannot be refreshed safely.', 'global-doctor-onboarding' ) );
+		}
+		$snapshot['schema'] = absint( GDO_SCHEMA_VERSION );
+		$snapshot['verified_until'] = gmdate( 'Y-m-d', $timestamp );
+		$snapshot['policy_version'] = GDO_Policy::VERSION;
+		$snapshot['finalizer_id'] = absint( $actor_id );
+		$snapshot['captured_at'] = current_time( 'mysql', true );
+		$fingerprint = self::fingerprint( (array) $snapshot['profile'], (array) $snapshot['evidence'] );
+		return array( 'snapshot'=>$snapshot, 'json'=>wp_json_encode( $snapshot, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ), 'fingerprint'=>$fingerprint, 'verified_until'=>gmdate( 'Y-m-d 23:59:59', $timestamp ) );
 	}
 }

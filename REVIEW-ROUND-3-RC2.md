@@ -15,3 +15,19 @@ A fresh post-green review found and corrected defects that earlier static suites
 9. Professional claim issuance did not independently require the caller-supplied claim state to equal the current locked application state.
 
 Corrections are fail-closed, migration-safe, privacy-minimized and covered by `tests/final-hardening.py`. The canonical PHP 7.4/8.3 exact-head workflow must pass again after this correction. Hostinger staging remains a separate acceptance gate.
+
+## Four-Plan Harmonization Review — 7 August 2026
+
+The RC2 source was re-opened against four governing sources: (1) Definitive Master Plan v3.0, (2) All-Chats Recovered Directives v2.2, (3) Continuous-Value / Top-20 Superset Master Plan v1.0, and (4) File 09 Complete Master Plan v1.0.
+
+### Round 1 — precedence, ownership and product constitution
+Confirmed File 09 remains the professional-evidence/review/decision owner, File 00 owns membership/identity assertions, and File 20 owns the application shell. Corrected the local `gdo-shell` wrapper and retained the current green/free-system governance without reviving superseded orange/paid baselines.
+
+### Round 2 — High-Trust membership and identity assurance
+Found that RC2 pinned File 00 general contract 1.1.2 while current File 00 main publishes 1.2.0. Corrected the fail-closed pin, required current identity documents and an approved doctor membership grant for File 09 entry, stopped equating email+phone with identity verification, and preserved non-circularity because File 09 itself owns professional verification.
+
+### Round 3 — professional/clinical boundary and lifecycle integrity
+Corrected an unconditional guardian check in CF-01, a schema-3 fossil that rejected current schema-6 snapshots, and reinstatement paths that changed validity without refreshing the approved snapshot. Finalization, reinstatement and claim issuance now recheck current File 00 assurance; reinstatement also rechecks risk/evidence and refreshes snapshot validity metadata.
+
+### Round 4 — fresh adversarial UX and release review
+Corrected WhatsApp being effectively mandatory despite policy, removed misleading local phone-verification wording, and added permanent regression gates. Deterministic packaging and exact-head CI remain mandatory; Hostinger staging/live/operational acceptance remains separate.

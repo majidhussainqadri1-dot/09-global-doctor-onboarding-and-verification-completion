@@ -8,8 +8,8 @@ defined( 'ABSPATH' ) || exit;
  * adapter and returns bounded reason codes suitable for UI and audit trails.
  */
 final class GDO_Policy {
-	const VERSION       = '2026-08-06.1';
-	const TERMS_VERSION = 'doctor-verification-2026-08-06';
+	const VERSION       = '2026-08-07.2';
+	const TERMS_VERSION = 'doctor-verification-2026-08-07';
 	const DRAFT_DAYS    = 30;
 
 	public static function evidence_types( $jurisdiction = '', $application_type = 'homeopathic_doctor' ) {
@@ -68,11 +68,12 @@ final class GDO_Policy {
 			$result['reason_code'] = 'membership_restricted';
 			return $result;
 		}
-		if ( 'doctor' !== sanitize_key( $base['membership_type'] ) || empty( $base['approved'] ) ) {
+		$approved_types = isset( $base['approved_membership_types'] ) && is_array( $base['approved_membership_types'] ) ? array_map( 'sanitize_key', $base['approved_membership_types'] ) : array();
+		if ( empty( $base['application_exists'] ) || 'approved' !== sanitize_key( $base['status'] ) || 'doctor' !== sanitize_key( $base['membership_type'] ) || empty( $base['approved'] ) || ! in_array( 'doctor', $approved_types, true ) ) {
 			$result['reason_code'] = 'doctor_membership_not_approved';
 			return $result;
 		}
-		if ( empty( $base['email_verified'] ) || empty( $base['phone_verified'] ) || empty( $base['two_factor_ready'] ) ) {
+		if ( empty( $base['identity_documents_current'] ) || empty( $base['email_verified'] ) || empty( $base['phone_verified'] ) || empty( $base['two_factor_ready'] ) ) {
 			$result['reason_code'] = 'identity_assurance_incomplete';
 			return $result;
 		}

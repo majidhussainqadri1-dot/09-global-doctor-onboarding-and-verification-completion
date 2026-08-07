@@ -48,4 +48,30 @@ for token in ['doctor_verification_retention_anonymized', "'profile_json'=>'{}'"
     if token not in retention:
         fail('retention anonymization hardening missing: ' + token)
 
+adapter = text('includes/class-gdo-membership-adapter.php')
+for token in ["const FILE00_BASE_VERSION  = '1.2.0'", 'identity_documents_current', 'approved_membership_types', "function_exists( 'gdo_user_is_verified' )"]:
+    if token not in adapter: fail('current File 00/high-trust adapter hardening missing: ' + token)
+if "identity_verified'] = ! empty( $base['email_verified'] ) && ! empty( $base['phone_verified'] )" in adapter: fail('contact ownership is still misrepresented as identity verification')
+policy = text('includes/class-gdo-policy.php')
+for token in ['2026-08-07.2', 'identity_documents_current', 'approved_membership_types']:
+    if token not in policy: fail('four-plan policy harmonization missing: ' + token)
+frontend = text('includes/class-gdo-frontend.php')
+if 'gdo-shell' in frontend or '<main class="gdo-application"' not in frontend: fail('File 09 still duplicates/misnames the File 20 shell boundary')
+if 'Verified professional phone' in frontend: fail('File 09 UI still claims it verifies its local professional phone field')
+application = text('includes/class-gdo-application.php')
+for token in ['stored_approved_snapshot', 'refresh_approved_snapshot', 'GDO_SCHEMA_VERSION', "! in_array( $field, $required, true )"]:
+    if token not in application: fail('snapshot/optional-field hardening missing: ' + token)
+cf01 = text('includes/class-gdo-cf01-practitioner-contract.php')
+if '3 !== absint' in cf01: fail('CF-01 still hard-codes approved snapshot schema 3')
+for token in ['GDO_SCHEMA_VERSION', 'identity_documents_current', 'professional_verified', 'identity_assurance']:
+    if token not in cf01: fail('CF-01 current-assurance hardening missing: ' + token)
+if "empty( $base['guardian_verified'] ) )" in cf01: fail('CF-01 still imposes an unconditional guardian gate on adult practitioners')
+admin = text('includes/class-gdo-admin.php')
+for token in ['GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id )', 'GDO_Application::refresh_approved_snapshot', "'approved_snapshot_json'", "'approved_fingerprint'"]:
+    if token not in admin: fail('finalization/reinstatement current-assurance hardening missing: ' + token)
+if "'schema'=>6" in admin: fail('finalization still hard-codes snapshot schema 6')
+claims = text('includes/class-gdo-claims.php')
+for token in ['gdo_claim_membership_not_current', 'GDO_Application::stored_approved_snapshot', 'GDO_Membership_Adapter::is_active_doctor_candidate']:
+    if token not in claims: fail('claim-time high-trust revalidation missing: ' + token)
+
 print('File 09 final hardening invariants passed.')

@@ -2,6 +2,7 @@
 
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'GDO_VERSION', '1.2.0' );
+define( 'GDO_SCHEMA_VERSION', 6 );
 
 $GLOBALS['gdo_user_exists'] = true;
 $GLOBALS['gdo_restriction_verified'] = false;
@@ -73,6 +74,7 @@ $subject_assertion = array(
 	'result' => 'deny',
 	'reason_code' => 'capability_denied_before_file09_verification',
 	'subject' => array( 'platform_uuid' => $uuid, 'record_version' => 4 ),
+	'membership' => array( 'identity_assurance' => 'verified' ),
 );
 $base_active = array(
 	'contract_version' => '1.1.2',
@@ -84,11 +86,13 @@ $base_active = array(
 	'two_factor_ready' => true,
 	'phone_verified' => true,
 	'email_verified' => true,
-	'guardian_verified' => true,
-	'professional_verified' => false,
+	'guardian_verified' => false,
+	'professional_verified' => true,
+	'eligible' => true,
+	'identity_documents_current' => true,
 );
 $snapshot_valid = array(
-	'schema' => 3,
+	'schema' => 6,
 	'application_uuid' => $uuid,
 	'application_version' => 2,
 	'profile' => array(
@@ -141,6 +145,16 @@ $result = GDO_CF01_Practitioner_Contract::assertion( 7, array( 'action' => 'clin
 gdo_runtime_assert( 'deny' === $result['result'] && 'membership_not_current' === $result['reason_code'], 'File 00 suspension denies professional eligibility' );
 GDO_Membership_Adapter::$base = $base_active;
 
+$result = GDO_CF01_Practitioner_Contract::assertion( 7, array( 'action' => 'clinical_read', 'purpose' => 'patient_care' ) );
+gdo_runtime_assert( 'allow' === $result['result'], 'adult practitioner does not require an irrelevant guardian assertion' );
+
+$legacy_snapshot = $snapshot_valid;
+$legacy_snapshot['schema'] = 3;
+GDO_Application::$snapshot = $legacy_snapshot;
+$result = GDO_CF01_Practitioner_Contract::assertion( 7, array( 'action' => 'clinical_read', 'purpose' => 'patient_care' ) );
+gdo_runtime_assert( 'allow' === $result['result'], 'supported legacy schema 3 approved snapshot remains readable during migration' );
+GDO_Application::$snapshot = $snapshot_valid;
+
 $identity_incomplete = $base_active;
 $identity_incomplete['phone_verified'] = false;
 GDO_Membership_Adapter::$base = $identity_incomplete;
@@ -191,7 +205,7 @@ GDO_Application::$snapshot = $snapshot_valid;
 GDO_API::$decision = $decision_verified;
 
 $result = GDO_CF01_Practitioner_Contract::assertion( 7, array( 'action' => 'clinical_read', 'purpose' => 'patient_care' ) );
-gdo_runtime_assert( 'allow' === $result['result'], 'File 09 may verify an approved doctor without circular prior professional verification' );
+gdo_runtime_assert( 'allow' === $result['result'], 'CF-01 accepts the current File 09 verified doctor with current File 00 professional assurance' );
 gdo_runtime_assert( false === $result['grants_clinical_authorization'], 'allow result never grants clinical authorization' );
 gdo_runtime_assert( ! isset( $result['professional_scope']['license_number'] ), 'license number is excluded from public assertion' );
 gdo_runtime_assert( true === $result['authorization_limits']['requires_cf01_treating_relationship'], 'CF-01 treating relationship remains mandatory' );

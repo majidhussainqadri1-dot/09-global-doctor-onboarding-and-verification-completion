@@ -32,3 +32,11 @@
 - Corrected privacy erasure pagination, all-version credential deletion, atomic revocation claim, and collision-free nullable subject anonymization.
 - Corrected retention expiry to scrub subject/profile and credential metadata after physical deletion.
 - Added a dedicated final hardening regression gate and third fresh adversarial review record.
+
+### Four-plan harmonization hardening (7 Aug 2026)
+- Aligned File 09 with current File 00 general contract 1.2.0 / runtime 1.2.11.
+- Added current identity-document and approved-doctor-grant checks without circular pre-verification.
+- Corrected CF-01 adult guardian logic and approved-snapshot schema compatibility.
+- Revalidated File 00 assurance and unresolved high-risk signals at verification/reinstatement/claim time.
+- Refreshed approved snapshot validity metadata on reinstatement.
+- Made WhatsApp optional as specified; corrected phone copy and File 20 shell naming boundary.

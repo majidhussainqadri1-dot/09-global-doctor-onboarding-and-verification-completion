@@ -1,8 +1,8 @@
 <?php
 
 define( 'ABSPATH', __DIR__ . '/' );
-define( 'SMC_VERSION', '1.2.7' );
-define( 'SMC_CONTRACT_VERSION', '1.1.2' );
+define( 'SMC_VERSION', '1.2.11' );
+define( 'SMC_CONTRACT_VERSION', '1.2.0' );
 define( 'SMC_CF01_CONTRACT_VERSION', '1.0.0' );
 define( 'SA_PROFESSIONAL_REAUTH_VERSION', '1.0.0' );
 
@@ -54,9 +54,12 @@ function gdo_adapter_assert( $condition, $message ) {
 
 $uuid = '123e4567-e89b-42d3-a456-426614174000';
 $base = array(
-	'contract_version' => '1.1.2',
+	'contract_version' => '1.2.0',
 	'user_id' => 7,
+	'application_exists' => true,
+	'account_class' => 'member',
 	'membership_type' => 'doctor',
+	'approved_membership_types' => array( 'doctor' ),
 	'status' => 'approved',
 	'approved' => true,
 	'suspended' => false,
@@ -65,6 +68,8 @@ $base = array(
 	'email_verified' => true,
 	'guardian_verified' => true,
 	'professional_verified' => false,
+	'eligible' => false,
+	'identity_documents_current' => true,
 );
 $subject = array(
 	'contract' => 'smc.cf01.membership-assurance',
@@ -72,7 +77,9 @@ $subject = array(
 	'result' => 'deny',
 	'reason_code' => 'capability_denied_before_file09_verification',
 	'subject' => array( 'platform_uuid' => $uuid, 'record_version' => 3 ),
-	'age_context' => array( 'known' => true, 'age_years' => 30 ),
+	'membership' => array( 'account_class'=>'member', 'membership_type'=>'doctor', 'status'=>'approved', 'active'=>false, 'suspended'=>false, 'identity_assurance'=>'none', 'two_factor_ready'=>true, 'session_two_factor'=>false, 'guardian_required'=>false, 'guardian_verified'=>true, 'policy_version'=>'test' ),
+	'age_context' => array( 'known' => true, 'age_years' => 30, 'guardian_required'=>false ),
+	'jurisdiction_context' => array( 'known'=>false, 'canonical_country'=>'', 'requested_country'=>'', 'mismatch'=>false ),
 	'issued_at' => gmdate( 'c', time() - 1 ),
 	'expires_at' => gmdate( 'c', time() + 60 ),
 );
@@ -89,10 +96,29 @@ SMC_Contracts::$assertion = $adult_without_guardian;
 gdo_adapter_assert( GDO_Membership_Adapter::is_active_doctor_candidate( 7 ), 'adult professional eligibility does not require guardian verification' );
 SMC_Contracts::$assertion = $base;
 
+$identity_missing = $base;
+$identity_missing['identity_documents_current'] = false;
+SMC_Contracts::$assertion = $identity_missing;
+gdo_adapter_assert( ! GDO_Membership_Adapter::is_active_doctor_candidate( 7 ), 'current identity documents are mandatory for File 09 entry' );
+SMC_Contracts::$assertion = $base;
+
+$grant_missing = $base;
+$grant_missing['approved_membership_types'] = array( 'member' );
+SMC_Contracts::$assertion = $grant_missing;
+gdo_adapter_assert( ! GDO_Membership_Adapter::is_active_doctor_candidate( 7 ), 'approved doctor grant is mandatory for File 09 entry' );
+SMC_Contracts::$assertion = $base;
+
+$stale_status = $base;
+$stale_status['status'] = 'verification_pending';
+SMC_Contracts::$assertion = $stale_status;
+gdo_adapter_assert( ! GDO_Membership_Adapter::is_active_doctor_candidate( 7 ), 'stale approved boolean cannot bypass current membership status' );
+SMC_Contracts::$assertion = $base;
+
 $profile = GDO_Membership_Adapter::profile( 7 );
 gdo_adapter_assert( true === $profile['email_verified'], 'email verification comes from explicit File 00 field' );
 gdo_adapter_assert( true === $profile['mobile_verified'], 'phone verification comes from explicit File 00 field' );
-gdo_adapter_assert( false === $profile['doctor_verified'], 'legacy professional display flag does not fabricate File 09 approval' );
+gdo_adapter_assert( true === $profile['identity_verified'], 'identity assurance requires current identity evidence plus verified contacts and second factor' );
+gdo_adapter_assert( false === $profile['doctor_verified'], 'File 00 professional display flag cannot fabricate File 09 approval' );
 gdo_adapter_assert( $uuid === $profile['platform_uuid'], 'opaque File 00 subject UUID is preserved' );
 
 $bad = $base;

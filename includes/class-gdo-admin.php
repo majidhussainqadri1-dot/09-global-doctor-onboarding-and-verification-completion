@@ -332,7 +332,7 @@ final class GDO_Admin {
 		if ( ! $app || 'recommended' !== $app->state || absint( $app->user_id ) === $finalizer || absint( $app->recommender_id ) === $finalizer || ! in_array( $decision, array( 'verified','rejected','under_review' ), true ) || strlen( $reason ) < 20 || ! GDO_Membership_Adapter::reviewer_scope_allows( $finalizer, $app->user_id, $id ) ) {
 			wp_die( esc_html__( 'Invalid or conflicted final decision.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
-		if ( 'verified' === $decision && ( ! GDO_Evidence::all_accepted( $id ) || ! $until || strtotime( $until . ' 23:59:59 UTC' ) <= time() || GDO_Risk::unresolved( $id, 'high' ) ) ) {
+		if ( 'verified' === $decision && ( ! GDO_Evidence::all_accepted( $id ) || ! $until || strtotime( $until . ' 23:59:59 UTC' ) <= time() || GDO_Risk::unresolved( $id, 'high' ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id ) ) ) {
 			wp_die( esc_html__( 'Verification requires accepted current evidence, a future expiry date, and resolved high-risk signals.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
 		$profile = json_decode( $app->profile_json, true );
@@ -340,7 +340,7 @@ final class GDO_Admin {
 		foreach ( GDO_Evidence::records( $id, true ) as $record ) {
 			$evidence[ $record->document_type ] = array( 'version'=>absint( $record->version ), 'content_hmac'=>$record->content_hmac, 'status'=>$record->status, 'validity_until'=>$record->validity_until );
 		}
-		$snapshot = array( 'schema'=>6, 'application_uuid'=>$app->application_uuid, 'application_version'=>absint( $app->version ), 'profile'=>$profile, 'evidence'=>$evidence, 'verified_until'=>$until, 'policy_version'=>GDO_Policy::VERSION, 'recommender_id'=>absint( $app->recommender_id ), 'finalizer_id'=>$finalizer, 'captured_at'=>current_time( 'mysql', true ) );
+		$snapshot = array( 'schema'=>GDO_SCHEMA_VERSION, 'application_uuid'=>$app->application_uuid, 'application_version'=>absint( $app->version ), 'profile'=>$profile, 'evidence'=>$evidence, 'verified_until'=>$until, 'policy_version'=>GDO_Policy::VERSION, 'recommender_id'=>absint( $app->recommender_id ), 'finalizer_id'=>$finalizer, 'captured_at'=>current_time( 'mysql', true ) );
 		$fingerprint = GDO_Application::fingerprint( (array) $profile, $evidence );
 		$wpdb->query( 'START TRANSACTION' );
 		$result = GDO_State::transition( $id, $decision, $finalizer, 'verification_finalized', $reason, absint( isset( $_POST['row_version'] ) ? $_POST['row_version'] : 0 ), false );
@@ -411,17 +411,22 @@ final class GDO_Admin {
 		if ( ! $app || absint( $app->user_id ) === $actor || strlen( $reason ) < 20 || ! in_array( $state, array( 'suspended','revoked','renewal_due','reinstated' ), true ) || ! GDO_State::can_transition( $app->state, $state ) || ! GDO_Membership_Adapter::reviewer_scope_allows( $actor, $app->user_id, $id ) ) {
 			wp_die( esc_html__( 'Invalid verification lifecycle decision.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
-		if ( 'reinstated' === $state && ( ! GDO_Evidence::all_accepted( $id ) || ! $until || strtotime( $until . ' 23:59:59 UTC' ) <= time() ) ) {
-			wp_die( esc_html__( 'Reinstatement requires accepted current evidence and a future validity date.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
+		$snapshot_refresh = array();
+		if ( 'reinstated' === $state && ( ! GDO_Evidence::all_accepted( $id ) || ! $until || strtotime( $until . ' 23:59:59 UTC' ) <= time() || GDO_Risk::unresolved( $id, 'high' ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id ) ) ) {
+			wp_die( esc_html__( 'Reinstatement requires current File 00 assurance, accepted evidence, a future validity date, and resolved high-risk signals.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
+		}
+		if ( 'reinstated' === $state ) {
+			$snapshot_refresh = GDO_Application::refresh_approved_snapshot( $app, $until, $actor );
+			if ( is_wp_error( $snapshot_refresh ) ) { wp_die( esc_html( $snapshot_refresh->get_error_message() ), '', array( 'response'=>409 ) ); }
 		}
 		$wpdb->query( 'START TRANSACTION' );
 		$result = GDO_State::transition( $id, $state, $actor, 'verification_lifecycle', $reason, absint( isset( $_POST['row_version'] ) ? $_POST['row_version'] : 0 ), false );
 		$data = array( 'claim_status'=>'pending', 'updated_at'=>current_time( 'mysql', true ) );
 		$formats = array( '%s','%s' );
-		if ( 'reinstated' === $state ) { $data['verified_until'] = gmdate( 'Y-m-d 23:59:59', strtotime( $until . ' UTC' ) ); $data['finalizer_id'] = $actor; $formats[]='%s'; $formats[]='%d'; }
+		if ( 'reinstated' === $state ) { $data['verified_until'] = $snapshot_refresh['verified_until']; $data['finalizer_id'] = $actor; $data['approved_snapshot_json'] = $snapshot_refresh['json']; $data['approved_fingerprint'] = $snapshot_refresh['fingerprint']; $formats[]='%s'; $formats[]='%d'; $formats[]='%s'; $formats[]='%s'; }
 		if ( 'revoked' === $state ) { $data['retention_until'] = GDO_State::retention_deadline( 'revoked' ); $formats[]='%s'; }
 		$updated = is_wp_error( $result ) ? false : $wpdb->update( GDO_Schema::table( 'applications' ), $data, array( 'id'=>$id ), $formats, array( '%d' ) );
-		$claim = is_wp_error( $result ) || false === $updated ? new WP_Error( 'gdo_lifecycle_not_ready', __( 'The lifecycle decision is not ready for claim issuance.', 'global-doctor-onboarding' ) ) : GDO_Claims::issue( $id, $state, array(), false );
+		$claim = is_wp_error( $result ) || false === $updated ? new WP_Error( 'gdo_lifecycle_not_ready', __( 'The lifecycle decision is not ready for claim issuance.', 'global-doctor-onboarding' ) ) : GDO_Claims::issue( $id, $state, 'reinstated' === $state ? $snapshot_refresh['snapshot'] : array(), false );
 		$notice_event = is_wp_error( $claim ) ? $claim : GDO_Notifications::queue( 'doctor_verification_' . $state, $app->user_id, array( 'application_id'=>$id, 'state'=>$state, 'verified_until'=>$until ), false );
 		if ( is_wp_error( $result ) || false === $updated || is_wp_error( $claim ) || is_wp_error( $notice_event ) || false === $wpdb->query( 'COMMIT' ) ) {
 			$wpdb->query( 'ROLLBACK' );
@@ -429,7 +434,7 @@ final class GDO_Admin {
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
 		}
 		GDO_Notifications::process( 2 );
-		do_action( 'gdo_verification_decision_changed', $app->user_id, $state, $id, array() );
+		do_action( 'gdo_verification_decision_changed', $app->user_id, $state, $id, 'reinstated' === $state ? $snapshot_refresh['snapshot'] : array() );
 		$this->redirect();
 	}
 
@@ -478,8 +483,13 @@ final class GDO_Admin {
 		if ( ! $app || ! $appeal || 'appeal_pending' !== $app->state || ! $assigned_to_actor || $conflict || strlen( $reason ) < 20 || empty( $allowed[ $appeal->source_state ] ) || ! in_array( $decision, $allowed[ $appeal->source_state ], true ) || ! GDO_State::can_transition( $app->state, $decision ) || ! GDO_Membership_Adapter::reviewer_scope_allows( $actor, $app->user_id, $id ) ) {
 			wp_die( esc_html__( 'Invalid, conflicted, or unauthorized appeal decision.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
-		if ( 'reinstated' === $decision && ( ! GDO_Evidence::all_accepted( $id ) || ! $until || strtotime( $until . ' 23:59:59 UTC' ) <= time() ) ) {
-			wp_die( esc_html__( 'Reinstatement requires current accepted evidence and a future validity date.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
+		$snapshot_refresh = array();
+		if ( 'reinstated' === $decision && ( ! GDO_Evidence::all_accepted( $id ) || ! $until || strtotime( $until . ' 23:59:59 UTC' ) <= time() || GDO_Risk::unresolved( $id, 'high' ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id ) ) ) {
+			wp_die( esc_html__( 'Reinstatement requires current File 00 assurance, accepted evidence, a future validity date, and resolved high-risk signals.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
+		}
+		if ( 'reinstated' === $decision ) {
+			$snapshot_refresh = GDO_Application::refresh_approved_snapshot( $app, $until, $actor );
+			if ( is_wp_error( $snapshot_refresh ) ) { wp_die( esc_html( $snapshot_refresh->get_error_message() ), '', array( 'response'=>409 ) ); }
 		}
 		$wpdb->query( 'START TRANSACTION' );
 		$result = GDO_State::transition( $id, $decision, $actor, 'appeal_resolved', $reason, absint( isset( $_POST['row_version'] ) ? $_POST['row_version'] : 0 ), false );
@@ -487,9 +497,9 @@ final class GDO_Admin {
 		$app_data = array( 'claim_status'=>'pending', 'updated_at'=>current_time( 'mysql', true ) );
 		$formats = array( '%s','%s' );
 		if ( 'under_review' === $decision ) { $app_data['assigned_reviewer_id']=null; $app_data['recommender_id']=null; $app_data['finalizer_id']=null; $app_data['recommended_decision']=null; $formats=array( '%s','%s','%s','%s','%s','%s' ); }
-		if ( 'reinstated' === $decision ) { $app_data['verified_until']=gmdate( 'Y-m-d 23:59:59', strtotime( $until . ' UTC' ) ); $app_data['finalizer_id']=$actor; $formats[]='%s'; $formats[]='%d'; }
+		if ( 'reinstated' === $decision ) { $app_data['verified_until']=$snapshot_refresh['verified_until']; $app_data['finalizer_id']=$actor; $app_data['approved_snapshot_json']=$snapshot_refresh['json']; $app_data['approved_fingerprint']=$snapshot_refresh['fingerprint']; $formats[]='%s'; $formats[]='%d'; $formats[]='%s'; $formats[]='%s'; }
 		$app_updated = is_wp_error( $result ) ? false : $wpdb->update( GDO_Schema::table( 'applications' ), $app_data, array( 'id'=>$id ), $formats, array( '%d' ) );
-		$claim = is_wp_error( $result ) || 1 !== $appeal_updated || false === $app_updated ? new WP_Error( 'gdo_appeal_not_ready', __( 'The appeal decision is not ready for claim issuance.', 'global-doctor-onboarding' ) ) : GDO_Claims::issue( $id, $decision, array(), false );
+		$claim = is_wp_error( $result ) || 1 !== $appeal_updated || false === $app_updated ? new WP_Error( 'gdo_appeal_not_ready', __( 'The appeal decision is not ready for claim issuance.', 'global-doctor-onboarding' ) ) : GDO_Claims::issue( $id, $decision, 'reinstated' === $decision ? $snapshot_refresh['snapshot'] : array(), false );
 		$notice_event = is_wp_error( $claim ) ? $claim : GDO_Notifications::queue( 'doctor_verification_appeal_resolved', $app->user_id, array( 'application_id'=>$id, 'state'=>$decision ), false );
 		if ( is_wp_error( $result ) || 1 !== $appeal_updated || false === $app_updated || is_wp_error( $claim ) || is_wp_error( $notice_event ) || false === $wpdb->query( 'COMMIT' ) ) {
 			$wpdb->query( 'ROLLBACK' );

@@ -35,7 +35,7 @@ gdo_cf01_static_assert( false !== strpos( $contract, "'break_glass'" ), 'break-g
 gdo_cf01_static_assert( false !== strpos( $contract, 'apply_monotonic_filter' ), 'extension filtering is monotonic and revoke-only' );
 gdo_cf01_static_assert( false !== strpos( $adapter, 'SMC_CF01_Contract::membership_assertion' ), 'File 09 consumes File 00 opaque-subject contract' );
 gdo_cf01_static_assert( false !== strpos( $adapter, 'SMC_Contracts::assertions' ), 'File 09 consumes exact File 00 general membership contract' );
-gdo_cf01_static_assert( false !== strpos( $adapter, "const FILE00_BASE_VERSION  = '1.1.2'" ), 'File 00 general contract version is exact' );
+gdo_cf01_static_assert( false !== strpos( $adapter, "const FILE00_BASE_VERSION  = '1.2.0'" ), 'File 00 general contract version is exact' );
 gdo_cf01_static_assert( false !== strpos( $adapter, 'SA_Professional_Reauthentication::verify_and_record' ), 'File 09 consumes File 02 professional reauthentication contract' );
 gdo_cf01_static_assert( false === strpos( $adapter, 'get_user_meta(' ), 'membership adapter does not read File 00 metadata directly' );
 gdo_cf01_static_assert( false === strpos( $adapter, 'wp_check_password(' ), 'File 09 does not verify passwords inside its adapter' );
@@ -54,4 +54,8 @@ gdo_cf01_static_assert( false === strpos( $contract, "'license_number'" ), 'publ
 gdo_cf01_static_assert( false !== strpos( $contract, 'gdo_cf01_practitioner_assertion' ), 'owner-executed practitioner assertion function exists' );
 gdo_cf01_static_assert( false !== strpos( $contract, 'gdo_cf01_practitioner_contract' ), 'contract metadata function exists' );
 
+gdo_cf01_static_assert( false === strpos( $contract, "3 !== absint" ), 'CF-01 does not fossilize approved snapshots at schema 3' );
+gdo_cf01_static_assert( false !== strpos( $contract, "GDO_SCHEMA_VERSION" ), 'CF-01 accepts supported snapshots through the current schema' );
+gdo_cf01_static_assert( false !== strpos( $contract, "identity_documents_current" ) && false !== strpos( $contract, "professional_verified" ), 'CF-01 requires current high-trust and professional assurance' );
+gdo_cf01_static_assert( false === strpos( $contract, "empty( \$base['guardian_verified'] ) )" ), 'adult practitioner eligibility has no unconditional guardian gate' );
 echo "File 09 CF-01 static contract: {$tests} PASS, 0 FAIL\n";

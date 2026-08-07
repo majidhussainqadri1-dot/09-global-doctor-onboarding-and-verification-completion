@@ -2,21 +2,21 @@
   "SPDXID": "SPDXRef-DOCUMENT",
   "annotations": [
     {
-      "annotationDate": "2026-08-07T10:38:48Z",
+      "annotationDate": "2026-08-07T11:49:45Z",
       "annotationType": "OTHER",
       "annotator": "Tool: File09-RC2-Release-Metadata-3.0",
       "comment": "SBOM.spdx.json is excluded from its own checksum list to avoid self-reference."
     }
   ],
   "creationInfo": {
-    "created": "2026-08-07T10:38:48Z",
+    "created": "2026-08-07T11:49:45Z",
     "creators": [
       "Organization: Sabri Social Homeopathy Platform",
       "Tool: File09-RC2-Release-Metadata-3.0"
     ]
   },
   "dataLicense": "CC0-1.0",
-  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc2/f7f41888f4ebdbe2",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc2/973f4544a7a72315",
   "files": [
     {
       "SPDXID": "SPDXRef-File-global-doctor-onboarding.php",
@@ -128,7 +128,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "923de11b61812ad2bb59e815e40423b5b2ba002b1c6b5a8a8ebec90816427129"
+          "checksumValue": "a8f3cf76f631d3ea4e18ddc2ffc9fd5de900561766ff2fbef0b6c741067a93e4"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -158,7 +158,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "e82a924d1faa4f889ba734cbc5364a8c8c3d6c50b309c122955cce7d0fb8149e"
+          "checksumValue": "fedc2fd6c0bd5ab27dd739f1ba996f95e0b571bba7b4c473e949dc53d88b9332"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -188,7 +188,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "6a04bd4efea3c5e17288f2c93e27127ad38b0631472651a9eed6ece6732ff00c"
+          "checksumValue": "ef66682e3bcfa711a93856317054fe9aa3581d5de773a13a76c992228bd88576"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -218,7 +218,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "4b9aeca1d52328507bfdc255fbd2614d38049131ca2dfcca3dd1c38099bcdf9c"
+          "checksumValue": "d99c73161e8631d5b13deecb2a1c9b7b96c76d6ca5406618bea1066cffabb7a2"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -263,7 +263,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "f373b549e5830da23f04334fe01ea7989abb0d2c6e4d4c796a523b22786ccb14"
+          "checksumValue": "d41e00c3bf3d61b6bf394ffa9b3ad0648dd3bf66ef168c873cb8d041b5aeb5f1"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -278,7 +278,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "1e31599fa6c832711b393c480e861fa039ad587e1b0eabf5c537c216dfc5a262"
+          "checksumValue": "ee2422fa32a45adaed4a4cf0c48c8462a7ffdc1eb3e860181375ef2c1e196fba"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -353,7 +353,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "b2bd24db56ee0372130a575c1f2d512d9314af35e5ca273f52cdf3697c925e2f"
+          "checksumValue": "d3cef0c6d1314bd03c84bb1e7bbb0c0c7f2a903cd9bc9919fecddfcb635ac867"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -503,7 +503,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "f97a5f2b9951fd3b67c59f265896a592e26c4735f07c0c7f4025972a43e0102c"
+          "checksumValue": "6f9e0cbbddd9328082661cf842adad8c30a90d5f3f98a4f5fbb2afd59094cac3"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -623,7 +623,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "cd9bc23fa732322d3ed964e3919aadd970f3a209b2e0d10e13febe5bc8c6e284"
+          "checksumValue": "81bd3cac29ab4b23c88ee351933ac35fb597eeaccd41661c9bec180e0394131a"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -683,7 +683,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "67ec6ff0eb12bd44ed61c05031d16c4241662bf71516c6a41accf947c018e789"
+          "checksumValue": "31c21b6972d05a57aee16bd2e96b64c68ebed7e727fc1fdf4ea78b208b3cd406"
         }
       ],
       "copyrightText": "NOASSERTION",

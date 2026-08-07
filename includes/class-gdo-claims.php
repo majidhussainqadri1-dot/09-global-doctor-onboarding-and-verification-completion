@@ -31,9 +31,14 @@ final class GDO_Claims {
 			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
 			return new WP_Error( 'gdo_claim_state_mismatch', __( 'The professional claim must match the current locked application state.', 'global-doctor-onboarding' ) );
 		}
-		if ( GDO_State::public_verified( $state ) && ( empty( $app->approved_snapshot_json ) || empty( $app->approved_fingerprint ) ) ) {
+		if ( GDO_State::public_verified( $state ) && ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id ) ) {
 			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
-			return new WP_Error( 'gdo_claim_snapshot_missing', __( 'A verified professional claim requires an immutable approved snapshot.', 'global-doctor-onboarding' ) );
+			return new WP_Error( 'gdo_claim_membership_not_current', __( 'A verified professional claim requires current File 00 identity and doctor-membership assurance.', 'global-doctor-onboarding' ) );
+		}
+		$approved_snapshot = GDO_State::public_verified( $state ) ? GDO_Application::stored_approved_snapshot( $app ) : array();
+		if ( GDO_State::public_verified( $state ) && ! $approved_snapshot ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_claim_snapshot_missing', __( 'A verified professional claim requires a valid immutable approved snapshot.', 'global-doctor-onboarding' ) );
 		}
 		$claim_version = absint( $app->claim_version ) + 1;
 		$subject = GDO_Membership_Adapter::membership_assertion( $app->user_id, 'clinical_identity_link', 'professional_verification_claim', $app->jurisdiction );
@@ -62,8 +67,9 @@ final class GDO_Claims {
 			'producer_version'         => GDO_VERSION,
 			'producer_schema'          => GDO_SCHEMA_VERSION,
 		);
-		if ( $snapshot ) {
-			$payload['snapshot_schema'] = isset( $snapshot['schema'] ) ? absint( $snapshot['schema'] ) : GDO_SCHEMA_VERSION;
+		$snapshot_for_claim = $snapshot ? $snapshot : $approved_snapshot;
+		if ( $snapshot_for_claim ) {
+			$payload['snapshot_schema'] = isset( $snapshot_for_claim['schema'] ) ? absint( $snapshot_for_claim['schema'] ) : GDO_SCHEMA_VERSION;
 		}
 		$payload['signature'] = hash_hmac( 'sha256', self::canonical_json( $payload ), $secret );
 		$payload['signature_algorithm'] = 'HMAC-SHA256';

@@ -89,18 +89,22 @@ final class GDO_CF01_Practitioner_Contract {
 		$result['membership'] = array(
 			'status'             => sanitize_key( $base['status'] ),
 			'approved'           => ! empty( $base['approved'] ),
+			'eligible'           => ! empty( $base['eligible'] ),
 			'suspended'          => ! empty( $base['suspended'] ),
 			'email_verified'     => ! empty( $base['email_verified'] ),
 			'phone_verified'     => ! empty( $base['phone_verified'] ),
 			'two_factor_ready'   => ! empty( $base['two_factor_ready'] ),
 			'guardian_verified'  => ! empty( $base['guardian_verified'] ),
+			'professional_verified' => ! empty( $base['professional_verified'] ),
+			'identity_documents_current' => ! empty( $base['identity_documents_current'] ),
+			'identity_assurance' => isset( $subject['membership']['identity_assurance'] ) ? sanitize_key( $subject['membership']['identity_assurance'] ) : 'none',
 		);
 		if ( empty( $base['approved'] ) || ! empty( $base['suspended'] ) ) {
 			$result['result'] = 'deny';
 			$result['reason_code'] = 'membership_not_current';
 			return $result;
 		}
-		if ( empty( $base['email_verified'] ) || empty( $base['phone_verified'] ) || empty( $base['two_factor_ready'] ) || empty( $base['guardian_verified'] ) ) {
+		if ( empty( $base['eligible'] ) || empty( $base['professional_verified'] ) || empty( $base['identity_documents_current'] ) || empty( $base['email_verified'] ) || empty( $base['phone_verified'] ) || empty( $base['two_factor_ready'] ) || 'verified' !== $result['membership']['identity_assurance'] ) {
 			$result['result'] = 'deny';
 			$result['reason_code'] = 'membership_identity_assurance_incomplete';
 			return $result;
@@ -209,19 +213,22 @@ final class GDO_CF01_Practitioner_Contract {
 	}
 
 	private static function valid_snapshot( $snapshot, $decision ) {
-		if ( ! is_array( $snapshot )
-			|| 3 !== absint( isset( $snapshot['schema'] ) ? $snapshot['schema'] : 0 )
+		$schema = is_array( $snapshot ) && isset( $snapshot['schema'] ) ? absint( $snapshot['schema'] ) : 0;
+		$current_schema = defined( 'GDO_SCHEMA_VERSION' ) ? absint( GDO_SCHEMA_VERSION ) : 0;
+		if ( ! is_array( $snapshot ) || $schema < 3 || ! $current_schema || $schema > $current_schema
 			|| ! isset( $snapshot['application_uuid'], $snapshot['application_version'], $snapshot['profile'], $snapshot['evidence'], $snapshot['verified_until'] )
 			|| ! hash_equals( (string) $decision['application_uuid'], (string) $snapshot['application_uuid'] )
 			|| absint( $decision['version'] ) !== absint( $snapshot['application_version'] )
-			|| ! is_array( $snapshot['profile'] )
-			|| ! is_array( $snapshot['evidence'] )
-			|| ! hash_equals( (string) $decision['verified_until'], gmdate( 'Y-m-d H:i:s', strtotime( (string) $snapshot['verified_until'] . ' 23:59:59 UTC' ) ) ) ) {
-			return false;
-		}
+			|| ! is_array( $snapshot['profile'] ) || ! is_array( $snapshot['evidence'] )
+			|| ! hash_equals( self::normalized_end_of_day( $decision['verified_until'] ), self::normalized_end_of_day( $snapshot['verified_until'] ) ) ) return false;
 		$computed = GDO_Application::fingerprint( (array) $snapshot['profile'], (array) $snapshot['evidence'] );
-		return 1 === preg_match( '/^[a-f0-9]{64}$/i', (string) $computed )
-			&& hash_equals( (string) $decision['fingerprint'], (string) $computed );
+		return 1 === preg_match( '/^[a-f0-9]{64}$/i', (string) $computed ) && hash_equals( (string) $decision['fingerprint'], (string) $computed );
+	}
+
+	private static function normalized_end_of_day( $value ) {
+		$value = trim( (string) $value );
+		$timestamp = strtotime( $value . ( 10 === strlen( $value ) ? ' 23:59:59 UTC' : ' UTC' ) );
+		return false === $timestamp ? '' : gmdate( 'Y-m-d 23:59:59', $timestamp );
 	}
 
 	private static function evidence_projection( $snapshot ) {

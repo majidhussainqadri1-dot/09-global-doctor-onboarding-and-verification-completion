@@ -10,7 +10,7 @@ defined( 'ABSPATH' ) || exit;
 final class GDO_Membership_Adapter {
 	const FILE00_CONTRACT      = 'smc.cf01.membership-assurance';
 	const FILE00_VERSION       = '1.0.0';
-	const FILE00_BASE_VERSION  = '1.1.2';
+	const FILE00_BASE_VERSION  = '1.2.0';
 	const FILE02_CONTRACT      = 'sa.professional-reauthentication';
 	const FILE02_VERSION       = '1.0.0';
 
@@ -75,8 +75,8 @@ final class GDO_Membership_Adapter {
 		$profile['email_verified']    = ! empty( $base['email_verified'] );
 		$profile['mobile_verified']   = ! empty( $base['phone_verified'] );
 		$profile['two_factor']        = ! empty( $base['two_factor_ready'] );
-		$profile['identity_verified'] = ! empty( $base['email_verified'] ) && ! empty( $base['phone_verified'] );
-		$profile['doctor_verified']   = ! empty( $base['professional_verified'] ); // Legacy display compatibility only; never File 09 authority.
+		$profile['identity_verified'] = self::identity_assurance_current( $user_id );
+		$profile['doctor_verified']   = function_exists( 'gdo_user_is_verified' ) ? (bool) gdo_user_is_verified( $user_id ) : false; // File 09 owns professional verification truth.
 		$profile['approval_version']  = $subject && isset( $subject['subject']['record_version'] ) ? absint( $subject['subject']['record_version'] ) : 0;
 		$profile['platform_uuid']     = $subject && isset( $subject['subject']['platform_uuid'] ) ? (string) $subject['subject']['platform_uuid'] : '';
 		$profile['calculated_age']    = $subject && ! empty( $subject['age_context']['known'] ) ? absint( $subject['age_context']['age_years'] ) : 0;
@@ -107,25 +107,33 @@ final class GDO_Membership_Adapter {
 			|| in_array( sanitize_key( $base['status'] ), array( 'suspended', 'rejected', 'revoked', 'expired', 'appeal_review', 'erasure_pending', 'invalid_application', 'blocked', 'banned' ), true );
 	}
 
+	public static function identity_assurance_current( $user_id ) {
+		$base = self::base_assertion( $user_id );
+		return $base
+			&& ! empty( $base['application_exists'] )
+			&& 'approved' === sanitize_key( $base['status'] )
+			&& ! empty( $base['approved'] )
+			&& ! empty( $base['identity_documents_current'] )
+			&& ! empty( $base['email_verified'] )
+			&& ! empty( $base['phone_verified'] )
+			&& ! empty( $base['two_factor_ready'] );
+	}
+
 	public static function is_active_doctor_candidate( $user_id ) {
 		$user_id = absint( $user_id );
 		$base = self::base_assertion( $user_id );
 		$subject = self::membership_assertion( $user_id, 'clinical_identity_link', 'doctor_application' );
-		if ( ! $base || ! $subject || self::sanctioned( $user_id ) ) {
+		if ( ! $base || ! $subject || self::sanctioned( $user_id ) || ! self::identity_assurance_current( $user_id ) ) {
 			return false;
 		}
 		$age = isset( $subject['age_context'] ) && is_array( $subject['age_context'] ) ? $subject['age_context'] : array();
 		$age_years = ! empty( $age['known'] ) ? absint( $age['age_years'] ) : 0;
 		$minimum_age = max( 18, absint( apply_filters( 'gdo_minimum_professional_age', 18, $user_id, $base, $subject ) ) );
-		$guardian_required = $age_years > 0 && $age_years < 18;
-		$guardian_ok = ! $guardian_required || ! empty( $base['guardian_verified'] );
+		$approved_types = isset( $base['approved_membership_types'] ) && is_array( $base['approved_membership_types'] ) ? array_map( 'sanitize_key', $base['approved_membership_types'] ) : array();
 		$eligible = 'doctor' === sanitize_key( $base['membership_type'] )
-			&& ! empty( $base['approved'] )
-			&& ! empty( $base['email_verified'] )
-			&& ! empty( $base['phone_verified'] )
-			&& ! empty( $base['two_factor_ready'] )
-			&& $guardian_ok
+			&& in_array( 'doctor', $approved_types, true )
 			&& $age_years >= $minimum_age;
+		// Professional verification itself is intentionally not required here: File 09 is the professional verifier.
 		return (bool) apply_filters( 'gdo_file00_doctor_application_eligible', $eligible, $user_id, $base, $subject );
 	}
 
@@ -230,7 +238,7 @@ final class GDO_Membership_Adapter {
 	}
 
 	private static function valid_base_assertion( $assertion, $user_id ) {
-		$required = array( 'contract_version', 'user_id', 'membership_type', 'status', 'approved', 'suspended', 'two_factor_ready', 'phone_verified', 'email_verified', 'guardian_verified' );
+		$required = array( 'contract_version', 'user_id', 'application_exists', 'account_class', 'membership_type', 'approved_membership_types', 'status', 'approved', 'suspended', 'eligible', 'two_factor_ready', 'phone_verified', 'email_verified', 'guardian_verified', 'professional_verified', 'identity_documents_current' );
 		if ( ! is_array( $assertion ) || self::FILE00_BASE_VERSION !== ( isset( $assertion['contract_version'] ) ? (string) $assertion['contract_version'] : '' ) ) {
 			return false;
 		}
@@ -239,7 +247,8 @@ final class GDO_Membership_Adapter {
 				return false;
 			}
 		}
-		return absint( $assertion['user_id'] ) === absint( $user_id );
+		return absint( $assertion['user_id'] ) === absint( $user_id )
+			&& is_array( $assertion['approved_membership_types'] );
 	}
 
 	private static function valid_membership_assertion( $assertion ) {
@@ -247,12 +256,14 @@ final class GDO_Membership_Adapter {
 			|| self::FILE00_CONTRACT !== ( isset( $assertion['contract'] ) ? $assertion['contract'] : '' )
 			|| self::FILE00_VERSION !== ( isset( $assertion['contract_version'] ) ? $assertion['contract_version'] : '' )
 			|| ! in_array( isset( $assertion['result'] ) ? $assertion['result'] : '', array( 'allow', 'deny', 'unknown' ), true )
-			|| ! isset( $assertion['subject']['platform_uuid'], $assertion['issued_at'], $assertion['expires_at'] ) ) {
+			|| ! isset( $assertion['subject']['platform_uuid'], $assertion['subject']['record_version'], $assertion['membership'], $assertion['age_context'], $assertion['jurisdiction_context'], $assertion['issued_at'], $assertion['expires_at'] )
+			|| ! is_array( $assertion['membership'] ) || ! is_array( $assertion['age_context'] ) || ! is_array( $assertion['jurisdiction_context'] ) ) {
 			return false;
 		}
 		$issued = strtotime( (string) $assertion['issued_at'] );
 		$expires = strtotime( (string) $assertion['expires_at'] );
 		return self::valid_uuid( $assertion['subject']['platform_uuid'] )
+			&& absint( $assertion['subject']['record_version'] ) > 0
 			&& false !== $issued
 			&& false !== $expires
 			&& $issued <= time() + 60

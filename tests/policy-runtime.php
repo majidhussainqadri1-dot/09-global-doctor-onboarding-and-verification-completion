@@ -11,7 +11,7 @@ $files = array(
 );
 $pass = 0;
 function gdo_policy_assert( $condition, $message ) { global $pass; if ( ! $condition ) { fwrite( STDERR, "FAIL: {$message}\n" ); exit( 1 ); } ++$pass; echo "PASS: {$message}\n"; }
-gdo_policy_assert( false !== strpos( $files['policy'], "const VERSION       = '2026-08-06.1'" ), 'policy is explicitly versioned' );
+gdo_policy_assert( false !== strpos( $files['policy'], "const VERSION       = '2026-08-07.2'" ), 'policy is explicitly versioned' );
 gdo_policy_assert( false !== strpos( $files['policy'], 'professional_age_not_met' ), 'professional age gate is fail closed' );
 gdo_policy_assert( false !== strpos( $files['policy'], 'identity_assurance_incomplete' ), 'email phone and AAL2 readiness are required' );
 gdo_policy_assert( false !== strpos( $files['application'], 'submission_hash' ) && false !== strpos( $files['application'], 'START TRANSACTION' ), 'submission is immutable and transactional' );

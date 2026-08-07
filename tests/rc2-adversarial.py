@@ -4,7 +4,7 @@ root=Path(__file__).resolve().parents[1]
 def fail(m): print('FAIL:',m,file=sys.stderr); raise SystemExit(1)
 def text(p): return (root/p).read_text(encoding='utf-8')
 member=text('includes/class-gdo-membership-adapter.php')
-if 'guardian_ok' not in member or '&& $guardian_ok' not in member: fail('guardian applicability control missing')
+if 'identity_documents_current' not in member or 'approved_membership_types' not in member or 'age_years >= $minimum_age' not in member: fail('current adult professional identity/eligibility control missing')
 api=text('includes/class-gdo-api.php')
 if "array( 'draft','more_information','resubmitted' )" in api: fail('submitted snapshot exposed as editable')
 js=text('assets/js/onboarding.js')
