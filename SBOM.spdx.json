@@ -2,21 +2,21 @@
   "SPDXID": "SPDXRef-DOCUMENT",
   "annotations": [
     {
-      "annotationDate": "2026-08-07T10:38:26Z",
+      "annotationDate": "2026-08-07T10:38:48Z",
       "annotationType": "OTHER",
       "annotator": "Tool: File09-RC2-Release-Metadata-3.0",
       "comment": "SBOM.spdx.json is excluded from its own checksum list to avoid self-reference."
     }
   ],
   "creationInfo": {
-    "created": "2026-08-07T10:38:26Z",
+    "created": "2026-08-07T10:38:48Z",
     "creators": [
       "Organization: Sabri Social Homeopathy Platform",
       "Tool: File09-RC2-Release-Metadata-3.0"
     ]
   },
   "dataLicense": "CC0-1.0",
-  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc2/1d0bf2881f8afe1f",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc2/f7f41888f4ebdbe2",
   "files": [
     {
       "SPDXID": "SPDXRef-File-global-doctor-onboarding.php",
@@ -608,7 +608,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "b018b33c9aa71f8c6803e05b869e7966e972389547a28f7bef93cb6a7cfd960a"
+          "checksumValue": "daec82def0c3aa0730f4410306658ab47a2e35c875d278ffae94a6e6d8f5c45f"
         }
       ],
       "copyrightText": "NOASSERTION",
