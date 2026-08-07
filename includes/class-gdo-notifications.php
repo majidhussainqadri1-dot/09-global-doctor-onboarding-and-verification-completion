@@ -16,6 +16,7 @@ final class GDO_Notifications {
 			'doctor_verification_renewal_due'     => array( 'administration','high','Doctor verification renewal due','Updated professional evidence is required to keep verification current.' ),
 			'doctor_verification_reinstated'      => array( 'administration','high','Doctor verification reinstated','Your doctor verification has been reinstated.' ),
 			'doctor_verification_appeal'          => array( 'administration','high','Verification appeal filed','A verification appeal has been filed and will be independently reviewed.' ),
+			'doctor_verification_appeal_assigned' => array( 'administration','high','Verification appeal assigned','An independent verification appeal has been assigned to you for review.' ),
 			'doctor_verification_appeal_resolved' => array( 'administration','high','Verification appeal resolved','The verification appeal has been resolved.' ),
 			'doctor_credential_accessed'          => array( 'security','high','Credential evidence accessed','An authorized reviewer accessed private credential evidence for a recorded purpose.' ),
 			'doctor_application_draft_expiring'   => array( 'administration','normal','Doctor application draft expiring','Your private doctor application draft will expire soon unless it is completed.' ),

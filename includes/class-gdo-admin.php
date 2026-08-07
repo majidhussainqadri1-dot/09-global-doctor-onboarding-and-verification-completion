@@ -12,6 +12,7 @@ final class GDO_Admin {
 		add_action( 'admin_post_gdo_finalize_decision', array( $this, 'finalize' ) );
 		add_action( 'admin_post_gdo_issue_evidence_grant', array( $this, 'issue_evidence_grant' ) );
 		add_action( 'admin_post_gdo_change_verification_state', array( $this, 'change_state' ) );
+		add_action( 'admin_post_gdo_assign_appeal', array( $this, 'assign_appeal' ) );
 		add_action( 'admin_post_gdo_resolve_appeal', array( $this, 'resolve_appeal' ) );
 		add_action( 'admin_post_gdo_resolve_risk', array( $this, 'resolve_risk' ) );
 		add_action( 'admin_post_gdo_complete_quality_sample', array( $this, 'complete_quality_sample' ) );
@@ -26,7 +27,7 @@ final class GDO_Admin {
 			return;
 		}
 		global $admin_page_hooks;
-		$cap = 'smc_review_verification';
+		$cap = 'read';
 		if ( isset( $admin_page_hooks['smc-membership'] ) ) {
 			add_submenu_page( 'smc-membership', __( 'Doctor Verification', 'global-doctor-onboarding' ), __( 'Doctor Verification', 'global-doctor-onboarding' ), $cap, 'global-doctor-verification', array( $this, 'page' ) );
 		} else {
@@ -174,7 +175,13 @@ final class GDO_Admin {
 			?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="gdo_change_verification_state"><input type="hidden" name="application_id" value="<?php echo absint( $app->id ); ?>"><input type="hidden" name="row_version" value="<?php echo absint( $app->row_version ); ?>"><?php wp_nonce_field( 'gdo_change_verification_state_' . $app->id ); ?><select name="state"><option value="renewal_due">Renewal due</option><option value="suspended">Suspend</option><option value="revoked">Revoke</option><option value="reinstated">Reinstate</option></select><input type="date" name="verified_until"><textarea name="reason" required minlength="20"></textarea><button class="button"><?php esc_html_e( 'Apply lifecycle decision', 'global-doctor-onboarding' ); ?></button></form><?php
 		}
 		if ( $manager && 'appeal_pending' === $app->state ) {
-			?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="gdo_resolve_appeal"><input type="hidden" name="application_id" value="<?php echo absint( $app->id ); ?>"><input type="hidden" name="row_version" value="<?php echo absint( $app->row_version ); ?>"><?php wp_nonce_field( 'gdo_resolve_appeal_' . $app->id ); ?><select name="decision"><option value="under_review">Reopen review</option><option value="reinstated">Reinstate</option><option value="rejected">Uphold rejection</option><option value="suspended">Uphold suspension</option><option value="revoked">Uphold revocation</option></select><input type="date" name="verified_until"><textarea name="reason" required minlength="20"></textarea><button class="button button-primary"><?php esc_html_e( 'Resolve appeal independently', 'global-doctor-onboarding' ); ?></button></form><?php
+			global $wpdb;
+			$appeal = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE application_id=%d AND status='open' ORDER BY id DESC LIMIT 1", $app->id ) );
+			if ( $appeal && empty( $appeal->assigned_reviewer_id ) ) {
+				?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="gdo_assign_appeal"><input type="hidden" name="application_id" value="<?php echo absint( $app->id ); ?>"><input type="hidden" name="appeal_id" value="<?php echo absint( $appeal->id ); ?>"><?php wp_nonce_field( 'gdo_assign_appeal_' . $appeal->id ); ?><label><?php esc_html_e( 'Independent senior reviewer user ID', 'global-doctor-onboarding' ); ?><input type="number" min="1" name="reviewer_id" required></label><button class="button"><?php esc_html_e( 'Assign appeal independently', 'global-doctor-onboarding' ); ?></button></form><?php
+			} elseif ( $appeal && absint( $appeal->assigned_reviewer_id ) === absint( $reviewer ) ) {
+				?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="gdo_resolve_appeal"><input type="hidden" name="application_id" value="<?php echo absint( $app->id ); ?>"><input type="hidden" name="row_version" value="<?php echo absint( $app->row_version ); ?>"><?php wp_nonce_field( 'gdo_resolve_appeal_' . $app->id ); ?><select name="decision"><option value="under_review">Reopen review</option><option value="reinstated">Reinstate</option><option value="rejected">Uphold rejection</option><option value="suspended">Uphold suspension</option><option value="revoked">Uphold revocation</option></select><input type="date" name="verified_until"><textarea name="reason" required minlength="20"></textarea><button class="button button-primary"><?php esc_html_e( 'Resolve appeal independently', 'global-doctor-onboarding' ); ?></button></form><?php
+			}
 		}
 	}
 
@@ -234,31 +241,31 @@ final class GDO_Admin {
 		check_admin_referer( 'gdo_review_evidence_' . $id );
 		$record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id=%d', $id ) );
 		$app = $record ? GDO_Application::get( $record->application_id ) : null;
-		if ( ! $app || absint( $app->assigned_reviewer_id ) !== get_current_user_id() || ! GDO_Membership_Adapter::reviewer_scope_allows( get_current_user_id(), $app->user_id, $app->id ) ) {
+		$reviewer = get_current_user_id();
+		if ( ! $app || absint( $app->assigned_reviewer_id ) !== $reviewer || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer, $app->user_id, $app->id ) ) {
 			wp_die( esc_html__( 'Evidence review access denied.', 'global-doctor-onboarding' ), '', array( 'response'=>403 ) );
 		}
 		$status = sanitize_key( isset( $_POST['status'] ) ? $_POST['status'] : '' );
-		$result = GDO_Evidence::review( $id, get_current_user_id(), $status, isset( $_POST['checklist'] ) ? (array) $_POST['checklist'] : array(), isset( $_POST['registry_result'] ) ? $_POST['registry_result'] : '', isset( $_POST['validity_from'] ) ? $_POST['validity_from'] : '', isset( $_POST['validity_until'] ) ? $_POST['validity_until'] : '', isset( $_POST['review_note'] ) ? $_POST['review_note'] : '' );
-		if ( is_wp_error( $result ) ) {
-			wp_die( esc_html( $result->get_error_message() ), '', array( 'response'=>400 ) );
-		}
-		if ( in_array( $status, array( 'more_information','rejected' ), true ) && 'under_review' === $app->state ) {
-			$reason = sanitize_textarea_field( isset( $_POST['review_note'] ) ? $_POST['review_note'] : '' );
+		$reason = sanitize_textarea_field( isset( $_POST['review_note'] ) ? $_POST['review_note'] : '' );
+		$wpdb->query( 'START TRANSACTION' );
+		$result = GDO_Evidence::review( $id, $reviewer, $status, isset( $_POST['checklist'] ) ? (array) $_POST['checklist'] : array(), isset( $_POST['registry_result'] ) ? $_POST['registry_result'] : '', isset( $_POST['validity_from'] ) ? $_POST['validity_from'] : '', isset( $_POST['validity_until'] ) ? $_POST['validity_until'] : '', $reason, false );
+		$event = null;
+		if ( ! is_wp_error( $result ) && in_array( $status, array( 'more_information','rejected' ), true ) ) {
 			$due = gmdate( 'Y-m-d H:i:s', time() + absint( apply_filters( 'gdo_more_information_days', 14, $app->id ) ) * DAY_IN_SECONDS );
-			$wpdb->query( 'START TRANSACTION' );
-			$state = GDO_State::transition( $app->id, 'more_information', get_current_user_id(), 'more_information_required', $reason, $app->row_version, false );
+			$state = GDO_State::transition( $app->id, 'more_information', $reviewer, 'more_information_required', $reason, $app->row_version, false );
 			$updated = is_wp_error( $state ) ? false : $wpdb->update( GDO_Schema::table( 'applications' ), array( 'more_info_due_at'=>$due, 'updated_at'=>current_time( 'mysql', true ) ), array( 'id'=>$app->id ), array( '%s','%s' ), array( '%d' ) );
 			$event = is_wp_error( $state ) || false === $updated ? new WP_Error( 'gdo_more_info_not_ready', __( 'The information request is not ready for notification.', 'global-doctor-onboarding' ) ) : GDO_Notifications::queue( 'doctor_application_more_information', $app->user_id, array( 'application_id'=>$app->id, 'due_at'=>gmdate( 'c', strtotime( $due . ' UTC' ) ), 'evidence_type'=>$record->document_type ), false );
-			if ( is_wp_error( $state ) || false === $updated || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
-				$wpdb->query( 'ROLLBACK' );
-				$error = is_wp_error( $state ) ? $state : ( is_wp_error( $event ) ? $event : new WP_Error( 'gdo_more_info_commit', __( 'The information request could not be committed.', 'global-doctor-onboarding' ) ) );
-				wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
-			}
-			GDO_Notifications::process( 1, $event );
+			if ( is_wp_error( $state ) ) { $result = $state; }
 		}
+		if ( is_wp_error( $result ) || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			$error = is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : new WP_Error( 'gdo_evidence_review_commit', __( 'The credential review could not be committed.', 'global-doctor-onboarding' ) ) );
+			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
+		}
+		GDO_Membership_Adapter::audit( 'doctor_evidence_reviewed', array( 'application_id'=>absint($app->id),'evidence_id'=>$id,'reviewer_id'=>$reviewer,'status'=>$status ) );
+		if ( $event ) { GDO_Notifications::process( 1, $event ); }
 		$this->redirect();
 	}
-
 
 	public function request_more_info() {
 		$this->guard( 'sabri_verify_doctors' );
@@ -426,6 +433,34 @@ final class GDO_Admin {
 		$this->redirect();
 	}
 
+	public function assign_appeal() {
+		$this->guard( 'sabri_manage_doctor_verification' );
+		global $wpdb;
+		$application_id = absint( isset( $_POST['application_id'] ) ? $_POST['application_id'] : 0 );
+		$appeal_id = absint( isset( $_POST['appeal_id'] ) ? $_POST['appeal_id'] : 0 );
+		$reviewer_id = absint( isset( $_POST['reviewer_id'] ) ? $_POST['reviewer_id'] : 0 );
+		check_admin_referer( 'gdo_assign_appeal_' . $appeal_id );
+		$app = GDO_Application::get( $application_id );
+		$appeal = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE id=%d AND application_id=%d AND status='open'", $appeal_id, $application_id ) );
+		$conflicts = $app ? array_filter( array( absint( $app->user_id ), absint( $app->assigned_reviewer_id ), absint( $app->recommender_id ), absint( $app->finalizer_id ) ) ) : array();
+		$eligible = $app ? $this->reviewer_eligible( $reviewer_id, $app ) : new WP_Error( 'gdo_application_missing', __( 'Application unavailable.', 'global-doctor-onboarding' ) );
+		if ( ! $app || ! $appeal || 'appeal_pending' !== $app->state || ! empty( $appeal->assigned_reviewer_id ) || in_array( $reviewer_id, $conflicts, true ) || is_wp_error( $eligible ) || ! GDO_Membership_Adapter::can( 'sabri_finalize_doctor_verification', $reviewer_id ) ) {
+			$message = is_wp_error( $eligible ) ? $eligible->get_error_message() : __( 'The appeal cannot be assigned to that reviewer.', 'global-doctor-onboarding' );
+			wp_die( esc_html( $message ), '', array( 'response'=>400 ) );
+		}
+		$wpdb->query( 'START TRANSACTION' );
+		$updated = $wpdb->query( $wpdb->prepare( 'UPDATE ' . GDO_Schema::table( 'appeals' ) . " SET assigned_reviewer_id=%d WHERE id=%d AND application_id=%d AND status='open' AND assigned_reviewer_id IS NULL", $reviewer_id, $appeal_id, $application_id ) );
+		$event = 1 === $updated ? GDO_Notifications::queue( 'doctor_verification_appeal_assigned', $reviewer_id, array( 'application_id'=>$application_id, 'appeal_id'=>$appeal_id ), false ) : new WP_Error( 'gdo_appeal_assignment_conflict', __( 'The appeal assignment changed. Reload and try again.', 'global-doctor-onboarding' ) );
+		if ( 1 !== $updated || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			$error = is_wp_error( $event ) ? $event : new WP_Error( 'gdo_appeal_assignment_commit', __( 'The appeal assignment could not be committed.', 'global-doctor-onboarding' ) );
+			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
+		}
+		GDO_Membership_Adapter::audit( 'doctor_verification_appeal_assigned', array( 'application_id'=>$application_id, 'appeal_id'=>$appeal_id, 'reviewer_id'=>$reviewer_id, 'actor_id'=>get_current_user_id() ) );
+		GDO_Notifications::process( 1, $event );
+		$this->redirect();
+	}
+
 	public function resolve_appeal() {
 		$this->guard( 'sabri_finalize_doctor_verification' );
 		global $wpdb;
@@ -439,7 +474,8 @@ final class GDO_Admin {
 		$appeal = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE application_id=%d AND status='open' ORDER BY id DESC LIMIT 1", $id ) );
 		$allowed = array( 'rejected'=>array( 'under_review','rejected','revoked' ), 'suspended'=>array( 'under_review','reinstated','suspended','revoked' ), 'revoked'=>array( 'under_review','reinstated','revoked' ) );
 		$conflict = $app && in_array( $actor, array( absint( $app->assigned_reviewer_id ), absint( $app->recommender_id ), absint( $app->finalizer_id ), absint( $app->user_id ) ), true );
-		if ( ! $app || ! $appeal || 'appeal_pending' !== $app->state || $conflict || strlen( $reason ) < 20 || empty( $allowed[ $appeal->source_state ] ) || ! in_array( $decision, $allowed[ $appeal->source_state ], true ) || ! GDO_State::can_transition( $app->state, $decision ) || ! GDO_Membership_Adapter::reviewer_scope_allows( $actor, $app->user_id, $id ) ) {
+		$assigned_to_actor = $appeal && absint( $appeal->assigned_reviewer_id ) === $actor;
+		if ( ! $app || ! $appeal || 'appeal_pending' !== $app->state || ! $assigned_to_actor || $conflict || strlen( $reason ) < 20 || empty( $allowed[ $appeal->source_state ] ) || ! in_array( $decision, $allowed[ $appeal->source_state ], true ) || ! GDO_State::can_transition( $app->state, $decision ) || ! GDO_Membership_Adapter::reviewer_scope_allows( $actor, $app->user_id, $id ) ) {
 			wp_die( esc_html__( 'Invalid, conflicted, or unauthorized appeal decision.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
 		if ( 'reinstated' === $decision && ( ! GDO_Evidence::all_accepted( $id ) || ! $until || strtotime( $until . ' 23:59:59 UTC' ) <= time() ) ) {

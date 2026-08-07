@@ -1,11 +1,11 @@
 {
-  "canonical_source_inventory_sha256": "346478dd2e4f211319b0144fb0468a9fc38bac9fb9c63c9628786c3f9ed77752",
+  "assurance_workflow": ".github/workflows/file09-rc2-final.yml",
   "live_deployed": false,
   "operationally_accepted": false,
   "package_root": "global-doctor-onboarding-09/",
-  "release_file_count": 42,
+  "release_candidate": "RC2",
+  "release_file_count": 45,
   "runtime": "1.2.0",
   "schema": 6,
-  "source_inventory_count": 69,
   "staging_accepted": false
 }

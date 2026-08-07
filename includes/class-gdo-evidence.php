@@ -320,13 +320,17 @@ final class GDO_Evidence {
         return true;
     }
 
-    public static function review( $evidence_id, $reviewer_id, $status, array $checklist, $registry_result, $validity_from, $validity_until, $review_note ) {
+    public static function review( $evidence_id, $reviewer_id, $status, array $checklist, $registry_result, $validity_from, $validity_until, $review_note, $manage_transaction = true ) {
         global $wpdb;
-        $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . " WHERE id=%d AND retention_state='active' AND deleted_at IS NULL", absint( $evidence_id ) ) );
-        $app = $record ? GDO_Application::get( $record->application_id ) : null;
+        if ( $manage_transaction ) {
+            $wpdb->query( 'START TRANSACTION' );
+        }
+        $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . " WHERE id=%d AND retention_state='active' AND deleted_at IS NULL FOR UPDATE", absint( $evidence_id ) ) );
+        $app = $record ? $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE', absint( $record->application_id ) ) ) : null;
         $status = sanitize_key( $status );
         $review_note = sanitize_textarea_field( $review_note );
         if ( ! $record || ! $app || 'under_review' !== $app->state || absint( $app->assigned_reviewer_id ) !== absint( $reviewer_id ) || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! in_array( $status, array( 'accepted', 'rejected', 'more_information' ), true ) ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return new WP_Error( 'gdo_evidence_review', __( 'Invalid credential review.', 'global-doctor-onboarding' ) );
         }
         $clean = array(
@@ -337,16 +341,29 @@ final class GDO_Evidence {
         );
         if ( 'accepted' === $status ) {
             if ( 'yes' !== $clean['name_match'] || 'yes' !== $clean['document_legible'] || 'yes' !== $clean['scope_match'] || strlen( $clean['authenticity_method'] ) < 5 ) {
+                if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
                 return new WP_Error( 'gdo_evidence_checklist', __( 'Accepted credentials require a complete affirmative checklist and authenticity method.', 'global-doctor-onboarding' ) );
             }
             if ( 'license' === $record->document_type ) {
                 $accepted_registry = array( 'verified','active','matched' );
                 if ( ! in_array( sanitize_key($registry_result), $accepted_registry, true ) || ! $validity_until || strtotime( $validity_until . ' 23:59:59 UTC' ) <= time() ) {
+                    if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
                     return new WP_Error( 'gdo_license_review', __( 'An accepted license requires a verified registry result and future validity date.', 'global-doctor-onboarding' ) );
                 }
             }
         } elseif ( strlen( $review_note ) < 20 ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return new WP_Error( 'gdo_evidence_note', __( 'Explain the rejection or information request in at least 20 characters.', 'global-doctor-onboarding' ) );
+        }
+        foreach ( array( 'validity_from'=>$validity_from, 'validity_until'=>$validity_until ) as $date_name=>$date_value ) {
+            if ( $date_value && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $date_value ) ) {
+                if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+                return new WP_Error( 'gdo_evidence_date', __( 'Credential validity dates must use the YYYY-MM-DD format.', 'global-doctor-onboarding' ) );
+            }
+        }
+        if ( $validity_from && $validity_until && strtotime( $validity_from . ' 00:00:00 UTC' ) > strtotime( $validity_until . ' 23:59:59 UTC' ) ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+            return new WP_Error( 'gdo_evidence_date_order', __( 'Credential validity start cannot be after its expiry.', 'global-doctor-onboarding' ) );
         }
         $data = array(
             'status'          => $status,
@@ -354,18 +371,34 @@ final class GDO_Evidence {
             'findings_json'   => wp_json_encode( array( 'field_findings'=>$clean, 'source_checked'=>sanitize_text_field( $registry_result ) ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ),
             'review_note'     => $review_note,
             'registry_result' => sanitize_key( $registry_result ),
+            'registry_source' => $clean['authenticity_method'],
             'reviewer_id'     => absint( $reviewer_id ),
             'reviewed_at'     => current_time( 'mysql', true ),
             'validity_from'   => $validity_from ? sanitize_text_field( $validity_from ) : null,
             'validity_until'  => $validity_until ? sanitize_text_field( $validity_until ) : null,
             'updated_at'      => current_time( 'mysql', true ),
         );
-        $updated = $wpdb->update( GDO_Schema::table( 'evidence' ), $data, array( 'id'=>$record->id ), array( '%s','%s','%s','%s','%s','%d','%s','%s','%s','%s' ), array( '%d' ) );
-        if ( false === $updated ) {
-            return new WP_Error( 'gdo_evidence_review_write', __( 'The credential review could not be stored.', 'global-doctor-onboarding' ) );
+        $updated = $wpdb->query( $wpdb->prepare(
+            'UPDATE ' . GDO_Schema::table( 'evidence' ) . ' SET status=%s,checklist_json=%s,findings_json=%s,review_note=%s,registry_result=%s,registry_source=%s,reviewer_id=%d,reviewed_at=%s,validity_from=NULLIF(%s,\'\'),validity_until=NULLIF(%s,\'\'),updated_at=%s WHERE id=%d AND status IN (\'pending_review\',\'more_information\',\'rejected\')',
+            $data['status'], $data['checklist_json'], $data['findings_json'], $data['review_note'], $data['registry_result'], $data['registry_source'], $data['reviewer_id'], $data['reviewed_at'], $data['validity_from'], $data['validity_until'], $data['updated_at'], absint( $record->id )
+        ) );
+        if ( 1 !== $updated ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+            return new WP_Error( 'gdo_evidence_review_conflict', __( 'The credential review changed. Reload before recording another decision.', 'global-doctor-onboarding' ) );
         }
-        GDO_Membership_Adapter::audit( 'doctor_evidence_reviewed', array( 'application_id'=>absint($record->application_id),'evidence_id'=>absint($record->id),'reviewer_id'=>absint($reviewer_id),'status'=>$status ) );
+        if ( $manage_transaction && false === $wpdb->query( 'COMMIT' ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'gdo_evidence_review_commit', __( 'The credential review could not be committed.', 'global-doctor-onboarding' ) );
+        }
+        if ( $manage_transaction ) {
+            GDO_Membership_Adapter::audit( 'doctor_evidence_reviewed', array( 'application_id'=>absint($record->application_id),'evidence_id'=>absint($record->id),'reviewer_id'=>absint($reviewer_id),'status'=>$status ) );
+        }
         return true;
+    }
+
+    private static function purpose_code( $purpose ) {
+        $code = substr( sanitize_key( wp_trim_words( (string) $purpose, 8, '' ) ), 0, 80 );
+        return $code ? $code : 'credential_review_recorded_purpose';
     }
 
     public static function issue_view_grant( $evidence_id, $reviewer_id, $purpose, $mode = 'view' ) {
@@ -396,7 +429,7 @@ final class GDO_Evidence {
         $wpdb->query( $wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'access_grants' ) . ' WHERE reviewer_id=%d AND (expires_at<%s OR used_at IS NOT NULL)', $reviewer_id, current_time( 'mysql', true ) ) );
         $ok = $wpdb->insert( GDO_Schema::table( 'access_grants' ), array(
             'grant_hash'=>$hash, 'application_id'=>absint( $app->id ), 'evidence_id'=>$evidence_id,
-            'reviewer_id'=>$reviewer_id, 'purpose_code'=>substr( sanitize_key( $purpose ), 0, 80 ),
+            'reviewer_id'=>$reviewer_id, 'purpose_code'=>self::purpose_code( $purpose ),
             'session_digest'=>$session_digest, 'mode'=>$mode, 'expires_at'=>$expires, 'created_at'=>current_time( 'mysql', true ),
         ), array( '%s','%d','%d','%d','%s','%s','%s','%s','%s' ) );
         if ( 1 !== $ok ) {

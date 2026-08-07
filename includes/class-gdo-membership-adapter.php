@@ -115,14 +115,17 @@ final class GDO_Membership_Adapter {
 			return false;
 		}
 		$age = isset( $subject['age_context'] ) && is_array( $subject['age_context'] ) ? $subject['age_context'] : array();
+		$age_years = ! empty( $age['known'] ) ? absint( $age['age_years'] ) : 0;
+		$minimum_age = max( 18, absint( apply_filters( 'gdo_minimum_professional_age', 18, $user_id, $base, $subject ) ) );
+		$guardian_required = $age_years > 0 && $age_years < 18;
+		$guardian_ok = ! $guardian_required || ! empty( $base['guardian_verified'] );
 		$eligible = 'doctor' === sanitize_key( $base['membership_type'] )
 			&& ! empty( $base['approved'] )
 			&& ! empty( $base['email_verified'] )
 			&& ! empty( $base['phone_verified'] )
 			&& ! empty( $base['two_factor_ready'] )
-			&& ! empty( $base['guardian_verified'] )
-			&& ! empty( $age['known'] )
-			&& absint( $age['age_years'] ) >= max( 18, absint( apply_filters( 'gdo_minimum_professional_age', 18, $user_id, $base, $subject ) ) );
+			&& $guardian_ok
+			&& $age_years >= $minimum_age;
 		return (bool) apply_filters( 'gdo_file00_doctor_application_eligible', $eligible, $user_id, $base, $subject );
 	}
 

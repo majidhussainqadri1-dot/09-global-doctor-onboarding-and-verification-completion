@@ -42,6 +42,7 @@ $gdo_files = array(
 	'class-gdo-migration.php',
 	'class-gdo-api.php',
 	'class-gdo-cf01-practitioner-contract.php',
+	'class-gdo-integration-contracts.php',
 	'class-gdo-rest.php',
 	'class-gdo-activator.php',
 	'class-gdo-plugin.php',

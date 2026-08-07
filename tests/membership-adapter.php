@@ -83,6 +83,12 @@ gdo_adapter_assert( GDO_Membership_Adapter::available(), 'exact File 00 contract
 gdo_adapter_assert( GDO_Membership_Adapter::authentication_available(), 'exact File 02 reauthentication contract is available' );
 gdo_adapter_assert( GDO_Membership_Adapter::is_active_doctor_candidate( 7 ), 'approved doctor may enter File 09 before professional verification' );
 
+$adult_without_guardian = $base;
+$adult_without_guardian['guardian_verified'] = false;
+SMC_Contracts::$assertion = $adult_without_guardian;
+gdo_adapter_assert( GDO_Membership_Adapter::is_active_doctor_candidate( 7 ), 'adult professional eligibility does not require guardian verification' );
+SMC_Contracts::$assertion = $base;
+
 $profile = GDO_Membership_Adapter::profile( 7 );
 gdo_adapter_assert( true === $profile['email_verified'], 'email verification comes from explicit File 00 field' );
 gdo_adapter_assert( true === $profile['mobile_verified'], 'phone verification comes from explicit File 00 field' );

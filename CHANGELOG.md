@@ -1,3 +1,12 @@
+## 1.2.0-RC2 — Final corrective repository candidate
+- Reconciled the valid 1.2.0 source line without applying the incomplete encoded overlay branch.
+- Corrected adult guardian eligibility, immutable resubmission edit-state, autosave row-version propagation and step validation.
+- Made evidence review and more-information transition atomic with row locks, optimistic state checks and validity-date controls.
+- Added explicit independent appeal assignment and assignee-only resolution.
+- Added bounded fail-closed File 03, File 07 and File 08 eligibility projections; retained File 00, File 02, File 19, File 20 and CF-01 boundaries.
+- Removed temporary, self-mutating, stale baseline/corrective and duplicate CI workflows plus branch-marker/noop artifacts; one exact-head RC2 workflow is authoritative.
+- Added RC2 adversarial assurance, PHP 7.4/8.3 exact-head CI and deterministic RC2 packaging.
+
 # Changelog
 
 ## 1.2.0 — 2026-08-06

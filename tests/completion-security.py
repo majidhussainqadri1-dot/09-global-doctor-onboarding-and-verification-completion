@@ -12,7 +12,7 @@ required={
 'includes/class-gdo-policy.php':['eligibility','required_fields','evidence_types'],
 'includes/class-gdo-application.php':['save_draft','completeness','submission_hash','draft_expires_at'],
 'includes/class-gdo-evidence.php':['stage_upload','gdo_credential_scan_result','access_grants','watermark'],
-'includes/class-gdo-admin.php':['assigned_reviewer_id','recommender_id','finalizer_id','request_more_info','resolve_appeal','run_repair'],
+'includes/class-gdo-admin.php':['assigned_reviewer_id','recommender_id','finalizer_id','request_more_info','assign_appeal','resolve_appeal','run_repair'],
 'includes/class-gdo-claims.php':['gdo.file00.professional-decision','hash_hmac','acknowledge'],
 'includes/class-gdo-risk.php':['identity_duplicate','document_hash_duplicate','false_positive'],
 'includes/class-gdo-quality.php':['quality_samples','major_error'],
@@ -21,6 +21,7 @@ required={
 'includes/class-gdo-operations.php':['safe_mode','dead_letters','repair'],
 'includes/class-gdo-migration.php':['gdo_migration_lock','decrypt_legacy','GDO2'],
 'assets/css/onboarding.css':['--gdo-green','focus-visible','prefers-reduced-motion','[dir="rtl"]'],
+'includes/class-gdo-integration-contracts.php':['gdo.file03.doctor-profile-eligibility','gdo.file07.directory-eligibility','gdo.file08.clinic-eligibility'],
 'TRACEABILITY.md':['F09-FR-001','F09-FR-017','F09-NFR-010','DoD-13'],
 }
 for path,tokens in required.items(): have(path,*tokens)

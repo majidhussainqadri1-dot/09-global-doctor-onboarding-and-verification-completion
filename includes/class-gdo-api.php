@@ -44,7 +44,7 @@ final class GDO_API {
 			return array( 'state'=>'not_applied', 'row_version'=>0, 'profile'=>array(), 'completeness'=>array() );
 		}
 		$profile = json_decode( $app->profile_json, true );
-		$allowed_states = array( 'draft','more_information','resubmitted' );
+		$allowed_states = array( 'draft','more_information' );
 		return array(
 			'application_id'=>absint( $app->id ),
 			'application_uuid'=>(string) $app->application_uuid,

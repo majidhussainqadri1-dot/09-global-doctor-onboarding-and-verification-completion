@@ -1,21 +1,29 @@
 {
   "SPDXID": "SPDXRef-DOCUMENT",
+  "annotations": [
+    {
+      "annotationDate": "2026-08-07T04:45:00Z",
+      "annotationType": "OTHER",
+      "annotator": "Tool: File09-RC2-SBOM-Generator-2.0",
+      "comment": "SBOM.spdx.json is intentionally excluded from its own file checksum list to avoid self-reference."
+    }
+  ],
   "creationInfo": {
-    "created": "2026-08-06T09:10:00Z",
+    "created": "2026-08-07T04:45:00Z",
     "creators": [
       "Organization: Sabri Social Homeopathy Platform",
-      "Tool: File09-SBOM-Generator-1.0"
+      "Tool: File09-RC2-SBOM-Generator-2.0"
     ]
   },
   "dataLicense": "CC0-1.0",
-  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc1",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc2/3624b492c51f66c8",
   "files": [
     {
       "SPDXID": "SPDXRef-File-global-doctor-onboarding.php",
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "f6cae6d74043771dfa2207848848021c82ed5af5e7cc805eb9a7a1946bb64efe"
+          "checksumValue": "c06aef77fb82fb82d71627292ea6e635d61c8d8d15bd3104333e670e886c5574"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -90,7 +98,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "9186762c8c14397cf98e382e925cb4eb62b6b20564a18ec9d7ec0fc03db05a46"
+          "checksumValue": "d7c4f66a707986cd02981f593884722e7ac3d51ab48d5c83d8632c441d12a3a0"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -120,7 +128,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "98b2068d63ae0f291ef3d7270b769e72908ba5bd2f304ca4b9b1d3e93cde703f"
+          "checksumValue": "923de11b61812ad2bb59e815e40423b5b2ba002b1c6b5a8a8ebec90816427129"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -135,7 +143,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "49e67dd4fa9513cee0ae6d5d32cb39f9bdb453f428ad097f1fc26a35db5b8d85"
+          "checksumValue": "41f81a7f8456bb5ffff93bf2e7e3d8c4ee914d5a5578924f89f21531dd4ea5b4"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -165,7 +173,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "19db7e30038e3c7ace38cf148d982372cfdbb468aa6c8e70e6c481e531d0b15f"
+          "checksumValue": "4cea3e768efe8486cf66eeea05ae617c21c1500cbf9aaf575aed6d1b8120203d"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -185,6 +193,21 @@
       ],
       "copyrightText": "NOASSERTION",
       "fileName": "./includes/class-gdo-cf01-practitioner-contract.php",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-includes-class-gdo-integration-contracts.php",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "1ed1cf9840eb7d80ade4c68d7cce846503bbb1bc7a29c6f06663479d94c40d53"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./includes/class-gdo-integration-contracts.php",
       "licenseConcluded": "NOASSERTION",
       "licenseInfoInFiles": [
         "NOASSERTION"
@@ -225,7 +248,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "ed47cd0ad73c2adace348bdc8011dbaef2a3914efa58a8371fce980d689f83fd"
+          "checksumValue": "458b9d819b7d6862966ecfce0bfa1b068de153f6c70598286f7210597755ce36"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -240,7 +263,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "cda66ad0f8c433ab1069566a39bd921fc553a66d8d7c1b25c300d96ab8e045ee"
+          "checksumValue": "f373b549e5830da23f04334fe01ea7989abb0d2c6e4d4c796a523b22786ccb14"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -255,7 +278,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "54ec7da0c1c9297cf972b3b5d446d2942de201eb4e3ddcf9035c0692b414c573"
+          "checksumValue": "1e31599fa6c832711b393c480e861fa039ad587e1b0eabf5c537c216dfc5a262"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -285,7 +308,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "fa51ef627378ccef4f5a7bf60c28213b310fe154a4881d315190d44673e5d343"
+          "checksumValue": "fb1f537fd11f739c0cb5710d76d725e6040d8006b5c38b03ad5d213f8a9cc7c7"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -315,7 +338,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "d0377b6fa2d131c62724c377ceec0434a04ec5f9fa57ad39e4c1a305388390a6"
+          "checksumValue": "f95c553cdcf6b90521433b970573d3a263f70cc1f19e141b6ef393ee74298a8c"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -480,7 +503,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "e1564cf6251ff26f0f2c1aedd9d128663b4c47fc5e694e1ba7647669f44ab7b2"
+          "checksumValue": "8d166b57450953de1e780ce0fcec62f9bf28c1a375ca1fa678067cb6c13de22a"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -525,7 +548,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "48c158c443a2dab9f2600d75105016a975174268964bd84ce8ad7bc4f44d33b5"
+          "checksumValue": "8dd8af61afb6733424e5cfc2f2cc3c0d55e759e22d0b0f87b5c2907010c854c9"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -540,7 +563,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "c0855795a0f1a9e50b46e061bf768857b156054dc4638a3ce8235e416901b95e"
+          "checksumValue": "5fd41ff405352b4ef732695bf666f0284a56215a9d9a3c49f7a5ed57b2c86dc6"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -585,7 +608,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "0e1019a60c30981ef9cdae4cae493299d6559916ae185d2655747b424c97cef5"
+          "checksumValue": "b018b33c9aa71f8c6803e05b869e7966e972389547a28f7bef93cb6a7cfd960a"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -600,7 +623,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "6b16d2c8b770bebcc398e195928653b0a10ba67bcf4a7e148fc0f91941a9f164"
+          "checksumValue": "cd9bc23fa732322d3ed964e3919aadd970f3a209b2e0d10e13febe5bc8c6e284"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -624,9 +647,39 @@
       "licenseInfoInFiles": [
         "NOASSERTION"
       ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-REVIEW-ROUND-1-RC2.md",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c174a83669fc5f84e14cc8ac984ec7d91fd112300c4de1d4b88384203495887b"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./REVIEW-ROUND-1-RC2.md",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-REVIEW-ROUND-2-RC2.md",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "eaf1d39e939ffeb18418dfd5b4ae910deab3c90c72f288a2274083eb425c941a"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./REVIEW-ROUND-2-RC2.md",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
     }
   ],
-  "name": "File 09 Global Doctor Onboarding 1.2.0 RC1 SBOM",
+  "name": "File 09 Global Doctor Onboarding 1.2.0 RC2",
   "packages": [
     {
       "SPDXID": "SPDXRef-Package",
@@ -635,9 +688,8 @@
       "filesAnalyzed": true,
       "licenseConcluded": "GPL-2.0-or-later",
       "licenseDeclared": "GPL-2.0-or-later",
-      "name": "Global Doctor Onboarding and Verification",
-      "supplier": "Organization: Sabri Social Homeopathy Platform",
-      "versionInfo": "1.2.0-RC1"
+      "name": "global-doctor-onboarding-09",
+      "versionInfo": "1.2.0-RC2"
     }
   ],
   "relationships": [
@@ -703,6 +755,11 @@
     },
     {
       "relatedSpdxElement": "SPDXRef-File-includes-class-gdo-cf01-practitioner-contract.php",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-includes-class-gdo-integration-contracts.php",
       "relationshipType": "CONTAINS",
       "spdxElementId": "SPDXRef-Package"
     },
@@ -848,6 +905,16 @@
     },
     {
       "relatedSpdxElement": "SPDXRef-File-CF01-PRACTITIONER-ELIGIBILITY-CONTRACT.md",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-REVIEW-ROUND-1-RC2.md",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-REVIEW-ROUND-2-RC2.md",
       "relationshipType": "CONTAINS",
       "spdxElementId": "SPDXRef-Package"
     }

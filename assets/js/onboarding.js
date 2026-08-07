@@ -3,7 +3,7 @@
   var config = window.gdoOnboarding || {};
   var form = document.querySelector('[data-gdo-wizard]');
   if (!form || !config.restUrl) return;
-  var status = form.querySelector('[data-gdo-autosave-status]');
+  var status = document.querySelector('[data-gdo-autosave-status]');
   var timer = null;
   var busy = false;
 
@@ -17,6 +17,14 @@
 
   function announce(message) {
     if (status) status.textContent = message;
+  }
+
+  function synchronizeRowVersion(rowVersion) {
+    var value = String(rowVersion);
+    form.setAttribute('data-row-version', value);
+    document.querySelectorAll('input[name="row_version"]').forEach(function (hidden) {
+      if (hidden.closest('[data-gdo-wizard], .gdo-submit-form')) hidden.value = value;
+    });
   }
 
   function save() {
@@ -36,16 +44,22 @@
       return response.json().then(function (data) { return {ok: response.ok, data: data}; });
     }).then(function (result) {
       if (!result.ok) throw result.data;
-      if (result.data && result.data.row_version) {
-        form.setAttribute('data-row-version', String(result.data.row_version));
-        var hidden = form.querySelector('input[name="row_version"]');
-        if (hidden) hidden.value = String(result.data.row_version);
-      }
+      if (result.data && result.data.row_version) synchronizeRowVersion(result.data.row_version);
       announce(config.messages && config.messages.saved ? config.messages.saved : 'Draft saved');
     }).catch(function (error) {
       var message = error && error.code === 'gdo_concurrent_change' && config.messages ? config.messages.conflict : (error && error.message ? error.message : 'Autosave failed');
       announce(message);
     }).finally(function () { busy = false; });
+  }
+
+  function stepIsValid(step) {
+    var invalid = step && step.querySelector(':invalid');
+    if (invalid) {
+      invalid.reportValidity();
+      invalid.focus();
+      return false;
+    }
+    return true;
   }
 
   form.addEventListener('input', function (event) {
@@ -57,6 +71,7 @@
   form.querySelectorAll('[data-gdo-step-next]').forEach(function (button) {
     button.addEventListener('click', function () {
       var current = button.closest('[data-gdo-step]');
+      if (!stepIsValid(current)) return;
       var next = current && current.nextElementSibling;
       if (current && next) {
         current.hidden = true;

@@ -15,7 +15,7 @@ out = root / a.output
 out.mkdir(exist_ok=True)
 files = [x.strip() for x in (root / 'RELEASE-FILES.txt').read_text(encoding='utf-8').splitlines() if x.strip()]
 slug = 'global-doctor-onboarding-09'
-name = 'global-doctor-onboarding-09-1.2.0-RC1.zip'
+name = 'global-doctor-onboarding-09-1.2.0-RC2.zip'
 zpath = out / name
 try:
     head = os.environ.get('GITHUB_SHA') or subprocess.check_output(
@@ -46,6 +46,7 @@ digest = hashlib.sha256(zpath.read_bytes()).hexdigest()
         'root': slug + '/',
         'version': '1.2.0',
         'schema': 6,
+        'release_candidate': 'RC2',
         'source_head': head,
         'staging_accepted': False,
         'live_deployed': False,

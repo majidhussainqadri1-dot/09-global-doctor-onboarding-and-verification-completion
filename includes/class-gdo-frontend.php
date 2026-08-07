@@ -33,7 +33,7 @@ final class GDO_Frontend {
 		$user = get_current_user_id();
 		$latest = GDO_Application::latest_for_user( $user );
 		$eligibility = GDO_Policy::eligibility( $user );
-		if ( empty( $eligibility['eligible'] ) && ! ( $latest && in_array( $latest->state, array( 'draft','more_information','resubmitted','expired','renewal_due' ), true ) ) ) {
+		if ( empty( $eligibility['eligible'] ) && ! ( $latest && in_array( $latest->state, array( 'draft','more_information','expired','renewal_due' ), true ) ) ) {
 			return $this->status_panel( $latest, new WP_Error( 'gdo_eligibility_' . sanitize_key( $eligibility['reason_code'] ), __( 'This account is not currently eligible to start a new doctor application.', 'global-doctor-onboarding' ) ) );
 		}
 		$app = GDO_Application::ensure_draft( $user );

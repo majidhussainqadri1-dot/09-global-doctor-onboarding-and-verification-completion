@@ -6,6 +6,7 @@ final class GDO_Plugin {
         add_action( 'admin_notices', array($this,'dependency_notice') );
         add_action( 'wp_logout', array('GDO_Membership_Adapter','clear_step_up') );
         (new GDO_REST())->hooks();
+        (new GDO_Integration_Contracts())->hooks();
         add_action( 'smc_professional_claim_acknowledged', array($this,'claim_acknowledged'), 10, 4 );
         if ( ! GDO_Membership_Adapter::available() ) {
             return;

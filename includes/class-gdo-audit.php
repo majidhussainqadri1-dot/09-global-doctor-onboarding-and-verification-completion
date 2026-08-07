@@ -37,11 +37,13 @@ final class GDO_Audit {
 		global $wpdb;
 		$purpose = sanitize_textarea_field( $purpose );
 		$trace_id = self::valid_uuid( $trace_id ) ? $trace_id : wp_generate_uuid4();
+		$purpose_code = substr( sanitize_key( wp_trim_words( $purpose, 8, '' ) ), 0, 80 );
+		$purpose_code = $purpose_code ? $purpose_code : 'credential_review_recorded_purpose';
 		$data = array(
 			'application_id' => absint( $application_id ),
 			'evidence_id'    => absint( $evidence_id ),
 			'reviewer_id'    => absint( $reviewer_id ),
-			'purpose_code'   => substr( sanitize_key( wp_trim_words( $purpose, 8, '' ) ), 0, 80 ),
+			'purpose_code'   => $purpose_code,
 			'purpose_hash'   => hash( 'sha256', $purpose ),
 			'result'         => sanitize_key( $result ),
 			'actor_digest'   => hash( 'sha256', absint( $reviewer_id ) . '|' . wp_salt( 'nonce' ) ),

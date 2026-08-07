@@ -58,3 +58,14 @@ A Must requirement is not accepted merely because code is named below. The exact
 | DoD-11 | REVIEW-ROUND-1.md and REVIEW-ROUND-2.md; exact-tree suites run twice. |
 | DoD-12 | STAGING-ACCEPTANCE.md with explicit Founder acceptance; pending external execution. |
 | DoD-13 | CI zero blockers; residual external gates listed, not hidden. |
+
+## RC2 corrective traceability
+
+| Corrective requirement | Implementation | Automated evidence |
+|---|---|---|
+| Adult professional eligibility without irrelevant guardian dependency | `GDO_Membership_Adapter::is_active_doctor_candidate` | `tests/membership-adapter.php` |
+| Immutable resubmitted snapshot and synchronized optimistic row version | `GDO_API`, `assets/js/onboarding.js` | `tests/rc2-adversarial.py` |
+| Atomic credential review + more-information transition | `GDO_Evidence::review`, `GDO_Admin::review_evidence` | PHP lint + adversarial invariants |
+| Independent assigned appeal reviewer | `GDO_Admin::assign_appeal/resolve_appeal` | `tests/rc2-adversarial.py` |
+| File 03/07/08 fail-closed public projections | `GDO_Integration_Contracts` | `tests/cross-file-contracts.php` |
+| Exact-head deterministic RC2 package | `.github/workflows/file09-rc2-final.yml`, `tools/build-release.py` | two-build byte comparison + package parity |
