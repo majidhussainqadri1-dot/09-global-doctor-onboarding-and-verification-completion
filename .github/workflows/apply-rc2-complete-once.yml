@@ -28,24 +28,24 @@ jobs:
           coverage: none
           extensions: openssl,fileinfo,gd
 
-      - name: Reconstruct and verify complete payload
+      - name: Reconstruct and verify complete v2 payload
         shell: bash
         run: |
           set -euo pipefail
-          test "$(find .github/rc2-payload -type f -name 'part-*' | wc -l)" -eq 7
-          cat .github/rc2-payload/part-* | base64 -d | gzip -d > /tmp/rc2-complete.patch
-          echo "7ed806305c17cc416e79f84cc24da110cb48d539bd8f2615ec2efba0ccd108d0  /tmp/rc2-complete.patch" | sha256sum --check -
+          test "$(find .github/rc2-payload-v2 -type f -name 'part-*' | wc -l)" -eq 8
+          cat .github/rc2-payload-v2/part-* | base64 -d | gzip -d > /tmp/rc2-complete-v2.patch
+          echo "8168b16b1fe1c4e52253db9e421c71c22878cbf9dd1f9e5faffa7ccf84868417  /tmp/rc2-complete-v2.patch" | sha256sum --check -
           git merge-base --is-ancestor f8ccc720247f0e8f58d4cbb9f514e9b9708807e3 HEAD
 
-      - name: Apply complete exact patch and remove transport
+      - name: Apply complete exact v2 patch and remove transport
         shell: bash
         run: |
           set -euo pipefail
           git apply --index --binary \
             --exclude=EXACT-HEAD-SOURCE-CHECKSUMS.sha256 \
             --exclude=EXACT-HEAD.txt \
-            /tmp/rc2-complete.patch
-          rm -rf .github/rc2-payload
+            /tmp/rc2-complete-v2.patch
+          rm -rf .github/rc2-payload .github/rc2-payload-v2
           rm -f .github/workflows/apply-rc2-complete-once.yml
           git add -A
 
