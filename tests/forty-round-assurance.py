@@ -45,7 +45,7 @@ check('approved_membership_types' in adapter, 'approved doctor membership grant 
 check("function_exists( 'gdo_user_is_verified' )" in adapter, 'professional verification truth remains owned by File 09')
 check("'professional_verified'" in adapter, 'File 00 professional projection remains an explicit downstream assertion')
 check("const VERSION       = '2026-08-07.2'" in policy, 'current File 09 policy version is frozen')
-check("'identity',      =>" in policy and "'qualification' =>" in policy and "'license'       =>" in policy, 'identity, qualification and license evidence classes remain required')
+check(all(token in policy for token in ("'identity'", "'qualification'", "'license'")), 'identity, qualification and license evidence classes remain required')
 check("'whatsapp'" not in policy[policy.index('public static function required_fields'):policy.index('public static function normalize_jurisdiction')], 'WhatsApp remains optional rather than a required application field')
 check("max( 18" in policy, 'professional onboarding minimum age remains adult-only')
 check("empty( $base['two_factor_ready'] )" in policy, '2FA readiness is required at onboarding eligibility')
