@@ -30,13 +30,10 @@ jobs:
           p = Path('includes/class-gdo-privacy.php')
           s = p.read_text(encoding='utf-8')
           old_sql = 'WHERE recipient_user_id=%d AND payload_json LIKE %s'
-          new_sql = 'WHERE recipient_user_id=%d AND event_type<>%s AND payload_json LIKE %s'
-          old_args = "'{\\\"redacted\\\":\\\"privacy_erasure\\\"}', $user->ID, $payload_like"
-          new_args = "'{\\\"redacted\\\":\\\"privacy_erasure\\\"}', $user->ID, 'doctor_professional_claim', $payload_like"
-          if old_sql not in s or old_args not in s:
-              raise SystemExit('privacy outbox hardening anchor missing')
-          s = s.replace(old_sql, new_sql, 1).replace(old_args, new_args, 1)
-          p.write_text(s, encoding='utf-8')
+          new_sql = "WHERE recipient_user_id=%d AND event_type<>\\'doctor_professional_claim\\' AND payload_json LIKE %s"
+          if old_sql not in s:
+              raise SystemExit('privacy outbox hardening SQL anchor missing')
+          p.write_text(s.replace(old_sql, new_sql, 1), encoding='utf-8')
           PY
       - name: Extend regression gate for claim propagation
         run: |
@@ -45,7 +42,7 @@ jobs:
           p = Path('tests/final-hardening.py')
           s = p.read_text(encoding='utf-8')
           anchor = "if 'OFFSET' in erase:\n    fail('mutating privacy erasure still uses offset pagination and can skip records')"
-          replacement = "if 'event_type<>%s' not in erase or \"'doctor_professional_claim'\" not in erase:\n    fail('privacy erasure can redact a pending professional revocation claim')\n" + anchor
+          replacement = "if 'event_type<>' not in erase or 'doctor_professional_claim' not in erase:\n    fail('privacy erasure can redact a pending professional revocation claim')\n" + anchor
           if anchor not in s:
               raise SystemExit('privacy hardening test anchor missing')
           p.write_text(s.replace(anchor, replacement, 1), encoding='utf-8')
