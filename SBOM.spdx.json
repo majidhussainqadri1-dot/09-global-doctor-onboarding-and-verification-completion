@@ -2,21 +2,21 @@
   "SPDXID": "SPDXRef-DOCUMENT",
   "annotations": [
     {
-      "annotationDate": "2026-08-07T04:45:00Z",
+      "annotationDate": "2026-08-07T10:34:21Z",
       "annotationType": "OTHER",
-      "annotator": "Tool: File09-RC2-SBOM-Generator-2.0",
-      "comment": "SBOM.spdx.json is intentionally excluded from its own file checksum list to avoid self-reference."
+      "annotator": "Tool: File09-RC2-Hardening-SBOM-3.0",
+      "comment": "SBOM.spdx.json is excluded from its own checksum list to avoid self-reference."
     }
   ],
   "creationInfo": {
-    "created": "2026-08-07T04:45:00Z",
+    "created": "2026-08-07T10:34:21Z",
     "creators": [
       "Organization: Sabri Social Homeopathy Platform",
-      "Tool: File09-RC2-SBOM-Generator-2.0"
+      "Tool: File09-RC2-Hardening-SBOM-3.0"
     ]
   },
   "dataLicense": "CC0-1.0",
-  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc2/3624b492c51f66c8",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc2/0592a700699b001d",
   "files": [
     {
       "SPDXID": "SPDXRef-File-global-doctor-onboarding.php",
@@ -158,7 +158,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "d7e3142ee2b299b8e6854b7eb7ee633b1c172541977e0b8de8edcbcc812c8b4f"
+          "checksumValue": "e82a924d1faa4f889ba734cbc5364a8c8c3d6c50b309c122955cce7d0fb8149e"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -218,7 +218,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "1fa3405b7940c4d59b859c8687393d5da58cbb108424927a45b8075ccaea8c68"
+          "checksumValue": "4b9aeca1d52328507bfdc255fbd2614d38049131ca2dfcca3dd1c38099bcdf9c"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -293,7 +293,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "7da15dca87d535f2829476683033806927123cbaad1801a44d5f178f34cdcef5"
+          "checksumValue": "c6e8c6dce1c9a493c018c1fe8bcbd189fe50d34ae337f3618e56c0d693431749"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -368,7 +368,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "aab1390315e8256c4bfa5fa152c69b195fb01ff1c8dcc5a138f9b747bdd0be8d"
+          "checksumValue": "51e363d83cabdad8cd4146c108378293ce38f2a7ca649b188796252956e1f944"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -428,7 +428,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "2ce5bf08a5ad7ace4ea1076c12d024e0e55dbc1fb20a37ff02da9376988d8de1"
+          "checksumValue": "5ab97ca2b2c910283d480065293f0f853d10b5002758386d6efb1ba9fd76ef8f"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -458,7 +458,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "9f997c6ff6ea5fc2d8daa276100b29d1bdf53a76975a056700e8067493e37afb"
+          "checksumValue": "3dcd57fc8219789ed8d3fe3c1ba0704785576c4f22f38d40359d2457be2a87b7"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -503,7 +503,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "8d166b57450953de1e780ce0fcec62f9bf28c1a375ca1fa678067cb6c13de22a"
+          "checksumValue": "f97a5f2b9951fd3b67c59f265896a592e26c4735f07c0c7f4025972a43e0102c"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -673,6 +673,21 @@
       ],
       "copyrightText": "NOASSERTION",
       "fileName": "./REVIEW-ROUND-2-RC2.md",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-REVIEW-ROUND-3-RC2.md",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "67ec6ff0eb12bd44ed61c05031d16c4241662bf71516c6a41accf947c018e789"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./REVIEW-ROUND-3-RC2.md",
       "licenseConcluded": "NOASSERTION",
       "licenseInfoInFiles": [
         "NOASSERTION"
@@ -915,6 +930,11 @@
     },
     {
       "relatedSpdxElement": "SPDXRef-File-REVIEW-ROUND-2-RC2.md",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-REVIEW-ROUND-3-RC2.md",
       "relationshipType": "CONTAINS",
       "spdxElementId": "SPDXRef-Package"
     }

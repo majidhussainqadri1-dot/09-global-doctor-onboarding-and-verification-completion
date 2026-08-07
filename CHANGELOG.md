@@ -21,3 +21,14 @@
 - Added privacy export, withdrawal, erasure/legal-hold and physical deletion proof.
 - Added outbox retry/dead-letter/reconciliation, health, Safe Mode and bounded repairs.
 - Added deterministic package, SBOM, traceability and two fresh review/fix records.
+
+
+## RC2 Fresh Adversarial Hardening — 2026-08-07
+
+- Closed renewal eligibility bypass on expired/renewal draft creation.
+- Made professional claim issuance state-bound and snapshot-bound.
+- Made schema backfill exhaustive and legacy migration bounded/resumable.
+- Moved legacy-source deletion after successful new-record commit with dedupe-safe cleanup.
+- Corrected privacy erasure pagination, all-version credential deletion, atomic revocation claim, and collision-free nullable subject anonymization.
+- Corrected retention expiry to scrub subject/profile and credential metadata after physical deletion.
+- Added a dedicated final hardening regression gate and third fresh adversarial review record.

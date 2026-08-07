@@ -156,9 +156,29 @@ final class GDO_Retention {
 			if ( in_array( $app->state, array( 'verified','reinstated','under_review','recommended','appeal_pending','submitted','resubmitted','renewal_due' ), true ) ) {
 				continue;
 			}
-			foreach ( GDO_Evidence::records( $app->id, true ) as $record ) {
-				self::delete_record( $record, 'retention_deleted', $now );
+			$failed = false;
+			foreach ( GDO_Evidence::records( $app->id, false ) as $record ) {
+				if ( empty( $record->deleted_at ) && ! self::delete_record( $record, 'retention_deleted', $now ) ) {
+					$failed = true;
+				}
 			}
+			if ( $failed ) {
+				continue;
+			}
+			$anonymous = hash( 'sha256', 'retained|' . $app->application_uuid . '|' . wp_salt( 'nonce' ) );
+			$wpdb->update( $apps_table, array(
+				'user_id'=>null, 'profile_json'=>'{}', 'profile_fingerprint'=>$anonymous, 'identity_fingerprint'=>'',
+				'approved_snapshot_json'=>null, 'approved_fingerprint'=>null, 'submission_hash'=>null,
+				'assigned_reviewer_id'=>null, 'recommender_id'=>null, 'finalizer_id'=>null,
+				'recommendation_reason'=>'anonymized', 'claim_last_error'=>null, 'updated_at'=>$now,
+			), array( 'id'=>absint( $app->id ) ), array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ), array( '%d' ) );
+			$wpdb->update( GDO_Schema::table( 'consents' ), array( 'user_id'=>0, 'purpose'=>'retained-accountability-record', 'retention_notice'=>'anonymized', 'withdrawn_at'=>$now ), array( 'application_id'=>$app->id ), array( '%d','%s','%s','%s' ), array( '%d' ) );
+			$wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'application_id'=>$app->id ), array( '%d' ), array( '%d' ) );
+			$wpdb->update( GDO_Schema::table( 'appeals' ), array( 'user_id'=>0, 'reason'=>'anonymized', 'evidence_json'=>null, 'resolution'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%d','%s','%s','%s' ), array( '%d' ) );
+			$wpdb->update( GDO_Schema::table( 'risk_signals' ), array( 'related_digest'=>null, 'resolution_reason'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%s','%s' ), array( '%d' ) );
+			$wpdb->update( GDO_Schema::table( 'quality_samples' ), array( 'reason'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%s' ), array( '%d' ) );
+			$wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'application_id'=>$app->id ), array( '%d' ) );
+			GDO_Membership_Adapter::audit( 'doctor_verification_retention_anonymized', array( 'application_id'=>absint( $app->id ) ) );
 		}
 	}
 
@@ -187,9 +207,9 @@ final class GDO_Retention {
 		}
 		$updated = $wpdb->update(
 			GDO_Schema::table( 'evidence' ),
-			array( 'retention_state'=>$state, 'deletion_proof'=>$proof, 'deleted_at'=>$now, 'storage_name'=>'deleted-' . absint( $record->id ), 'original_name'=>'erased', 'updated_at'=>$now ),
+			array( 'user_id'=>0, 'retention_state'=>$state, 'deletion_proof'=>$proof, 'deleted_at'=>$now, 'storage_name'=>'deleted-' . absint( $record->id ), 'original_name'=>'erased', 'source_sha256'=>'', 'ciphertext_sha256'=>'', 'content_hmac'=>'', 'key_id'=>'', 'scan_reference'=>null, 'checklist_json'=>null, 'findings_json'=>null, 'review_note'=>null, 'registry_source'=>null, 'updated_at'=>$now ),
 			array( 'id'=>absint( $record->id ) ),
-			array( '%s','%s','%s','%s','%s','%s' ),
+			array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ),
 			array( '%d' )
 		);
 		return false !== $updated;

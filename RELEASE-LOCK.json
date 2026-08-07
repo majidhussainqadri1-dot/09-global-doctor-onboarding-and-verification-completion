@@ -4,7 +4,7 @@
   "operationally_accepted": false,
   "package_root": "global-doctor-onboarding-09/",
   "release_candidate": "RC2",
-  "release_file_count": 45,
+  "release_file_count": 46,
   "runtime": "1.2.0",
   "schema": 6,
   "staging_accepted": false

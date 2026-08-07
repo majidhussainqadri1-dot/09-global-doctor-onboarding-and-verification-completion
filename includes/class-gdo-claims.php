@@ -27,6 +27,14 @@ final class GDO_Claims {
 			}
 			return new WP_Error( 'gdo_claim_application_missing', __( 'The application is unavailable.', 'global-doctor-onboarding' ) );
 		}
+		if ( sanitize_key( $app->state ) !== $state ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_claim_state_mismatch', __( 'The professional claim must match the current locked application state.', 'global-doctor-onboarding' ) );
+		}
+		if ( GDO_State::public_verified( $state ) && ( empty( $app->approved_snapshot_json ) || empty( $app->approved_fingerprint ) ) ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_claim_snapshot_missing', __( 'A verified professional claim requires an immutable approved snapshot.', 'global-doctor-onboarding' ) );
+		}
 		$claim_version = absint( $app->claim_version ) + 1;
 		$subject = GDO_Membership_Adapter::membership_assertion( $app->user_id, 'clinical_identity_link', 'professional_verification_claim', $app->jurisdiction );
 		$subject_uuid = isset( $subject['subject']['platform_uuid'] ) ? (string) $subject['subject']['platform_uuid'] : '';

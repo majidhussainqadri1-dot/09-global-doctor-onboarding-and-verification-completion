@@ -114,7 +114,7 @@ final class GDO_Application {
 	private static function create_draft( $user_id, $version, array $profile, $renewed_from_id = 0 ) {
 		global $wpdb;
 		$eligibility = GDO_Policy::eligibility( $user_id );
-		if ( empty( $eligibility['eligible'] ) && ! $renewed_from_id ) {
+		if ( empty( $eligibility['eligible'] ) ) {
 			return new WP_Error( 'gdo_not_eligible_' . sanitize_key( $eligibility['reason_code'] ), __( 'This account is not eligible to start a new doctor application.', 'global-doctor-onboarding' ) );
 		}
 		$now = current_time( 'mysql', true );

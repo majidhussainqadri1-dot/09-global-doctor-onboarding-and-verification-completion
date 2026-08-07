@@ -36,7 +36,7 @@ final class GDO_Schema {
 		dbDelta( "CREATE TABLE {$apps} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			application_uuid char(36) NOT NULL,
-			user_id bigint(20) unsigned NOT NULL,
+			user_id bigint(20) unsigned NULL,
 			version int(10) unsigned NOT NULL DEFAULT 1,
 			application_type varchar(40) NOT NULL DEFAULT 'homeopathic_doctor',
 			jurisdiction varchar(16) NOT NULL DEFAULT '',

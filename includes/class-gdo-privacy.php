@@ -82,46 +82,50 @@ final class GDO_Privacy {
 			return array( 'items_removed'=>false, 'items_retained'=>false, 'messages'=>array(), 'done'=>true );
 		}
 		global $wpdb;
+		$limit = 10;
 		$apps = $wpdb->get_results( $wpdb->prepare(
-			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE user_id=%d ORDER BY id ASC LIMIT 10 OFFSET %d',
-			$user->ID, ( max( 1, absint( $page ) ) - 1 ) * 10
+			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE user_id=%d AND legal_hold=0 ORDER BY id ASC LIMIT %d',
+			$user->ID, $limit
 		) );
+		$held = absint( $wpdb->get_var( $wpdb->prepare(
+			'SELECT COUNT(*) FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE user_id=%d AND legal_hold=1',
+			$user->ID
+		) ) );
 		$removed = false;
-		$retained = false;
-		$messages = array();
+		$retained = $held > 0;
+		$messages = $held ? array( 'One or more doctor-verification records remain under a documented legal hold.' ) : array();
 		foreach ( $apps as $app ) {
-			if ( $app->legal_hold ) {
-				$retained = true;
-				$messages[] = 'Application ' . $app->application_uuid . ' is retained under legal hold.';
-				continue;
-			}
 			$current = GDO_Application::get( $app->id );
 			if ( $current && GDO_State::public_verified( $current->state ) ) {
-				$result = GDO_State::transition( $current->id, 'revoked', 0, 'privacy_erasure', 'Public verification was revoked before personal-data erasure.', $current->row_version );
-				if ( is_wp_error( $result ) ) {
+				$wpdb->query( 'START TRANSACTION' );
+				$result = GDO_State::transition( $current->id, 'revoked', 0, 'privacy_erasure', 'Public verification was revoked before personal-data erasure.', $current->row_version, false );
+				$claim = is_wp_error( $result ) ? $result : GDO_Claims::issue( $current->id, 'revoked', array(), false );
+				if ( is_wp_error( $result ) || is_wp_error( $claim ) || false === $wpdb->query( 'COMMIT' ) ) {
+					$wpdb->query( 'ROLLBACK' );
 					$retained = true;
-					$messages[] = $result->get_error_message();
-					continue;
-				}
-				$claim = GDO_Claims::issue( $current->id, 'revoked' );
-				if ( is_wp_error( $claim ) ) {
-					$retained = true;
-					$messages[] = 'Erasure is paused until the revocation claim is safely queued.';
+					$messages[] = is_wp_error( $result ) ? $result->get_error_message() : ( is_wp_error( $claim ) ? $claim->get_error_message() : 'Erasure is paused until revocation and claim propagation can commit atomically.' );
 					continue;
 				}
 			} elseif ( $current && ! in_array( $current->state, array( 'withdrawn','revoked' ), true ) ) {
-				$target = GDO_State::can_transition( $current->state, 'withdrawn' ) ? 'withdrawn' : '';
-				if ( $target ) {
-					$transition = GDO_State::transition( $current->id, $target, 0, 'privacy_erasure', 'Application was withdrawn before personal-data erasure.', $current->row_version );
-					if ( is_wp_error( $transition ) ) {
-						$retained = true;
-						$messages[] = $transition->get_error_message();
-						continue;
-					}
+				if ( ! GDO_State::can_transition( $current->state, 'withdrawn' ) ) {
+					$retained = true;
+					$messages[] = 'An application is in a state that must be resolved before erasure.';
+					continue;
+				}
+				$transition = GDO_State::transition( $current->id, 'withdrawn', 0, 'privacy_erasure', 'Application was withdrawn before personal-data erasure.', $current->row_version );
+				if ( is_wp_error( $transition ) ) {
+					$retained = true;
+					$messages[] = $transition->get_error_message();
+					continue;
 				}
 			}
+
 			$deletion_failed = false;
-			foreach ( GDO_Evidence::records( $app->id, true ) as $record ) {
+			foreach ( GDO_Evidence::records( $app->id, false ) as $record ) {
+				if ( ! empty( $record->deleted_at ) ) {
+					$wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'id'=>absint( $record->id ) ), array( '%d' ), array( '%d' ) );
+					continue;
+				}
 				$proof = GDO_Storage::delete_verified( $record->storage_name, $record->ciphertext_sha256 );
 				if ( is_wp_error( $proof ) ) {
 					$deletion_failed = true;
@@ -131,9 +135,9 @@ final class GDO_Privacy {
 				}
 				$updated = $wpdb->update(
 					GDO_Schema::table( 'evidence' ),
-					array( 'retention_state'=>'deleted', 'deletion_proof'=>$proof, 'deleted_at'=>current_time( 'mysql', true ), 'original_name'=>'erased', 'storage_name'=>'deleted-' . absint( $record->id ), 'source_sha256'=>'', 'content_hmac'=>'', 'updated_at'=>current_time( 'mysql', true ) ),
+					array( 'user_id'=>0, 'retention_state'=>'deleted', 'deletion_proof'=>$proof, 'deleted_at'=>current_time( 'mysql', true ), 'original_name'=>'erased', 'storage_name'=>'deleted-' . absint( $record->id ), 'source_sha256'=>'', 'ciphertext_sha256'=>'', 'content_hmac'=>'', 'key_id'=>'', 'scan_reference'=>null, 'checklist_json'=>null, 'findings_json'=>null, 'review_note'=>null, 'registry_source'=>null, 'updated_at'=>current_time( 'mysql', true ) ),
 					array( 'id'=>absint( $record->id ) ),
-					array( '%s','%s','%s','%s','%s','%s','%s','%s' ),
+					array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ),
 					array( '%d' )
 				);
 				if ( false === $updated ) {
@@ -147,34 +151,44 @@ final class GDO_Privacy {
 			if ( $deletion_failed ) {
 				continue;
 			}
+
 			$anonymous = hash( 'sha256', 'erased|' . $app->application_uuid . '|' . wp_salt( 'nonce' ) );
 			$updated = $wpdb->update(
 				GDO_Schema::table( 'applications' ),
 				array(
-					'user_id'=>0, 'profile_json'=>'{}', 'profile_fingerprint'=>$anonymous, 'identity_fingerprint'=>'',
+					'user_id'=>null, 'profile_json'=>'{}', 'profile_fingerprint'=>$anonymous, 'identity_fingerprint'=>'',
 					'approved_snapshot_json'=>null, 'approved_fingerprint'=>null, 'submission_hash'=>null,
 					'assigned_reviewer_id'=>null, 'recommender_id'=>null, 'finalizer_id'=>null,
 					'recommendation_reason'=>'anonymized', 'claim_last_error'=>null, 'updated_at'=>current_time( 'mysql', true ),
 				),
-				array( 'id'=>absint( $app->id ) ),
+				array( 'id'=>absint( $app->id ), 'user_id'=>$user->ID ),
 				array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ),
-				array( '%d' )
+				array( '%d','%d' )
 			);
-			if ( false === $updated ) {
+			if ( 1 !== $updated ) {
 				$retained = true;
 				$messages[] = 'Application anonymization requires administrator repair.';
 				continue;
 			}
 			$wpdb->update( GDO_Schema::table( 'consents' ), array( 'user_id'=>0, 'purpose'=>'retained-accountability-record', 'retention_notice'=>'anonymized', 'withdrawn_at'=>current_time( 'mysql', true ) ), array( 'application_id'=>$app->id ), array( '%d','%s','%s','%s' ), array( '%d' ) );
-			$wpdb->update( GDO_Schema::table( 'access_log' ), array( 'reviewer_id'=>0, 'purpose_code'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%d','%s' ), array( '%d' ) );
+			$wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'application_id'=>$app->id ), array( '%d' ), array( '%d' ) );
+			$wpdb->update( GDO_Schema::table( 'access_log' ), array( 'reviewer_id'=>0, 'purpose_code'=>'anonymized' ), array( 'application_id'=>$app->id, 'reviewer_id'=>$user->ID ), array( '%d','%s' ), array( '%d','%d' ) );
 			$wpdb->update( GDO_Schema::table( 'appeals' ), array( 'user_id'=>0, 'status'=>'closed', 'reason'=>'anonymized', 'evidence_json'=>null, 'resolution'=>'anonymized', 'decision'=>'withdrawn', 'resolved_at'=>current_time( 'mysql', true ) ), array( 'application_id'=>$app->id ), array( '%d','%s','%s','%s','%s','%s','%s' ), array( '%d' ) );
 			$wpdb->update( GDO_Schema::table( 'risk_signals' ), array( 'related_digest'=>null, 'resolution_reason'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%s','%s' ), array( '%d' ) );
+			$wpdb->update( GDO_Schema::table( 'quality_samples' ), array( 'reason'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%s' ), array( '%d' ) );
+			$wpdb->update( GDO_Schema::table( 'transitions' ), array( 'actor_id'=>null ), array( 'application_id'=>$app->id, 'actor_id'=>$user->ID ), array( '%d' ), array( '%d','%d' ) );
+			$wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'application_id'=>$app->id ), array( '%d' ) );
+			$payload_like = '%"application_id":' . absint( $app->id ) . '%';
+			$wpdb->query( $wpdb->prepare(
+				'UPDATE ' . GDO_Schema::table( 'outbox' ) . ' SET recipient_user_id=0,payload_json=%s WHERE recipient_user_id=%d AND event_type<>\'doctor_professional_claim\' AND payload_json LIKE %s',
+				'{"redacted":"privacy_erasure"}', $user->ID, $payload_like
+			) );
 			do_action( 'gdo_identity_projection_erased', $user->ID, $app->id );
 			$removed = true;
 			$retained = true;
 			$messages[] = 'Personal credential data was erased; minimal anonymized decision and audit evidence was retained for accountability.';
 		}
-		return array( 'items_removed'=>$removed, 'items_retained'=>$retained, 'messages'=>array_values( array_unique( $messages ) ), 'done'=>count( $apps ) < 10 );
+		return array( 'items_removed'=>$removed, 'items_retained'=>$retained, 'messages'=>array_values( array_unique( $messages ) ), 'done'=>count( $apps ) < $limit );
 	}
 
 	public function policy() {
