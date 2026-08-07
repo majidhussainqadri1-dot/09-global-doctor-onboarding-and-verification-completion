@@ -5,7 +5,7 @@ Baseline reviewed: `ab25eb03dce5045fefc010c272bae7f111afc159`
 Scope: File 09 source, runtime contracts, security/privacy, lifecycle, concurrency, cross-file ownership, release evidence and packaging.
 
 ## Governing method
-Each round used a distinct defect class. When a defect was found, that round was not counted complete until the source was corrected and a regression invariant was added; the next round then started from the corrected working tree. The forty-round regression gate is `tests/review40-adversarial.py`. Hostinger staging/live/operational acceptance remains external and is not inferred from repository assurance.
+Each round used a distinct defect class. When a defect was found, that round was not counted complete until the source was corrected and a regression invariant was added; the next round then started from the corrected working tree. The forty-round regression gate is `tests/review40-adversarial.py`. Hostinger staging/live/operational acceptance remains external and is not inferred from repository assurance. Final release evidence is valid only when the canonical CI run executes against the exact corrected branch head and both PHP assurance jobs plus the deterministic package job are green.
 
 ## Result ledger
 
