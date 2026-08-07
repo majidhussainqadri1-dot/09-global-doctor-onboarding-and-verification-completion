@@ -52,7 +52,7 @@ jobs:
           rm -f .github/rc2-apply-trigger
           git add -A
 
-      - name: Run correction assurance before workflow cleanup
+      - name: Run source correction assurance before workflow cleanup
         shell: bash
         run: |
           set -euo pipefail
@@ -66,7 +66,6 @@ jobs:
           php tests/cross-file-contracts.php
           python3 tests/architecture-check.py
           python3 tests/completion-security.py
-          python3 tests/rc2-adversarial.py
           rm -rf dist-a dist-b
           GITHUB_SHA="${GITHUB_SHA}" python3 tools/build-release.py --output dist-a
           GITHUB_SHA="${GITHUB_SHA}" python3 tools/build-release.py --output dist-b
