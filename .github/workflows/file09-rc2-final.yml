@@ -1,0 +1,71 @@
+name: File 09 RC2 Final Assurance
+on:
+  pull_request:
+  push:
+    branches: ["codex/file09-1.2.0-rc2-completion", "main"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    name: PHP ${{ matrix.php }} source and adversarial assurance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4','8.3']
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+        with: {php-version: '${{ matrix.php }}', coverage: none, extensions: 'openssl,fileinfo,gd'}
+      - name: Hygiene, syntax and complete suites
+        run: |
+          set -euo pipefail
+          git diff --check
+          test ! -f .gitmodules
+          test -z "$(find . -type f \( -name '*.zip' -o -name '*.sql' -o -name '*.sqlite' -o -name '.env' -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -not -path './.git/*' -print -quit)"
+          find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l
+          node --check assets/js/onboarding.js
+          php tests/security-unit.php
+          php tests/membership-adapter.php
+          php tests/policy-runtime.php
+          php tests/cf01-practitioner-contract.php
+          php tests/cf01-practitioner.php
+          php tests/cross-file-contracts.php
+          python3 tests/architecture-check.py
+          python3 tests/completion-security.py
+          python3 tests/release-integrity.py
+          python3 tests/rc2-adversarial.py
+      - name: Exact-head source evidence
+        run: |
+          git rev-parse HEAD | tee exact-head.txt
+          find . -type f -not -path './.git/*' -print0 | sort -z | xargs -0 sha256sum > exact-source-checksums.sha256
+          wc -l exact-source-checksums.sha256
+  package:
+    name: Deterministic RC2 package
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with: {fetch-depth: 0, persist-credentials: false}
+      - name: Build twice and verify parity
+        env: {GITHUB_SHA: '${{ github.sha }}'}
+        run: |
+          set -euo pipefail
+          python3 tools/build-release.py --output dist-a
+          python3 tools/build-release.py --output dist-b
+          cmp dist-a/global-doctor-onboarding-09-1.2.0-RC2.zip dist-b/global-doctor-onboarding-09-1.2.0-RC2.zip
+          python3 tools/verify-release.py dist-a/global-doctor-onboarding-09-1.2.0-RC2.zip RELEASE-FILES.txt
+          rm -rf dist && mv dist-a dist && rm -rf dist-b
+          git rev-parse HEAD > dist/EXACT-HEAD.txt
+          find . -type f -not -path './.git/*' -not -path './dist/*' -print0 | sort -z | xargs -0 sha256sum > dist/EXACT-HEAD-SOURCE-CHECKSUMS.sha256
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: file09-1.2.0-rc2-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
