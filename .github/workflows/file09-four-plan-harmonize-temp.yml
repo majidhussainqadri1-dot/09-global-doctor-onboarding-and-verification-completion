@@ -1,0 +1,63 @@
+name: File 09 Four-Plan Harmonization Temporary
+
+on:
+  push:
+    branches:
+      - codex/file09-1.2.0-rc2-final
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harmonize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout correction branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: codex/file09-1.2.0-rc2-final
+          fetch-depth: 0
+      - name: Apply four-plan corrections
+        run: |
+          set -euo pipefail
+          python3 tools/four-plan-identity-patch.py
+          python3 tools/four-plan-snapshot-patch.py
+          python3 tools/four-plan-admin-patch.py
+          python3 tools/four-plan-tests-docs-patch.py
+      - name: Set up PHP 8.3
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: openssl,fileinfo,gd
+      - name: Pre-push verification
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l
+          node --check assets/js/onboarding.js
+          php tests/security-unit.php
+          php tests/membership-adapter.php
+          php tests/policy-runtime.php
+          php tests/cf01-practitioner-contract.php
+          php tests/cf01-practitioner.php
+          php tests/cross-file-contracts.php
+          python3 tests/architecture-check.py
+          python3 tests/completion-security.py
+          python3 tests/release-integrity.py
+          python3 tests/final-hardening.py
+      - name: Commit corrected source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add includes tests CHANGELOG.md TRACEABILITY.md REVIEW-ROUND-3-RC2.md SBOM.spdx.json
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No source changes produced'
+            exit 1
+          fi
+          git commit -m 'Harmonize File 09 across four governing plans'
+          git push origin HEAD:codex/file09-1.2.0-rc2-final
