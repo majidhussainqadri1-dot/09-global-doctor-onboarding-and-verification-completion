@@ -1,0 +1,11 @@
+{
+  "assurance_workflow": ".github/workflows/file09-rc2-final.yml",
+  "live_deployed": false,
+  "operationally_accepted": false,
+  "package_root": "global-doctor-onboarding-09/",
+  "release_candidate": "RC2",
+  "release_file_count": 45,
+  "runtime": "1.2.0",
+  "schema": 6,
+  "staging_accepted": false
+}

@@ -1,0 +1,295 @@
+<?php
+defined( 'ABSPATH' ) || exit;
+
+final class GDO_Application {
+	public static function fields() {
+		return array(
+			'display_name','country','city','clinic','professional_title','qualification','license_number',
+			'licensing_authority','license_jurisdiction','experience_years','specialty','services','languages',
+			'consultation_modes','phone','whatsapp','bio','declaration_accuracy','declaration_no_impersonation',
+			'declaration_professional_scope',
+		);
+	}
+
+	public static function get( $application_id ) {
+		global $wpdb;
+		return $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d', absint( $application_id ) ) );
+	}
+
+	public static function latest_for_user( $user_id ) {
+		global $wpdb;
+		return $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE user_id=%d ORDER BY version DESC LIMIT 1', absint( $user_id ) ) );
+	}
+
+	public static function sanitize_profile( array $source ) {
+		$data = array();
+		foreach ( self::fields() as $field ) {
+			$value = isset( $source[ $field ] ) ? wp_unslash( $source[ $field ] ) : '';
+			if ( 0 === strpos( $field, 'declaration_' ) ) {
+				$data[ $field ] = ! empty( $value ) ? '1' : '';
+				continue;
+			}
+			$value = 'bio' === $field ? sanitize_textarea_field( $value ) : sanitize_text_field( $value );
+			if ( in_array( $field, array( 'phone','whatsapp' ), true ) ) {
+				$value = preg_replace( '/[^0-9+() .-]/', '', $value );
+			}
+			$data[ $field ] = trim( (string) $value );
+		}
+		return $data;
+	}
+
+	public static function validate_profile( array $profile, $allow_incomplete = false, $jurisdiction = '', $application_type = 'homeopathic_doctor' ) {
+		$required = GDO_Policy::required_fields( $jurisdiction, $application_type );
+		if ( ! $allow_incomplete ) {
+			foreach ( $required as $field ) {
+				if ( ! isset( $profile[ $field ] ) || '' === trim( (string) $profile[ $field ] ) ) {
+					return new WP_Error( 'gdo_profile_incomplete', sprintf( __( 'Complete the required field: %s.', 'global-doctor-onboarding' ), $field ) );
+				}
+			}
+		}
+		$limits = array(
+			'display_name'=>150,'country'=>100,'city'=>120,'clinic'=>240,'professional_title'=>160,
+			'qualification'=>240,'license_number'=>120,'licensing_authority'=>240,'license_jurisdiction'=>100,
+			'specialty'=>180,'services'=>500,'languages'=>240,'consultation_modes'=>240,
+			'phone'=>40,'whatsapp'=>40,'bio'=>4000,
+		);
+		foreach ( $limits as $field => $maximum ) {
+			$value = isset( $profile[ $field ] ) ? (string) $profile[ $field ] : '';
+			$length = function_exists( 'mb_strlen' ) ? mb_strlen( $value ) : strlen( $value );
+			if ( $length > $maximum ) {
+				return new WP_Error( 'gdo_profile_length', sprintf( __( 'The field %s is too long.', 'global-doctor-onboarding' ), $field ) );
+			}
+		}
+		if ( ! empty( $profile['experience_years'] ) && ( ! ctype_digit( (string) $profile['experience_years'] ) || absint( $profile['experience_years'] ) > 80 ) ) {
+			return new WP_Error( 'gdo_experience', __( 'Professional experience must be a valid number of years.', 'global-doctor-onboarding' ) );
+		}
+		foreach ( array( 'phone','whatsapp' ) as $field ) {
+			if ( empty( $profile[ $field ] ) && $allow_incomplete ) {
+				continue;
+			}
+			$digits = preg_replace( '/\D+/', '', isset( $profile[ $field ] ) ? $profile[ $field ] : '' );
+			if ( strlen( $digits ) < 7 || strlen( $digits ) > 18 ) {
+				return new WP_Error( 'gdo_phone', __( 'Provide a valid professional phone and WhatsApp number.', 'global-doctor-onboarding' ) );
+			}
+		}
+		return true;
+	}
+
+	public static function fingerprint( array $profile, array $evidence = array() ) {
+		ksort( $profile );
+		ksort( $evidence );
+		return hash( 'sha256', wp_json_encode( array( 'profile'=>$profile, 'evidence'=>$evidence ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
+	}
+
+	public static function completeness( $application ) {
+		if ( ! $application ) {
+			return array( 'complete'=>false, 'missing_fields'=>array(), 'missing_evidence'=>array(), 'consent'=>false );
+		}
+		$profile = json_decode( $application->profile_json, true );
+		$profile = is_array( $profile ) ? $profile : array();
+		$missing_fields = array();
+		foreach ( GDO_Policy::required_fields( $application->jurisdiction, $application->application_type ) as $field ) {
+			if ( empty( $profile[ $field ] ) ) {
+				$missing_fields[] = $field;
+			}
+		}
+		$missing_evidence = array();
+		foreach ( array_keys( GDO_Policy::evidence_types( $application->jurisdiction, $application->application_type ) ) as $type ) {
+			$record = GDO_Evidence::current( $application->id, $type );
+			if ( ! $record || ! in_array( $record->status, array( 'pending_review','accepted' ), true ) ) {
+				$missing_evidence[] = $type;
+			}
+		}
+		$consent = ! empty( $application->consent_version ) && hash_equals( GDO_Policy::TERMS_VERSION, (string) $application->terms_version );
+		return array(
+			'complete'=>! $missing_fields && ! $missing_evidence && $consent,
+			'missing_fields'=>$missing_fields,
+			'missing_evidence'=>$missing_evidence,
+			'consent'=>$consent,
+			'policy_version'=>GDO_Policy::VERSION,
+			'terms_version'=>GDO_Policy::TERMS_VERSION,
+		);
+	}
+
+	private static function create_draft( $user_id, $version, array $profile, $renewed_from_id = 0 ) {
+		global $wpdb;
+		$eligibility = GDO_Policy::eligibility( $user_id );
+		if ( empty( $eligibility['eligible'] ) && ! $renewed_from_id ) {
+			return new WP_Error( 'gdo_not_eligible_' . sanitize_key( $eligibility['reason_code'] ), __( 'This account is not eligible to start a new doctor application.', 'global-doctor-onboarding' ) );
+		}
+		$now = current_time( 'mysql', true );
+		$jurisdiction = ! empty( $profile['license_jurisdiction'] ) ? GDO_Policy::normalize_jurisdiction( $profile['license_jurisdiction'] ) : ( ! empty( $eligibility['jurisdiction'] ) ? $eligibility['jurisdiction'] : '' );
+		$data = array(
+			'application_uuid'=>wp_generate_uuid4(), 'user_id'=>absint( $user_id ), 'version'=>absint( $version ),
+			'application_type'=>'homeopathic_doctor', 'jurisdiction'=>$jurisdiction, 'preferred_language'=>get_user_locale( $user_id ),
+			'state'=>'draft', 'row_version'=>1,
+			'profile_json'=>wp_json_encode( $profile, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ),
+			'profile_fingerprint'=>self::fingerprint( $profile ), 'identity_fingerprint'=>GDO_Risk::identity_fingerprint( $profile ),
+			'policy_version'=>GDO_Policy::VERSION, 'terms_version'=>'', 'draft_expires_at'=>GDO_Policy::draft_expiry(),
+			'renewed_from_id'=>$renewed_from_id ? absint( $renewed_from_id ) : null,
+			'created_at'=>$now, 'updated_at'=>$now,
+		);
+		$formats = array( '%s','%d','%d','%s','%s','%s','%s','%d','%s','%s','%s','%s','%s','%s','%d','%s','%s' );
+		$wpdb->query( 'START TRANSACTION' );
+		$inserted = $wpdb->insert( GDO_Schema::table( 'applications' ), $data, $formats );
+		if ( 1 !== $inserted ) {
+			$wpdb->query( 'ROLLBACK' );
+			$existing = self::latest_for_user( $user_id );
+			return $existing && absint( $existing->version ) === absint( $version ) ? $existing : new WP_Error( 'gdo_application_create', __( 'A private doctor application could not be created.', 'global-doctor-onboarding' ) );
+		}
+		$app = self::get( $wpdb->insert_id );
+		$audit = $app ? GDO_Audit::transition( $app->id, $user_id, 'none', 'draft', 'application_created', 'Applicant created a private doctor application.' ) : new WP_Error( 'gdo_application_create', __( 'The private application could not be loaded.', 'global-doctor-onboarding' ) );
+		if ( is_wp_error( $audit ) || false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return is_wp_error( $audit ) ? $audit : new WP_Error( 'gdo_application_commit', __( 'The private application could not be committed.', 'global-doctor-onboarding' ) );
+		}
+		return $app;
+	}
+
+	public static function ensure_draft( $user_id ) {
+		$user_id = absint( $user_id );
+		$latest = self::latest_for_user( $user_id );
+		if ( $latest && in_array( $latest->state, array( 'draft','more_information' ), true ) ) {
+			if ( 'draft' === $latest->state && $latest->draft_expires_at && strtotime( $latest->draft_expires_at . ' UTC' ) < time() ) {
+				return new WP_Error( 'gdo_draft_expired', __( 'This draft expired. Start a new application after the expired draft is safely closed.', 'global-doctor-onboarding' ) );
+			}
+			return $latest;
+		}
+		if ( $latest && in_array( $latest->state, array( 'expired','renewal_due' ), true ) ) {
+			$profile = json_decode( $latest->profile_json, true );
+			return self::create_draft( $user_id, absint( $latest->version ) + 1, is_array( $profile ) ? $profile : array_fill_keys( self::fields(), '' ), $latest->id );
+		}
+		if ( $latest ) {
+			return new WP_Error( 'gdo_application_locked', __( 'The current application cannot be edited in its present state. Use the status, appeal, or lifecycle process.', 'global-doctor-onboarding' ) );
+		}
+		$eligibility = GDO_Policy::eligibility( $user_id );
+		if ( empty( $eligibility['eligible'] ) ) {
+			return new WP_Error( 'gdo_not_eligible_' . sanitize_key( $eligibility['reason_code'] ), __( 'File 00 has not approved this account for the doctor application workflow.', 'global-doctor-onboarding' ) );
+		}
+		return self::create_draft( $user_id, 1, array_fill_keys( self::fields(), '' ) );
+	}
+
+	public static function save_draft( $application_id, $user_id, array $profile, $expected_row_version, $allow_incomplete = false ) {
+		global $wpdb;
+		$app = self::get( $application_id );
+		if ( ! GDO_Operations::mutation_allowed() ) {
+			return new WP_Error( 'gdo_safe_mode', __( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ) );
+		}
+		if ( ! $app || absint( $app->user_id ) !== absint( $user_id ) || ! in_array( $app->state, array( 'draft','more_information' ), true ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user_id ) ) {
+			return new WP_Error( 'gdo_draft_access', __( 'This application cannot be edited.', 'global-doctor-onboarding' ) );
+		}
+		$valid = self::validate_profile( $profile, $allow_incomplete, $app->jurisdiction, $app->application_type );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+		$jurisdiction = ! empty( $profile['license_jurisdiction'] ) ? GDO_Policy::normalize_jurisdiction( $profile['license_jurisdiction'] ) : $app->jurisdiction;
+		$updated = $wpdb->query( $wpdb->prepare(
+			'UPDATE ' . GDO_Schema::table( 'applications' ) . ' SET profile_json=%s,profile_fingerprint=%s,identity_fingerprint=%s,jurisdiction=%s,policy_version=%s,row_version=row_version+1,updated_at=%s WHERE id=%d AND row_version=%d',
+			wp_json_encode( $profile, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ), self::fingerprint( $profile ), GDO_Risk::identity_fingerprint( $profile ), $jurisdiction, GDO_Policy::VERSION, current_time( 'mysql', true ), absint( $application_id ), absint( $expected_row_version )
+		) );
+		return 1 === $updated ? true : new WP_Error( 'gdo_concurrent_change', __( 'The application changed. Reload and try again.', 'global-doctor-onboarding' ) );
+	}
+
+	public static function consent_text() {
+		return array(
+			'version'=>GDO_Policy::TERMS_VERSION,
+			'wording'=>'I certify that the professional information and credential evidence are authentic, current, belong to me, and do not impersonate another person. I consent to private processing for professional verification, safety, fraud prevention, audit, appeal, renewal, and legal accountability.',
+			'purpose'=>'Doctor identity, qualification, license, professional-scope verification, safety, fraud prevention, audit, appeal, renewal, and platform eligibility.',
+			'retention'=>'Credential evidence is retained only for active review, verification, renewal, appeal, legal hold, and configured accountability periods. Verified physical erasure is applied when eligible.',
+		);
+	}
+
+	public static function record_consent( $application_id, $user_id, $accepted ) {
+		global $wpdb;
+		$app = self::get( $application_id );
+		if ( ! $app || absint( $app->user_id ) !== absint( $user_id ) || ! in_array( $app->state, array( 'draft','more_information' ), true ) ) {
+			return new WP_Error( 'gdo_consent_access', __( 'Consent cannot be recorded for this application.', 'global-doctor-onboarding' ) );
+		}
+		if ( ! $accepted ) {
+			return new WP_Error( 'gdo_consent_required', __( 'Credential-processing consent is required.', 'global-doctor-onboarding' ) );
+		}
+		$text = self::consent_text();
+		$accepted_at = current_time( 'mysql', true );
+		$wording_hash = hash( 'sha256', $text['wording'] );
+		$evidence_hash = hash( 'sha256', absint( $application_id ) . '|' . absint( $user_id ) . '|' . $text['version'] . '|' . $accepted_at . '|' . $wording_hash );
+		$data = array(
+			'application_id'=>absint( $application_id ), 'user_id'=>absint( $user_id ), 'consent_version'=>$text['version'],
+			'wording_hash'=>$wording_hash, 'purpose'=>$text['purpose'], 'retention_notice'=>$text['retention'],
+			'lawful_basis'=>'consent_and_professional_verification', 'accepted_at'=>$accepted_at, 'withdrawn_at'=>null, 'evidence_hash'=>$evidence_hash,
+		);
+		$ok = $wpdb->replace( GDO_Schema::table( 'consents' ), $data, array( '%d','%d','%s','%s','%s','%s','%s','%s','%s','%s' ) );
+		if ( ! $ok ) {
+			return new WP_Error( 'gdo_consent_store', __( 'Consent evidence could not be stored.', 'global-doctor-onboarding' ) );
+		}
+		$updated = $wpdb->update( GDO_Schema::table( 'applications' ), array( 'consent_version'=>$text['version'], 'terms_version'=>GDO_Policy::TERMS_VERSION, 'updated_at'=>current_time( 'mysql', true ) ), array( 'id'=>absint( $application_id ) ), array( '%s','%s','%s' ), array( '%d' ) );
+		return false === $updated ? new WP_Error( 'gdo_consent_link', __( 'Consent could not be linked to the application.', 'global-doctor-onboarding' ) ) : true;
+	}
+
+	public static function submit( $application_id, $user_id, $expected_row_version ) {
+		global $wpdb;
+		$app = self::get( $application_id );
+		if ( ! GDO_Operations::mutation_allowed() || ! $app || absint( $app->user_id ) !== absint( $user_id ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user_id ) ) {
+			return new WP_Error( 'gdo_submit_access', __( 'The application cannot be submitted.', 'global-doctor-onboarding' ) );
+		}
+		$profile = json_decode( $app->profile_json, true );
+		$profile = is_array( $profile ) ? $profile : array();
+		$valid = self::validate_profile( $profile, false, $app->jurisdiction, $app->application_type );
+		$complete = self::completeness( $app );
+		if ( is_wp_error( $valid ) || empty( $complete['complete'] ) ) {
+			return new WP_Error( 'gdo_submit_incomplete', __( 'Complete all profile, declaration, consent, and current credential requirements before submission.', 'global-doctor-onboarding' ) );
+		}
+		$evidence_records = GDO_Evidence::records( $app->id, true );
+		GDO_Risk::evaluate( $app, $profile, $evidence_records );
+		$evidence = array();
+		foreach ( $evidence_records as $record ) {
+			$evidence[ $record->document_type ] = array( 'version'=>absint( $record->version ), 'source_sha256'=>(string) $record->source_sha256, 'content_hmac'=>(string) $record->content_hmac, 'status'=>(string) $record->status );
+		}
+		$submission = array(
+			'application_uuid'=>$app->application_uuid, 'application_version'=>absint( $app->version ),
+			'profile_fingerprint'=>self::fingerprint( $profile ), 'evidence'=>$evidence,
+			'consent_version'=>$app->consent_version, 'terms_version'=>$app->terms_version,
+			'policy_version'=>GDO_Policy::VERSION,
+		);
+		$submission_hash = hash( 'sha256', GDO_Claims::canonical_json( $submission ) );
+		if ( ! empty( $app->submission_hash ) && hash_equals( (string) $app->submission_hash, $submission_hash ) && in_array( $app->state, array( 'submitted','resubmitted' ), true ) ) {
+			return true;
+		}
+		if ( ! in_array( $app->state, array( 'draft','more_information' ), true ) || absint( $app->row_version ) !== absint( $expected_row_version ) ) {
+			return new WP_Error( 'gdo_submit_state', __( 'The application state changed. Reload and try again.', 'global-doctor-onboarding' ) );
+		}
+		$from = $app->state;
+		$to = 'draft' === $from ? 'submitted' : 'resubmitted';
+		$wpdb->query( 'START TRANSACTION' );
+		$result = GDO_State::transition( $app->id, $to, $user_id, 'application_submitted', 'Applicant submitted a complete immutable application snapshot.', $app->row_version, false );
+		if ( is_wp_error( $result ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return $result;
+		}
+		$updated = $wpdb->update( GDO_Schema::table( 'applications' ), array(
+			'submitted_at'=>current_time( 'mysql', true ), 'submission_hash'=>$submission_hash,
+			'policy_version'=>GDO_Policy::VERSION, 'terms_version'=>GDO_Policy::TERMS_VERSION,
+			'recommended_decision'=>null, 'recommendation_reason'=>null, 'recommendation_at'=>null,
+		), array( 'id'=>$app->id ), array( '%s','%s','%s','%s','%s','%s','%s' ), array( '%d' ) );
+		$event = false === $updated ? new WP_Error( 'gdo_submit_update', __( 'The application submission could not be stored.', 'global-doctor-onboarding' ) ) : GDO_Notifications::queue( 'doctor_application_submitted', $user_id, array( 'application_id'=>$app->id, 'version'=>$app->version, 'submission_hash'=>$submission_hash ), false );
+		if ( false === $updated || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return is_wp_error( $event ) ? $event : new WP_Error( 'gdo_submit_commit', __( 'The application submission could not be committed.', 'global-doctor-onboarding' ) );
+		}
+		GDO_Notifications::process( 1, $event );
+		do_action( 'gdo_application_submitted', $app->id, $user_id );
+		return true;
+	}
+
+	public static function approved_snapshot( $application_id ) {
+		$app = self::get( $application_id );
+		if ( ! $app || empty( $app->approved_snapshot_json ) || empty( $app->approved_fingerprint ) || ! GDO_State::public_verified( $app->state ) ) {
+			return array();
+		}
+		$snapshot = json_decode( $app->approved_snapshot_json, true );
+		if ( ! is_array( $snapshot ) || empty( $snapshot['profile'] ) || empty( $snapshot['evidence'] ) ) {
+			return array();
+		}
+		$computed = self::fingerprint( (array) $snapshot['profile'], (array) $snapshot['evidence'] );
+		return hash_equals( (string) $app->approved_fingerprint, $computed ) ? $snapshot : array();
+	}
+}
