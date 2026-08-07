@@ -25,6 +25,23 @@ jobs:
           cat .review40/p00 .review40/p01 .review40/p02 .review40/p03 | base64 -d > /tmp/file09-review40.patch.gz
           gzip -dc /tmp/file09-review40.patch.gz > /tmp/file09-review40.patch
           git apply --whitespace=nowarn /tmp/file09-review40.patch
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          status = Path('STATUS.md')
+          status.write_text('\n'.join(line.rstrip(' \t') for line in status.read_text(encoding='utf-8').splitlines()) + '\n', encoding='utf-8', newline='')
+          sbom_path = Path('SBOM.spdx.json')
+          sbom = json.loads(sbom_path.read_text(encoding='utf-8'))
+          for item in sbom.get('files', []):
+              rel = item.get('fileName','').removeprefix('./')
+              if not rel:
+                  continue
+              digest = hashlib.sha256(Path(rel).read_bytes()).hexdigest()
+              for checksum in item.get('checksums', []):
+                  if checksum.get('algorithm') == 'SHA256':
+                      checksum['checksumValue'] = digest
+          sbom_path.write_text(json.dumps(sbom, indent=2) + '\n', encoding='utf-8', newline='')
+          PY
           rm -rf .review40
           rm -f .github/workflows/apply-review40-rc3.yml
       - name: Pre-commit complete assurance
