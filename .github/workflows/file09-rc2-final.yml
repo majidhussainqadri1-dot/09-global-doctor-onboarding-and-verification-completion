@@ -55,6 +55,7 @@ jobs:
           python3 tests/completion-security.py
           python3 tests/release-integrity.py
           python3 tests/rc2-adversarial.py
+          python3 tests/final-hardening.py
       - name: Exact-head source evidence
         run: |
           git rev-parse HEAD | tee exact-head.txt
