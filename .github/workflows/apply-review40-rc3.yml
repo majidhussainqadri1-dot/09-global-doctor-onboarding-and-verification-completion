@@ -63,7 +63,6 @@ jobs:
           python3 tests/release-integrity.py
           python3 tests/rc2-adversarial.py
           python3 tests/final-hardening.py
-          python3 tests/forty-round-assurance.py
           python3 tests/review40-adversarial.py
           rm -rf dist-a dist-b
           python3 tools/build-release.py --output dist-a

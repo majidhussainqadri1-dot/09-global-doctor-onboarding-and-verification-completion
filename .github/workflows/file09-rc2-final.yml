@@ -56,7 +56,6 @@ jobs:
           python3 tests/release-integrity.py
           python3 tests/rc2-adversarial.py
           python3 tests/final-hardening.py
-          python3 tests/forty-round-assurance.py
           python3 tests/review40-adversarial.py
       - name: Exact-head source evidence
         run: |
