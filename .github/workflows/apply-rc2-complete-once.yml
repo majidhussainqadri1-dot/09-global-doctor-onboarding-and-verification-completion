@@ -1,0 +1,80 @@
+name: Apply Complete RC2 Correction Once
+
+on:
+  push:
+    branches:
+      - codex/file09-1.2.0-rc2-completion
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, 'apply complete RC2 correction') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up PHP 8.3
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: openssl,fileinfo,gd
+
+      - name: Reconstruct and verify complete payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find .github/rc2-payload -type f -name 'part-*' | wc -l)" -eq 7
+          cat .github/rc2-payload/part-* | base64 -d | gzip -d > /tmp/rc2-complete.patch
+          echo "7ed806305c17cc416e79f84cc24da110cb48d539bd8f2615ec2efba0ccd108d0  /tmp/rc2-complete.patch" | sha256sum --check -
+          git merge-base --is-ancestor f8ccc720247f0e8f58d4cbb9f514e9b9708807e3 HEAD
+
+      - name: Apply complete exact patch and remove transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --index --binary /tmp/rc2-complete.patch
+          rm -rf .github/rc2-payload
+          rm -f .github/workflows/apply-rc2-complete-once.yml
+          git add -A
+
+      - name: Run complete correction assurance
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l
+          node --check assets/js/onboarding.js
+          php tests/security-unit.php
+          php tests/membership-adapter.php
+          php tests/policy-runtime.php
+          php tests/cf01-practitioner-contract.php
+          php tests/cf01-practitioner.php
+          php tests/cross-file-contracts.php
+          python3 tests/architecture-check.py
+          python3 tests/completion-security.py
+          python3 tests/release-integrity.py
+          python3 tests/rc2-adversarial.py
+          rm -rf dist-a dist-b
+          GITHUB_SHA="${GITHUB_SHA}" python3 tools/build-release.py --output dist-a
+          GITHUB_SHA="${GITHUB_SHA}" python3 tools/build-release.py --output dist-b
+          cmp dist-a/global-doctor-onboarding-09-1.2.0-RC2.zip dist-b/global-doctor-onboarding-09-1.2.0-RC2.zip
+          python3 tools/verify-release.py dist-a/global-doctor-onboarding-09-1.2.0-RC2.zip RELEASE-FILES.txt
+          rm -rf dist-a dist-b
+          git diff --cached --check
+
+      - name: Commit and push final RC2 correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: apply complete RC2 correction and assurance"
+          git push origin HEAD:codex/file09-1.2.0-rc2-completion
