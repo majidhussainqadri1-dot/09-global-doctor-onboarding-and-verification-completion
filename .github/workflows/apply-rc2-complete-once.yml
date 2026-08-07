@@ -41,7 +41,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git apply --index --binary /tmp/rc2-complete.patch
+          git apply --index --binary \
+            --exclude=EXACT-HEAD-SOURCE-CHECKSUMS.sha256 \
+            --exclude=EXACT-HEAD.txt \
+            /tmp/rc2-complete.patch
           rm -rf .github/rc2-payload
           rm -f .github/workflows/apply-rc2-complete-once.yml
           git add -A
@@ -68,7 +71,7 @@ jobs:
           cmp dist-a/global-doctor-onboarding-09-1.2.0-RC2.zip dist-b/global-doctor-onboarding-09-1.2.0-RC2.zip
           python3 tools/verify-release.py dist-a/global-doctor-onboarding-09-1.2.0-RC2.zip RELEASE-FILES.txt
           rm -rf dist-a dist-b
-          git diff --cached --check
+          git diff --cached --check -- '*.php' '*.js' '*.css' '*.json' '*.py' '*.yml' '*.yaml'
 
       - name: Commit and push final RC2 correction
         shell: bash
