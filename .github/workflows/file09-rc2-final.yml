@@ -1,25 +1,42 @@
 name: File 09 RC2 Final Assurance
+
 on:
   pull_request:
   push:
-    branches: ["codex/file09-1.2.0-rc2-completion", "main"]
+    branches:
+      - codex/file09-1.2.0-rc2-final
+      - main
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   verify:
     name: PHP ${{ matrix.php }} source and adversarial assurance
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     strategy:
       fail-fast: false
       matrix:
-        php: ['7.4','8.3']
+        php: ['7.4', '8.3']
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-        with: {fetch-depth: 0, persist-credentials: false}
-      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
-        with: {php-version: '${{ matrix.php }}', coverage: none, extensions: 'openssl,fileinfo,gd'}
+      - name: Checkout exact source head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Assert exact source head
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Set up PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          extensions: openssl,fileinfo,gd
       - name: Hygiene, syntax and complete suites
         run: |
           set -euo pipefail
@@ -41,18 +58,29 @@ jobs:
       - name: Exact-head source evidence
         run: |
           git rev-parse HEAD | tee exact-head.txt
+          test "$(cat exact-head.txt)" = "$EXPECTED_SHA"
           find . -type f -not -path './.git/*' -print0 | sort -z | xargs -0 sha256sum > exact-source-checksums.sha256
           wc -l exact-source-checksums.sha256
+
   package:
     name: Deterministic RC2 package
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-        with: {fetch-depth: 0, persist-credentials: false}
+      - name: Checkout exact source head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Assert exact source head
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
       - name: Build twice and verify parity
-        env: {GITHUB_SHA: '${{ github.sha }}'}
+        env:
+          GITHUB_SHA: ${{ env.EXPECTED_SHA }}
         run: |
           set -euo pipefail
           python3 tools/build-release.py --output dist-a
@@ -61,10 +89,12 @@ jobs:
           python3 tools/verify-release.py dist-a/global-doctor-onboarding-09-1.2.0-RC2.zip RELEASE-FILES.txt
           rm -rf dist && mv dist-a dist && rm -rf dist-b
           git rev-parse HEAD > dist/EXACT-HEAD.txt
+          test "$(cat dist/EXACT-HEAD.txt)" = "$EXPECTED_SHA"
           find . -type f -not -path './.git/*' -not -path './dist/*' -print0 | sort -z | xargs -0 sha256sum > dist/EXACT-HEAD-SOURCE-CHECKSUMS.sha256
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - name: Upload exact-head release artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: file09-1.2.0-rc2-${{ github.sha }}
+          name: file09-1.2.0-rc2-${{ env.EXPECTED_SHA }}
           path: dist/
           if-no-files-found: error
           retention-days: 30
