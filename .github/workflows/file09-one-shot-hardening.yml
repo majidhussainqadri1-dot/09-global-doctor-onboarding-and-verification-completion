@@ -19,8 +19,24 @@ jobs:
         with:
           ref: codex/file09-1.2.0-rc2-final
           fetch-depth: 0
+      - name: Refine hardening regression selector
+        run: sed -i 's/store.index(/store.rindex(/g' tools/one-shot-hardening.py
       - name: Apply hardening corrections
         run: python3 tools/one-shot-hardening.py
+      - name: Preserve pending professional revocation claims during erasure
+        run: sed -i "s/WHERE recipient_user_id=%d AND payload_json LIKE %s/WHERE recipient_user_id=%d AND event_type<>'doctor_professional_claim' AND payload_json LIKE %s/" includes/class-gdo-privacy.php
+      - name: Extend regression gate for claim propagation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tests/final-hardening.py')
+          s = p.read_text(encoding='utf-8')
+          anchor = "if 'OFFSET' in erase:\n    fail('mutating privacy erasure still uses offset pagination and can skip records')"
+          replacement = "if \"event_type<>'doctor_professional_claim'\" not in erase:\n    fail('privacy erasure can redact a pending professional revocation claim')\n" + anchor
+          if anchor not in s:
+              raise SystemExit('privacy hardening test anchor missing')
+          p.write_text(s.replace(anchor, replacement, 1), encoding='utf-8')
+          PY
       - name: Remove temporary patch machinery
         run: rm -f .github/workflows/file09-one-shot-hardening.yml tools/one-shot-hardening.py
       - name: Set up PHP 8.3
