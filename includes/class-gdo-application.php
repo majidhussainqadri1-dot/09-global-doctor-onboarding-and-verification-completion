@@ -21,6 +21,23 @@ final class GDO_Application {
 		return $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE user_id=%d ORDER BY version DESC LIMIT 1', absint( $user_id ) ) );
 	}
 
+	public static function verification_record_for_user( $user_id ) {
+		$user_id = absint( $user_id );
+		$latest = self::latest_for_user( $user_id );
+		if ( ! $latest ) {
+			return null;
+		}
+		$renewal_in_progress = array( 'draft','submitted','under_review','more_information','resubmitted','recommended' );
+		if ( ! empty( $latest->renewed_from_id ) && in_array( sanitize_key( $latest->state ), $renewal_in_progress, true ) ) {
+			$prior = self::get( $latest->renewed_from_id );
+			$expires = $prior && ! empty( $prior->verified_until ) ? strtotime( $prior->verified_until . ' UTC' ) : 0;
+			if ( $prior && absint( $prior->user_id ) === $user_id && GDO_State::public_verified( $prior->state ) && $expires > time() ) {
+				return $prior;
+			}
+		}
+		return $latest;
+	}
+
 	public static function sanitize_profile( array $source ) {
 		$data = array();
 		foreach ( self::fields() as $field ) {
@@ -114,12 +131,13 @@ final class GDO_Application {
 
 	private static function create_draft( $user_id, $version, array $profile, $renewed_from_id = 0 ) {
 		global $wpdb;
-		$eligibility = GDO_Policy::eligibility( $user_id );
+		$requested_jurisdiction = ! empty( $profile['license_jurisdiction'] ) ? GDO_Policy::normalize_jurisdiction( $profile['license_jurisdiction'] ) : '';
+		$eligibility = GDO_Policy::eligibility( $user_id, array( 'jurisdiction'=>$requested_jurisdiction ) );
 		if ( empty( $eligibility['eligible'] ) ) {
 			return new WP_Error( 'gdo_not_eligible_' . sanitize_key( $eligibility['reason_code'] ), __( 'This account is not eligible to start a new doctor application.', 'global-doctor-onboarding' ) );
 		}
 		$now = current_time( 'mysql', true );
-		$jurisdiction = ! empty( $profile['license_jurisdiction'] ) ? GDO_Policy::normalize_jurisdiction( $profile['license_jurisdiction'] ) : ( ! empty( $eligibility['jurisdiction'] ) ? $eligibility['jurisdiction'] : '' );
+		$jurisdiction = $requested_jurisdiction ? $requested_jurisdiction : ( ! empty( $eligibility['jurisdiction'] ) ? $eligibility['jurisdiction'] : '' );
 		$data = array(
 			'application_uuid'=>wp_generate_uuid4(), 'user_id'=>absint( $user_id ), 'version'=>absint( $version ),
 			'application_type'=>'homeopathic_doctor', 'jurisdiction'=>$jurisdiction, 'preferred_language'=>get_user_locale( $user_id ),
@@ -176,14 +194,14 @@ final class GDO_Application {
 		if ( ! GDO_Operations::mutation_allowed() ) {
 			return new WP_Error( 'gdo_safe_mode', __( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ) );
 		}
-		if ( ! $app || absint( $app->user_id ) !== absint( $user_id ) || ! in_array( $app->state, array( 'draft','more_information' ), true ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user_id ) ) {
+		$jurisdiction = $app && ! empty( $profile['license_jurisdiction'] ) ? GDO_Policy::normalize_jurisdiction( $profile['license_jurisdiction'] ) : ( $app ? $app->jurisdiction : '' );
+		if ( ! $app || absint( $app->user_id ) !== absint( $user_id ) || ! in_array( $app->state, array( 'draft','more_information' ), true ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user_id, $jurisdiction ) ) {
 			return new WP_Error( 'gdo_draft_access', __( 'This application cannot be edited.', 'global-doctor-onboarding' ) );
 		}
-		$valid = self::validate_profile( $profile, $allow_incomplete, $app->jurisdiction, $app->application_type );
+		$valid = self::validate_profile( $profile, $allow_incomplete, $jurisdiction, $app->application_type );
 		if ( is_wp_error( $valid ) ) {
 			return $valid;
 		}
-		$jurisdiction = ! empty( $profile['license_jurisdiction'] ) ? GDO_Policy::normalize_jurisdiction( $profile['license_jurisdiction'] ) : $app->jurisdiction;
 		$updated = $wpdb->query( $wpdb->prepare(
 			'UPDATE ' . GDO_Schema::table( 'applications' ) . ' SET profile_json=%s,profile_fingerprint=%s,identity_fingerprint=%s,jurisdiction=%s,policy_version=%s,row_version=row_version+1,updated_at=%s WHERE id=%d AND row_version=%d',
 			wp_json_encode( $profile, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ), self::fingerprint( $profile ), GDO_Risk::identity_fingerprint( $profile ), $jurisdiction, GDO_Policy::VERSION, current_time( 'mysql', true ), absint( $application_id ), absint( $expected_row_version )
@@ -229,7 +247,7 @@ final class GDO_Application {
 	public static function submit( $application_id, $user_id, $expected_row_version ) {
 		global $wpdb;
 		$app = self::get( $application_id );
-		if ( ! GDO_Operations::mutation_allowed() || ! $app || absint( $app->user_id ) !== absint( $user_id ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user_id ) ) {
+		if ( ! GDO_Operations::mutation_allowed() || ! $app || absint( $app->user_id ) !== absint( $user_id ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user_id, $app ? $app->jurisdiction : '' ) ) {
 			return new WP_Error( 'gdo_submit_access', __( 'The application cannot be submitted.', 'global-doctor-onboarding' ) );
 		}
 		$profile = json_decode( $app->profile_json, true );
@@ -306,12 +324,13 @@ final class GDO_Application {
 	public static function refresh_approved_snapshot( $application_or_id, $verified_until, $actor_id ) {
 		$app = is_object( $application_or_id ) ? $application_or_id : self::get( $application_or_id );
 		$snapshot = self::stored_approved_snapshot( $app );
-		$timestamp = strtotime( trim( (string) $verified_until ) . ' 23:59:59 UTC' );
-		if ( ! $app || ! $snapshot || false === $timestamp || $timestamp <= time() ) {
+		$normalized_until = GDO_Policy::normalize_future_date( $verified_until );
+		if ( ! $app || ! $snapshot || is_wp_error( $normalized_until ) ) {
 			return new WP_Error( 'gdo_snapshot_refresh_invalid', __( 'The approved professional snapshot cannot be refreshed safely.', 'global-doctor-onboarding' ) );
 		}
+		$timestamp = strtotime( $normalized_until . ' 23:59:59 UTC' );
 		$snapshot['schema'] = absint( GDO_SCHEMA_VERSION );
-		$snapshot['verified_until'] = gmdate( 'Y-m-d', $timestamp );
+		$snapshot['verified_until'] = $normalized_until;
 		$snapshot['policy_version'] = GDO_Policy::VERSION;
 		$snapshot['finalizer_id'] = absint( $actor_id );
 		$snapshot['captured_at'] = current_time( 'mysql', true );

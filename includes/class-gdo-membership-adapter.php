@@ -119,11 +119,15 @@ final class GDO_Membership_Adapter {
 			&& ! empty( $base['two_factor_ready'] );
 	}
 
-	public static function is_active_doctor_candidate( $user_id ) {
+	public static function membership_allows( $assertion ) {
+		return is_array( $assertion ) && isset( $assertion['result'] ) && 'allow' === sanitize_key( $assertion['result'] );
+	}
+
+	public static function is_active_doctor_candidate( $user_id, $jurisdiction = '' ) {
 		$user_id = absint( $user_id );
 		$base = self::base_assertion( $user_id );
-		$subject = self::membership_assertion( $user_id, 'clinical_identity_link', 'doctor_application' );
-		if ( ! $base || ! $subject || self::sanctioned( $user_id ) || ! self::identity_assurance_current( $user_id ) ) {
+		$subject = self::membership_assertion( $user_id, 'clinical_identity_link', 'doctor_application', $jurisdiction );
+		if ( ! $base || ! self::membership_allows( $subject ) || self::sanctioned( $user_id ) || ! self::identity_assurance_current( $user_id ) ) {
 			return false;
 		}
 		$age = isset( $subject['age_context'] ) && is_array( $subject['age_context'] ) ? $subject['age_context'] : array();
@@ -134,7 +138,8 @@ final class GDO_Membership_Adapter {
 			&& in_array( 'doctor', $approved_types, true )
 			&& $age_years >= $minimum_age;
 		// Professional verification itself is intentionally not required here: File 09 is the professional verifier.
-		return (bool) apply_filters( 'gdo_file00_doctor_application_eligible', $eligible, $user_id, $base, $subject );
+		$filtered = (bool) apply_filters( 'gdo_file00_doctor_application_eligible', $eligible, $user_id, $base, $subject );
+		return $eligible && $filtered;
 	}
 
 	private static function capability_map() {
@@ -144,7 +149,8 @@ final class GDO_Membership_Adapter {
 			'sabri_manage_doctor_verification'   => array( 'smc_manage_membership' ),
 			'sabri_finalize_doctor_verification' => array( 'smc_manage_membership' ),
 		);
-		return (array) apply_filters( 'gdo_file00_capability_map', $map );
+		// Baseline File 00 capability mapping is a security invariant; extension filters may only narrow in can().
+		return $map;
 	}
 
 	public static function can( $capability, $user_id = 0 ) {
@@ -163,14 +169,33 @@ final class GDO_Membership_Adapter {
 				break;
 			}
 		}
-		return (bool) apply_filters( 'gdo_file00_capability', $allowed, $capability, $user_id, $required );
+		$filtered = (bool) apply_filters( 'gdo_file00_capability', $allowed, $capability, $user_id, $required );
+		return $allowed && $filtered;
 	}
 
 	public static function reviewer_scope_allows( $reviewer_id, $applicant_id, $application_id ) {
 		$reviewer_id = absint( $reviewer_id );
 		$applicant_id = absint( $applicant_id );
 		$allowed = $reviewer_id && $reviewer_id !== $applicant_id && self::can( 'sabri_verify_doctors', $reviewer_id );
-		return (bool) apply_filters( 'gdo_reviewer_scope_allows', $allowed, $reviewer_id, $applicant_id, absint( $application_id ) );
+		if ( $allowed && $application_id ) {
+			global $wpdb;
+			$app = GDO_Application::get( $application_id );
+			$profile = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'reviewer_profiles' ) . " WHERE user_id=%d AND status='active'", $reviewer_id ) );
+			if ( ! $app || ! $profile ) {
+				$allowed = false;
+			} else {
+				$jurisdictions = json_decode( $profile->jurisdictions_json, true );
+				$languages = json_decode( $profile->languages_json, true );
+				if ( $app->jurisdiction && ! in_array( $app->jurisdiction, (array) $jurisdictions, true ) ) {
+					$allowed = false;
+				}
+				if ( $allowed && $app->preferred_language && ! in_array( $app->preferred_language, (array) $languages, true ) && ! in_array( 'en-US', (array) $languages, true ) ) {
+					$allowed = false;
+				}
+			}
+		}
+		$filtered = (bool) apply_filters( 'gdo_reviewer_scope_allows', $allowed, $reviewer_id, $applicant_id, absint( $application_id ) );
+		return $allowed && $filtered;
 	}
 
 	public static function recent_step_up( $user_id, $seconds = 900 ) {
@@ -231,7 +256,7 @@ final class GDO_Membership_Adapter {
 
 	private static function subject_matches( $user_id, $subject_uuid ) {
 		$assertion = self::membership_assertion( $user_id, 'clinical_identity_link', 'professional_verification_review' );
-		return $assertion
+		return self::membership_allows( $assertion )
 			&& isset( $assertion['subject']['platform_uuid'] )
 			&& self::valid_uuid( $subject_uuid )
 			&& hash_equals( (string) $assertion['subject']['platform_uuid'], (string) $subject_uuid );

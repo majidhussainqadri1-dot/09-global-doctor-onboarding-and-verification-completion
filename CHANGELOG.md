@@ -40,3 +40,14 @@
 - Revalidated File 00 assurance and unresolved high-risk signals at verification/reinstatement/claim time.
 - Refreshed approved snapshot validity metadata on reinstatement.
 - Made WhatsApp optional as specified; corrected phone copy and File 20 shell naming boundary.
+
+
+## 1.2.0-RC3 — Forty-round corrective assurance — 2026-08-07
+
+- Performed 40 independent review/fix rounds against the corrected RC2 baseline; 13 rounds found defects and 27 rounds found no new defect.
+- Made File 00 membership assertions explicitly fail-closed on `result=allow`, jurisdiction-aware, and protected authorization/policy extension points from widening baseline access or removing minimum evidence/profile requirements.
+- Corrected optional-field browser validation, stale outbox `processing` recovery, strict calendar-date validation, live reviewer scope revalidation and appeal/application/workload assignment locking.
+- Rechecked step-up at evidence-grant use time, enforced evidence-review expiry through final/CF-01 paths, preserved the transition audit hash chain during erasure, and preserved valid predecessor verification during an in-progress renewal.
+- Serialized credential upload ownership/quota checks and made quality sampling independent; reviewer-profile persistence failures are now surfaced and successful changes audited.
+- Added `tests/review40-adversarial.py`, `REVIEW-40-ROUNDS-RC3.md`, RC3 release metadata, deterministic RC3 package identity and exact-head CI enforcement.
+- Staging, live deployment and operational acceptance remain explicitly false pending external Hostinger acceptance.

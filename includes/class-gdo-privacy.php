@@ -176,7 +176,7 @@ final class GDO_Privacy {
 			$wpdb->update( GDO_Schema::table( 'appeals' ), array( 'user_id'=>0, 'status'=>'closed', 'reason'=>'anonymized', 'evidence_json'=>null, 'resolution'=>'anonymized', 'decision'=>'withdrawn', 'resolved_at'=>current_time( 'mysql', true ) ), array( 'application_id'=>$app->id ), array( '%d','%s','%s','%s','%s','%s','%s' ), array( '%d' ) );
 			$wpdb->update( GDO_Schema::table( 'risk_signals' ), array( 'related_digest'=>null, 'resolution_reason'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%s','%s' ), array( '%d' ) );
 			$wpdb->update( GDO_Schema::table( 'quality_samples' ), array( 'reason'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%s' ), array( '%d' ) );
-			$wpdb->update( GDO_Schema::table( 'transitions' ), array( 'actor_id'=>null ), array( 'application_id'=>$app->id, 'actor_id'=>$user->ID ), array( '%d' ), array( '%d','%d' ) );
+			// Transition rows are hash-chained immutable accountability evidence; actor_id is retained under that integrity purpose.
 			$wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'application_id'=>$app->id ), array( '%d' ) );
 			$payload_like = '%"application_id":' . absint( $app->id ) . '%';
 			$wpdb->query( $wpdb->prepare(

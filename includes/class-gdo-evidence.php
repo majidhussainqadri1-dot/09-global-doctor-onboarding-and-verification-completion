@@ -132,8 +132,21 @@ final class GDO_Evidence {
         if ( is_wp_error( $normalized ) ) {
             return $normalized;
         }
+        $actor_id = get_current_user_id();
+        if ( ! $actor_id || absint( $application->user_id ) !== $actor_id || ! GDO_Membership_Adapter::is_active_doctor_candidate( $actor_id, $application->jurisdiction ) ) {
+            return new WP_Error( 'gdo_evidence_owner_denied', __( 'Credential upload is not authorized for this application.', 'global-doctor-onboarding' ) );
+        }
+        if ( $manage_transaction ) {
+            $wpdb->query( 'START TRANSACTION' );
+        }
+        $locked = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d AND user_id=%d FOR UPDATE', absint( $application->id ), $actor_id ) );
+        if ( ! $locked ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+            return new WP_Error( 'gdo_evidence_application_lock', __( 'The application could not be locked for a safe credential update.', 'global-doctor-onboarding' ) );
+        }
         $current = self::current( $application->id, $type );
         if ( ! self::quota_allows( $application->user_id, $normalized['size'], $current ? $current->file_size : 0 ) ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return new WP_Error( 'gdo_storage_quota', __( 'The private credential storage quota has been reached.', 'global-doctor-onboarding' ) );
         }
         $version = $current ? absint( $current->version ) + 1 : 1;
@@ -146,11 +159,13 @@ final class GDO_Evidence {
         );
         $encrypted = GDO_Crypto::encrypt( $normalized['bytes'], $meta );
         if ( is_wp_error( $encrypted ) ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return $encrypted;
         }
         $storage_name = wp_generate_uuid4() . '.gdo2';
         $stored = GDO_Storage::atomic_write( $storage_name, $encrypted['bytes'] );
         if ( is_wp_error( $stored ) ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return $stored;
         }
         $now = current_time( 'mysql', true );
@@ -185,9 +200,6 @@ final class GDO_Evidence {
             '%d','%d','%s','%s','%d','%s','%s','%s','%d','%s','%s','%s','%s','%s','%s',
             '%s','%s','%s','%d','%d','%d','%s','%s','%s','%s',
         );
-        if ( $manage_transaction ) {
-            $wpdb->query( 'START TRANSACTION' );
-        }
         $inserted = $wpdb->insert( GDO_Schema::table( 'evidence' ), $data, $formats );
         if ( 1 !== $inserted ) {
             if ( $manage_transaction ) {
@@ -229,7 +241,7 @@ final class GDO_Evidence {
         $app = GDO_Application::get( $application_id );
         foreach ( array_keys( self::types( $app ? $app->jurisdiction : '', $app ? $app->application_type : 'homeopathic_doctor' ) ) as $type ) {
             $record = self::current( $application_id, $type );
-            if ( ! $record || ! in_array( $record->status, array( 'pending_review','accepted' ), true ) ) {
+            if ( ! $record || ! in_array( $record->status, array( 'pending_review','accepted' ), true ) || ( ! empty( $record->expires_at ) && strtotime( $record->expires_at . ' UTC' ) <= time() ) ) {
                 return false;
             }
         }
@@ -244,7 +256,7 @@ final class GDO_Evidence {
         $app = GDO_Application::get( $application_id );
         foreach ( array_keys( self::types( $app ? $app->jurisdiction : '', $app ? $app->application_type : 'homeopathic_doctor' ) ) as $type ) {
             $record = self::current( $application_id, $type );
-            if ( ! $record || 'accepted' !== $record->status || empty( $record->reviewer_id ) || empty( $record->reviewed_at ) ) {
+            if ( ! $record || 'accepted' !== $record->status || empty( $record->reviewer_id ) || empty( $record->reviewed_at ) || ( ! empty( $record->expires_at ) && strtotime( $record->expires_at . ' UTC' ) <= time() ) ) {
                 return false;
             }
             if ( 'license' === $type && ( empty( $record->validity_until ) || strtotime( $record->validity_until . ' 23:59:59 UTC' ) <= time() ) ) {
@@ -339,6 +351,14 @@ final class GDO_Evidence {
             'authenticity_method' => sanitize_text_field( isset($checklist['authenticity_method']) ? $checklist['authenticity_method'] : '' ),
             'scope_match'         => sanitize_key( isset($checklist['scope_match']) ? $checklist['scope_match'] : '' ),
         );
+        $normalized_from = $validity_from ? GDO_Policy::normalize_date( $validity_from ) : '';
+        $normalized_until = $validity_until ? GDO_Policy::normalize_date( $validity_until ) : '';
+        if ( is_wp_error( $normalized_from ) || is_wp_error( $normalized_until ) ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+            return new WP_Error( 'gdo_evidence_date', __( 'Credential validity dates must be real YYYY-MM-DD calendar dates.', 'global-doctor-onboarding' ) );
+        }
+        $validity_from = $normalized_from;
+        $validity_until = $normalized_until;
         if ( 'accepted' === $status ) {
             if ( 'yes' !== $clean['name_match'] || 'yes' !== $clean['document_legible'] || 'yes' !== $clean['scope_match'] || strlen( $clean['authenticity_method'] ) < 5 ) {
                 if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
@@ -354,12 +374,6 @@ final class GDO_Evidence {
         } elseif ( strlen( $review_note ) < 20 ) {
             if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return new WP_Error( 'gdo_evidence_note', __( 'Explain the rejection or information request in at least 20 characters.', 'global-doctor-onboarding' ) );
-        }
-        foreach ( array( 'validity_from'=>$validity_from, 'validity_until'=>$validity_until ) as $date_name=>$date_value ) {
-            if ( $date_value && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $date_value ) ) {
-                if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
-                return new WP_Error( 'gdo_evidence_date', __( 'Credential validity dates must use the YYYY-MM-DD format.', 'global-doctor-onboarding' ) );
-            }
         }
         if ( $validity_from && $validity_until && strtotime( $validity_from . ' 00:00:00 UTC' ) > strtotime( $validity_until . ' 23:59:59 UTC' ) ) {
             if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
@@ -454,7 +468,7 @@ final class GDO_Evidence {
         }
         $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . " WHERE id=%d AND retention_state='active' AND deleted_at IS NULL", absint( $grant->evidence_id ) ) );
         $app = $record ? GDO_Application::get( $record->application_id ) : null;
-        if ( ! $record || ! $app || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) ) {
+        if ( ! $record || ! $app || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::recent_step_up( $reviewer_id ) ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'gdo_evidence_missing', __( 'The credential evidence is unavailable or no longer within reviewer scope.', 'global-doctor-onboarding' ) );
         }

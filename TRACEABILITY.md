@@ -82,3 +82,22 @@ A Must requirement is not accepted merely because code is named below. The exact
 | Action-time safety | Verification/reinstatement/claims recheck current File 00 assurance; reinstatement also rechecks unresolved high-risk state. |
 | File 20 ownership | Local wrapper is `gdo-application`, never a second platform shell. |
 | Required fields | Phone remains required; WhatsApp is optional unless future approved policy changes it. |
+
+
+## Forty-round RC3 corrective traceability — 7 Aug 2026
+
+| Corrective area | Final source evidence | Permanent regression gate |
+| --- | --- | --- |
+| File 00 result/jurisdiction and monotonic authorization | `GDO_Membership_Adapter`, `GDO_Policy`, `GDO_Claims`, CF-01 | `tests/review40-adversarial.py` Rounds 01–02 |
+| Optional-field/runtime parity | `GDO_Frontend` | Round 03 |
+| Crash-safe outbox lease | `GDO_Notifications::process` | Round 04 / Round 21 |
+| Strict dates | `GDO_Policy::normalize_date/normalize_future_date`, Admin/Evidence callers | Round 05 |
+| Reviewer freshness/workload/concurrency | `GDO_Membership_Adapter::reviewer_scope_allows`, `GDO_Admin::assign/assign_appeal` | Rounds 06–07 |
+| Credential view/use-time and expiry | `GDO_Evidence`, approved snapshot, CF-01 | Rounds 08–09 |
+| Immutable audit/erasure | `GDO_Privacy`, `GDO_Audit` | Round 10 |
+| Renewal projection continuity | `GDO_Application::verification_record_for_user`, `GDO_API` | Round 11 |
+| Upload owner/quota serialization | `GDO_Evidence::stage_upload` | Round 12 |
+| Independent quality/reviewer configuration | `GDO_Quality`, `GDO_Admin::save_reviewer_profile` | Round 13 |
+| Corrected-tree assurance families | security/privacy/state/storage/migration/ownership/release | Rounds 14–40 |
+
+RC3 review count: **13 defect-bearing rounds + 27 clean rounds = 40**. Repository zero-known-defect status remains subordinate to fresh evidence and does not imply staging/live/operational acceptance.

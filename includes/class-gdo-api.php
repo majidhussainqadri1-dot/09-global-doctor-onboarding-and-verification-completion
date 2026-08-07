@@ -4,7 +4,7 @@ defined( 'ABSPATH' ) || exit;
 final class GDO_API {
 	public static function latest_decision( $user_id ) {
 		$user_id = absint( $user_id );
-		$app = GDO_Application::latest_for_user( $user_id );
+		$app = GDO_Application::verification_record_for_user( $user_id );
 		$checked_at = gmdate( 'c' );
 		if ( ! $app ) {
 			return array(
@@ -16,11 +16,12 @@ final class GDO_API {
 		$expires = $app->verified_until ? strtotime( $app->verified_until . ' UTC' ) : 0;
 		$expired = $expires && $expires <= time();
 		$snapshot = GDO_Application::approved_snapshot( $app->id );
-		$claim_current = ! apply_filters( 'gdo_require_file00_claim_ack', true, $app ) || 'accepted' === sanitize_key( $app->claim_status );
+		$claim_current = 'accepted' === sanitize_key( $app->claim_status );
 		$verified = GDO_State::public_verified( $app->state )
 			&& $claim_current
 			&& ! $expired
 			&& ! GDO_Membership_Adapter::sanctioned( $user_id )
+			&& GDO_Membership_Adapter::is_active_doctor_candidate( $user_id, $app->jurisdiction )
 			&& ! empty( $snapshot );
 		return array(
 			'application_id'   => absint( $app->id ),

@@ -20,8 +20,9 @@ final class GDO_Quality {
 		global $wpdb;
 		$outcome = sanitize_key( $outcome );
 		$reason = sanitize_textarea_field( $reason );
-		if ( ! in_array( $outcome, array( 'agree','minor_error','major_error' ), true ) || strlen( $reason ) < 10 ) {
-			return new WP_Error( 'gdo_quality_invalid', __( 'A complete quality review is required.', 'global-doctor-onboarding' ) );
+		$sample = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'quality_samples' ) . " WHERE id=%d AND status='pending'", absint( $sample_id ) ) );
+		if ( ! $sample || absint( $sample->reviewer_id ) === absint( $auditor_id ) || ! in_array( $outcome, array( 'agree','minor_error','major_error' ), true ) || strlen( $reason ) < 10 ) {
+			return new WP_Error( 'gdo_quality_invalid', __( 'A complete independent quality review is required.', 'global-doctor-onboarding' ) );
 		}
 		$updated = $wpdb->update( GDO_Schema::table( 'quality_samples' ), array(
 			'status'=>'completed', 'outcome'=>$outcome, 'reason'=>$reason, 'auditor_id'=>absint( $auditor_id ),

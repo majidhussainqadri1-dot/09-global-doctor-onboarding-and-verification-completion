@@ -204,6 +204,7 @@ final class GDO_Admin {
 			return new WP_Error( 'gdo_reviewer_language', __( 'The reviewer does not cover the application language.', 'global-doctor-onboarding' ) );
 		}
 		$open = absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . GDO_Schema::table( 'applications' ) . " WHERE assigned_reviewer_id=%d AND state IN ('under_review','more_information','recommended')", $reviewer_id ) ) );
+		$open += absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . GDO_Schema::table( 'appeals' ) . " WHERE assigned_reviewer_id=%d AND status='open'", $reviewer_id ) ) );
 		if ( $open >= absint( $profile->max_open_cases ) ) {
 			return new WP_Error( 'gdo_reviewer_workload', __( 'The reviewer has reached the configured open-case limit.', 'global-doctor-onboarding' ) );
 		}
@@ -217,11 +218,13 @@ final class GDO_Admin {
 		check_admin_referer( 'gdo_assign_application_' . $id );
 		$app = GDO_Application::get( $id );
 		$reviewer_id = absint( isset( $_POST['reviewer_id'] ) ? $_POST['reviewer_id'] : 0 );
+		$wpdb->query( 'START TRANSACTION' );
+		$wpdb->get_var( $wpdb->prepare( 'SELECT user_id FROM ' . GDO_Schema::table( 'reviewer_profiles' ) . ' WHERE user_id=%d FOR UPDATE', $reviewer_id ) );
 		$eligible = $app ? $this->reviewer_eligible( $reviewer_id, $app ) : new WP_Error( 'gdo_application_missing', __( 'Application unavailable.', 'global-doctor-onboarding' ) );
-		if ( is_wp_error( $eligible ) || ! in_array( $app->state, array( 'submitted','resubmitted' ), true ) ) {
+		if ( is_wp_error( $eligible ) || ! $app || ! in_array( $app->state, array( 'submitted','resubmitted' ), true ) ) {
+			$wpdb->query( 'ROLLBACK' );
 			wp_die( esc_html( is_wp_error( $eligible ) ? $eligible->get_error_message() : __( 'Application cannot be assigned.', 'global-doctor-onboarding' ) ), '', array( 'response'=>400 ) );
 		}
-		$wpdb->query( 'START TRANSACTION' );
 		$result = GDO_State::transition( $id, 'under_review', get_current_user_id(), 'review_started', 'A qualified independent reviewer was assigned.', absint( isset( $_POST['row_version'] ) ? $_POST['row_version'] : 0 ), false );
 		$updated = is_wp_error( $result ) ? false : $wpdb->update( GDO_Schema::table( 'applications' ), array( 'assigned_reviewer_id'=>$reviewer_id, 'reviewed_at'=>current_time( 'mysql', true ), 'updated_at'=>current_time( 'mysql', true ) ), array( 'id'=>$id ), array( '%d','%s','%s' ), array( '%d' ) );
 		$event = is_wp_error( $result ) || false === $updated ? new WP_Error( 'gdo_assignment_not_ready', __( 'Reviewer assignment is not ready for notification.', 'global-doctor-onboarding' ) ) : GDO_Notifications::queue( 'doctor_application_assigned', $app->user_id, array( 'application_id'=>$id ), false );
@@ -276,8 +279,9 @@ final class GDO_Admin {
 		$reviewer = get_current_user_id();
 		$reason = sanitize_textarea_field( isset( $_POST['reason'] ) ? $_POST['reason'] : '' );
 		$due_date = sanitize_text_field( isset( $_POST['due_date'] ) ? $_POST['due_date'] : '' );
-		$due_time = strtotime( $due_date . ' 23:59:59 UTC' );
-		if ( ! $app || 'under_review' !== $app->state || absint( $app->assigned_reviewer_id ) !== $reviewer || strlen( $reason ) < 20 || ! $due_time || $due_time <= time() || $due_time > time() + 30 * DAY_IN_SECONDS || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer, $app->user_id, $id ) ) {
+		$normalized_due = GDO_Policy::normalize_future_date( $due_date );
+		$due_time = is_wp_error( $normalized_due ) ? 0 : strtotime( $normalized_due . ' 23:59:59 UTC' );
+		if ( ! $app || 'under_review' !== $app->state || absint( $app->assigned_reviewer_id ) !== $reviewer || strlen( $reason ) < 20 || ! $due_time || $due_time > time() + 30 * DAY_IN_SECONDS || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer, $app->user_id, $id ) ) {
 			wp_die( esc_html__( 'The information request is invalid or unauthorized.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
 		$due = gmdate( 'Y-m-d H:i:s', $due_time );
@@ -332,13 +336,15 @@ final class GDO_Admin {
 		if ( ! $app || 'recommended' !== $app->state || absint( $app->user_id ) === $finalizer || absint( $app->recommender_id ) === $finalizer || ! in_array( $decision, array( 'verified','rejected','under_review' ), true ) || strlen( $reason ) < 20 || ! GDO_Membership_Adapter::reviewer_scope_allows( $finalizer, $app->user_id, $id ) ) {
 			wp_die( esc_html__( 'Invalid or conflicted final decision.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
-		if ( 'verified' === $decision && ( ! GDO_Evidence::all_accepted( $id ) || ! $until || strtotime( $until . ' 23:59:59 UTC' ) <= time() || GDO_Risk::unresolved( $id, 'high' ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id ) ) ) {
-			wp_die( esc_html__( 'Verification requires accepted current evidence, a future expiry date, and resolved high-risk signals.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
+		$normalized_until = 'verified' === $decision ? GDO_Policy::normalize_future_date( $until ) : '';
+		if ( 'verified' === $decision && ( is_wp_error( $normalized_until ) || ! GDO_Evidence::all_accepted( $id ) || GDO_Risk::unresolved( $id, 'high' ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id, $app->jurisdiction ) ) ) {
+			wp_die( esc_html__( 'Verification requires accepted current evidence, a real future expiry date, and resolved high-risk signals.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
+		if ( 'verified' === $decision ) { $until = $normalized_until; }
 		$profile = json_decode( $app->profile_json, true );
 		$evidence = array();
 		foreach ( GDO_Evidence::records( $id, true ) as $record ) {
-			$evidence[ $record->document_type ] = array( 'version'=>absint( $record->version ), 'content_hmac'=>$record->content_hmac, 'status'=>$record->status, 'validity_until'=>$record->validity_until );
+			$evidence[ $record->document_type ] = array( 'version'=>absint( $record->version ), 'content_hmac'=>$record->content_hmac, 'status'=>$record->status, 'validity_until'=>$record->validity_until, 'expires_at'=>$record->expires_at );
 		}
 		$snapshot = array( 'schema'=>GDO_SCHEMA_VERSION, 'application_uuid'=>$app->application_uuid, 'application_version'=>absint( $app->version ), 'profile'=>$profile, 'evidence'=>$evidence, 'verified_until'=>$until, 'policy_version'=>GDO_Policy::VERSION, 'recommender_id'=>absint( $app->recommender_id ), 'finalizer_id'=>$finalizer, 'captured_at'=>current_time( 'mysql', true ) );
 		$fingerprint = GDO_Application::fingerprint( (array) $profile, $evidence );
@@ -412,9 +418,11 @@ final class GDO_Admin {
 			wp_die( esc_html__( 'Invalid verification lifecycle decision.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
 		$snapshot_refresh = array();
-		if ( 'reinstated' === $state && ( ! GDO_Evidence::all_accepted( $id ) || ! $until || strtotime( $until . ' 23:59:59 UTC' ) <= time() || GDO_Risk::unresolved( $id, 'high' ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id ) ) ) {
-			wp_die( esc_html__( 'Reinstatement requires current File 00 assurance, accepted evidence, a future validity date, and resolved high-risk signals.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
+		$normalized_until = 'reinstated' === $state ? GDO_Policy::normalize_future_date( $until ) : '';
+		if ( 'reinstated' === $state && ( is_wp_error( $normalized_until ) || ! GDO_Evidence::all_accepted( $id ) || GDO_Risk::unresolved( $id, 'high' ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id, $app->jurisdiction ) ) ) {
+			wp_die( esc_html__( 'Reinstatement requires current File 00 assurance, accepted evidence, a real future validity date, and resolved high-risk signals.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
+		if ( 'reinstated' === $state ) { $until = $normalized_until; }
 		if ( 'reinstated' === $state ) {
 			$snapshot_refresh = GDO_Application::refresh_approved_snapshot( $app, $until, $actor );
 			if ( is_wp_error( $snapshot_refresh ) ) { wp_die( esc_html( $snapshot_refresh->get_error_message() ), '', array( 'response'=>409 ) ); }
@@ -445,15 +453,18 @@ final class GDO_Admin {
 		$appeal_id = absint( isset( $_POST['appeal_id'] ) ? $_POST['appeal_id'] : 0 );
 		$reviewer_id = absint( isset( $_POST['reviewer_id'] ) ? $_POST['reviewer_id'] : 0 );
 		check_admin_referer( 'gdo_assign_appeal_' . $appeal_id );
-		$app = GDO_Application::get( $application_id );
-		$appeal = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE id=%d AND application_id=%d AND status='open'", $appeal_id, $application_id ) );
+		$wpdb->query( 'START TRANSACTION' );
+		$wpdb->get_var( $wpdb->prepare( 'SELECT user_id FROM ' . GDO_Schema::table( 'reviewer_profiles' ) . ' WHERE user_id=%d FOR UPDATE', $reviewer_id ) );
+		$locked_app = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE', $application_id ) );
+		$app = $locked_app ? GDO_Application::get( $application_id ) : null;
+		$appeal = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE id=%d AND application_id=%d AND status='open' FOR UPDATE", $appeal_id, $application_id ) );
 		$conflicts = $app ? array_filter( array( absint( $app->user_id ), absint( $app->assigned_reviewer_id ), absint( $app->recommender_id ), absint( $app->finalizer_id ) ) ) : array();
 		$eligible = $app ? $this->reviewer_eligible( $reviewer_id, $app ) : new WP_Error( 'gdo_application_missing', __( 'Application unavailable.', 'global-doctor-onboarding' ) );
 		if ( ! $app || ! $appeal || 'appeal_pending' !== $app->state || ! empty( $appeal->assigned_reviewer_id ) || in_array( $reviewer_id, $conflicts, true ) || is_wp_error( $eligible ) || ! GDO_Membership_Adapter::can( 'sabri_finalize_doctor_verification', $reviewer_id ) ) {
+			$wpdb->query( 'ROLLBACK' );
 			$message = is_wp_error( $eligible ) ? $eligible->get_error_message() : __( 'The appeal cannot be assigned to that reviewer.', 'global-doctor-onboarding' );
 			wp_die( esc_html( $message ), '', array( 'response'=>400 ) );
 		}
-		$wpdb->query( 'START TRANSACTION' );
 		$updated = $wpdb->query( $wpdb->prepare( 'UPDATE ' . GDO_Schema::table( 'appeals' ) . " SET assigned_reviewer_id=%d WHERE id=%d AND application_id=%d AND status='open' AND assigned_reviewer_id IS NULL", $reviewer_id, $appeal_id, $application_id ) );
 		$event = 1 === $updated ? GDO_Notifications::queue( 'doctor_verification_appeal_assigned', $reviewer_id, array( 'application_id'=>$application_id, 'appeal_id'=>$appeal_id ), false ) : new WP_Error( 'gdo_appeal_assignment_conflict', __( 'The appeal assignment changed. Reload and try again.', 'global-doctor-onboarding' ) );
 		if ( 1 !== $updated || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
@@ -484,9 +495,11 @@ final class GDO_Admin {
 			wp_die( esc_html__( 'Invalid, conflicted, or unauthorized appeal decision.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
 		$snapshot_refresh = array();
-		if ( 'reinstated' === $decision && ( ! GDO_Evidence::all_accepted( $id ) || ! $until || strtotime( $until . ' 23:59:59 UTC' ) <= time() || GDO_Risk::unresolved( $id, 'high' ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id ) ) ) {
-			wp_die( esc_html__( 'Reinstatement requires current File 00 assurance, accepted evidence, a future validity date, and resolved high-risk signals.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
+		$normalized_until = 'reinstated' === $decision ? GDO_Policy::normalize_future_date( $until ) : '';
+		if ( 'reinstated' === $decision && ( is_wp_error( $normalized_until ) || ! GDO_Evidence::all_accepted( $id ) || GDO_Risk::unresolved( $id, 'high' ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id, $app->jurisdiction ) ) ) {
+			wp_die( esc_html__( 'Reinstatement requires current File 00 assurance, accepted evidence, a real future validity date, and resolved high-risk signals.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
+		if ( 'reinstated' === $decision ) { $until = $normalized_until; }
 		if ( 'reinstated' === $decision ) {
 			$snapshot_refresh = GDO_Application::refresh_approved_snapshot( $app, $until, $actor );
 			if ( is_wp_error( $snapshot_refresh ) ) { wp_die( esc_html( $snapshot_refresh->get_error_message() ), '', array( 'response'=>409 ) ); }
@@ -538,7 +551,9 @@ final class GDO_Admin {
 		}
 		$jurisdictions = array_filter( array_map( array( 'GDO_Policy','normalize_jurisdiction' ), preg_split( '/[,\s]+/', sanitize_text_field( isset( $_POST['jurisdictions'] ) ? $_POST['jurisdictions'] : '' ) ) ) );
 		$languages = array_filter( array_map( 'sanitize_text_field', preg_split( '/[,\s]+/', sanitize_text_field( isset( $_POST['languages'] ) ? $_POST['languages'] : '' ) ) ) );
-		$wpdb->replace( GDO_Schema::table( 'reviewer_profiles' ), array( 'user_id'=>$user_id, 'jurisdictions_json'=>wp_json_encode( array_values( array_unique( $jurisdictions ) ) ), 'languages_json'=>wp_json_encode( array_values( array_unique( $languages ) ) ), 'max_open_cases'=>max( 1, min( 100, absint( isset( $_POST['max_open_cases'] ) ? $_POST['max_open_cases'] : 25 ) ) ), 'status'=>'active', 'qualification_checked_at'=>current_time( 'mysql', true ), 'access_reviewed_at'=>current_time( 'mysql', true ), 'updated_at'=>current_time( 'mysql', true ) ), array( '%d','%s','%s','%d','%s','%s','%s','%s' ) );
+		$saved = $wpdb->replace( GDO_Schema::table( 'reviewer_profiles' ), array( 'user_id'=>$user_id, 'jurisdictions_json'=>wp_json_encode( array_values( array_unique( $jurisdictions ) ) ), 'languages_json'=>wp_json_encode( array_values( array_unique( $languages ) ) ), 'max_open_cases'=>max( 1, min( 100, absint( isset( $_POST['max_open_cases'] ) ? $_POST['max_open_cases'] : 25 ) ) ), 'status'=>'active', 'qualification_checked_at'=>current_time( 'mysql', true ), 'access_reviewed_at'=>current_time( 'mysql', true ), 'updated_at'=>current_time( 'mysql', true ) ), array( '%d','%s','%s','%d','%s','%s','%s','%s' ) );
+		if ( false === $saved ) { wp_die( esc_html__( 'The reviewer profile could not be stored.', 'global-doctor-onboarding' ), '', array( 'response'=>500 ) ); }
+		GDO_Membership_Adapter::audit( 'doctor_verification_reviewer_profile_saved', array( 'reviewer_id'=>$user_id, 'actor_id'=>get_current_user_id() ) );
 		$this->redirect();
 	}
 

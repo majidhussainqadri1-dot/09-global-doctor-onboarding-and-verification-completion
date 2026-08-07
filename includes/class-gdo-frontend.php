@@ -2,6 +2,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class GDO_Frontend {
+	private $form_required_fields = array();
 	public function hooks() {
 		add_shortcode( 'gdo_doctor_application', array( $this, 'form' ) );
 		add_action( 'admin_post_gdo_save_application', array( $this, 'save' ) );
@@ -44,6 +45,7 @@ final class GDO_Frontend {
 		$profile = is_array( $profile ) ? array_merge( array_fill_keys( GDO_Application::fields(), '' ), $profile ) : array_fill_keys( GDO_Application::fields(), '' );
 		$consent = GDO_Application::consent_text();
 		$complete = GDO_Application::completeness( $app );
+		$this->form_required_fields = array_flip( GDO_Policy::required_fields( $app->jurisdiction, $app->application_type ) );
 		ob_start();
 		?><main class="gdo-application" aria-labelledby="gdo-title"><header class="gdo-head"><span><?php esc_html_e( 'Private professional application', 'global-doctor-onboarding' ); ?></span><h1 id="gdo-title"><?php esc_html_e( 'Doctor Application and Verification', 'global-doctor-onboarding' ); ?></h1><p><?php esc_html_e( 'Credential files remain encrypted and private. Verification is a professional eligibility decision, not a guarantee of treatment outcomes.', 'global-doctor-onboarding' ); ?></p></header>
 		<section class="gdo-progress" aria-live="polite"><strong><?php echo esc_html( $app->state ); ?></strong><p><?php printf( esc_html__( 'Application version %1$d · draft expires %2$s UTC', 'global-doctor-onboarding' ), absint( $app->version ), esc_html( $app->draft_expires_at ) ); ?></p><p data-gdo-autosave-status><?php esc_html_e( 'Draft ready', 'global-doctor-onboarding' ); ?></p></section>
@@ -60,7 +62,8 @@ final class GDO_Frontend {
 	}
 
 	private function input( $key, $label, array $profile, $type = 'text' ) {
-		?><label><?php echo esc_html( $label ); ?><input data-gdo-profile type="<?php echo esc_attr( $type ); ?>" name="<?php echo esc_attr( $key ); ?>" required maxlength="<?php echo 'number' === $type ? '2' : '500'; ?>" value="<?php echo esc_attr( isset( $profile[ $key ] ) ? $profile[ $key ] : '' ); ?>"></label><?php
+		$required = isset( $this->form_required_fields[ sanitize_key( $key ) ] );
+		?><label><?php echo esc_html( $label ); ?><input data-gdo-profile type="<?php echo esc_attr( $type ); ?>" name="<?php echo esc_attr( $key ); ?>"<?php echo $required ? ' required' : ''; ?> maxlength="<?php echo 'number' === $type ? '2' : '500'; ?>" value="<?php echo esc_attr( isset( $profile[ $key ] ) ? $profile[ $key ] : '' ); ?>"></label><?php
 	}
 
 	public function save() {
@@ -69,7 +72,7 @@ final class GDO_Frontend {
 		check_admin_referer( 'gdo_save_application_' . $id );
 		$user = get_current_user_id();
 		$app = GDO_Application::get( $id );
-		if ( ! $app || absint( $app->user_id ) !== $user || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user ) ) {
+		if ( ! $app || absint( $app->user_id ) !== $user || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user, $app ? $app->jurisdiction : '' ) ) {
 			wp_die( esc_html__( 'Application access denied.', 'global-doctor-onboarding' ), '', array( 'response'=>403 ) );
 		}
 		$profile = GDO_Application::sanitize_profile( $_POST );

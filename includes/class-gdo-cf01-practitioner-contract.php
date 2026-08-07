@@ -77,7 +77,7 @@ final class GDO_CF01_Practitioner_Contract {
 			isset( $context['jurisdiction'] ) ? $context['jurisdiction'] : ''
 		);
 		$base = GDO_Membership_Adapter::base_assertion( $user_id );
-		if ( ! $subject || ! $base ) {
+		if ( ! GDO_Membership_Adapter::membership_allows( $subject ) || ! $base ) {
 			$result['reason_code'] = 'file00_contract_invalid';
 			return $result;
 		}
@@ -239,6 +239,7 @@ final class GDO_CF01_Practitioner_Contract {
 				'version'        => absint( isset( $record['version'] ) ? $record['version'] : 0 ),
 				'status'         => sanitize_key( isset( $record['status'] ) ? $record['status'] : 'missing' ),
 				'validity_until' => (string) ( isset( $record['validity_until'] ) ? $record['validity_until'] : '' ),
+				'expires_at'     => (string) ( isset( $record['expires_at'] ) ? $record['expires_at'] : '' ),
 			);
 		}
 		return $out;
@@ -248,6 +249,11 @@ final class GDO_CF01_Practitioner_Contract {
 		foreach ( array( 'identity', 'qualification', 'license' ) as $type ) {
 			if ( empty( $evidence[ $type ]['version'] ) || 'accepted' !== $evidence[ $type ]['status'] ) {
 				return false;
+			}
+			$review_expires = trim( (string) ( isset( $evidence[ $type ]['expires_at'] ) ? $evidence[ $type ]['expires_at'] : '' ) );
+			if ( '' !== $review_expires ) {
+				$review_expiry = strtotime( $review_expires . ' UTC' );
+				if ( false === $review_expiry || $review_expiry <= time() ) { return false; }
 			}
 			$until = trim( (string) $evidence[ $type ]['validity_until'] );
 			if ( 'license' === $type && '' === $until ) {

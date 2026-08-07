@@ -31,7 +31,7 @@ final class GDO_Claims {
 			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
 			return new WP_Error( 'gdo_claim_state_mismatch', __( 'The professional claim must match the current locked application state.', 'global-doctor-onboarding' ) );
 		}
-		if ( GDO_State::public_verified( $state ) && ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id ) ) {
+		if ( GDO_State::public_verified( $state ) && ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id, $app->jurisdiction ) ) {
 			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
 			return new WP_Error( 'gdo_claim_membership_not_current', __( 'A verified professional claim requires current File 00 identity and doctor-membership assurance.', 'global-doctor-onboarding' ) );
 		}
@@ -44,7 +44,7 @@ final class GDO_Claims {
 		$subject = GDO_Membership_Adapter::membership_assertion( $app->user_id, 'clinical_identity_link', 'professional_verification_claim', $app->jurisdiction );
 		$subject_uuid = isset( $subject['subject']['platform_uuid'] ) ? (string) $subject['subject']['platform_uuid'] : '';
 		$record_version = isset( $subject['subject']['record_version'] ) ? absint( $subject['subject']['record_version'] ) : 0;
-		if ( ! $subject_uuid || ! $record_version ) {
+		if ( ( GDO_State::public_verified( $state ) && ! GDO_Membership_Adapter::membership_allows( $subject ) ) || ! $subject_uuid || ! $record_version ) {
 			if ( $manage_transaction ) {
 				$wpdb->query( 'ROLLBACK' );
 			}

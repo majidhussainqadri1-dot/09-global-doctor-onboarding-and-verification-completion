@@ -2,21 +2,21 @@
   "SPDXID": "SPDXRef-DOCUMENT",
   "annotations": [
     {
-      "annotationDate": "2026-08-07T11:49:45Z",
+      "annotationDate": "2026-08-07T14:45:00Z",
       "annotationType": "OTHER",
-      "annotator": "Tool: File09-RC2-Release-Metadata-3.0",
+      "annotator": "Tool: File09-RC3-Release-Metadata-4.0",
       "comment": "SBOM.spdx.json is excluded from its own checksum list to avoid self-reference."
     }
   ],
   "creationInfo": {
-    "created": "2026-08-07T11:49:45Z",
+    "created": "2026-08-07T14:45:00Z",
     "creators": [
       "Organization: Sabri Social Homeopathy Platform",
-      "Tool: File09-RC2-Release-Metadata-3.0"
+      "Tool: File09-RC3-Release-Metadata-4.0"
     ]
   },
   "dataLicense": "CC0-1.0",
-  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc2/973f4544a7a72315",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc3/8706a9c295e49454",
   "files": [
     {
       "SPDXID": "SPDXRef-File-global-doctor-onboarding.php",
@@ -128,7 +128,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "a8f3cf76f631d3ea4e18ddc2ffc9fd5de900561766ff2fbef0b6c741067a93e4"
+          "checksumValue": "fbf3cf178325ef3912e78e0a906f5b4db4b067157f8991c810a717c91bea2cc4"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -143,7 +143,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "41f81a7f8456bb5ffff93bf2e7e3d8c4ee914d5a5578924f89f21531dd4ea5b4"
+          "checksumValue": "4416d52555d7692866fba401c28ec2e3928f09b3e9adf4f33585f51cb094dbe0"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -158,7 +158,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "fedc2fd6c0bd5ab27dd739f1ba996f95e0b571bba7b4c473e949dc53d88b9332"
+          "checksumValue": "0e9c9caf317c3f1979bfc91c73a743c7153aa396218f0eca7a5107190b2307d1"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -188,7 +188,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "ef66682e3bcfa711a93856317054fe9aa3581d5de773a13a76c992228bd88576"
+          "checksumValue": "8f765f344935ae68fcaa551de4298fb7fa355db58af3974dc28a913b3d9e6a70"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -218,7 +218,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "d99c73161e8631d5b13deecb2a1c9b7b96c76d6ca5406618bea1066cffabb7a2"
+          "checksumValue": "f38de7d22ea50d353783e5bd0baeb348be51c130f0ba444efe915f01554cd738"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -248,7 +248,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "458b9d819b7d6862966ecfce0bfa1b068de153f6c70598286f7210597755ce36"
+          "checksumValue": "125553f7a5291bdd242f6ad99a3267d9a4c695bfe2a75a266d2761d348e51c15"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -263,7 +263,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "d41e00c3bf3d61b6bf394ffa9b3ad0648dd3bf66ef168c873cb8d041b5aeb5f1"
+          "checksumValue": "c8129578ae8b156c015e8e429cd2a819b277cd7cd51f7e736bdb3202d3d98023"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -278,7 +278,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "ee2422fa32a45adaed4a4cf0c48c8462a7ffdc1eb3e860181375ef2c1e196fba"
+          "checksumValue": "fb5bba25d14e6a4e535eb083be958ff6364fb07f2ec872dbb1ed0d826ca4b885"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -308,7 +308,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "fb1f537fd11f739c0cb5710d76d725e6040d8006b5c38b03ad5d213f8a9cc7c7"
+          "checksumValue": "1b7a614218e1d2565a8f96650a608022da9142345bb4aef7adc3934352526074"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -353,7 +353,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "d3cef0c6d1314bd03c84bb1e7bbb0c0c7f2a903cd9bc9919fecddfcb635ac867"
+          "checksumValue": "bb38b711a2a68fd207f93c29e5f13d264ce2a5b4f6884d2b9ef8132cf20e69d6"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -368,7 +368,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "51e363d83cabdad8cd4146c108378293ce38f2a7ca649b188796252956e1f944"
+          "checksumValue": "3990155ced49b2dad25f47749d615d79f534cc71e33c9bd571fae38b6fb4d98b"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -383,7 +383,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "f10ce4b1c1a555bdbc2dec7b970b53f30cbc4243e5b3b5732df878f3dabea558"
+          "checksumValue": "65f7c9a5813ca60df75bbcb0a81cea3b67e374932521afae8ed2ca72d5bb2536"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -503,7 +503,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "6f9e0cbbddd9328082661cf842adad8c30a90d5f3f98a4f5fbb2afd59094cac3"
+          "checksumValue": "82563d2c2067742c3c82207e8b561c8e8df11022e3414bee0722acd5151487b5"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -548,7 +548,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "8dd8af61afb6733424e5cfc2f2cc3c0d55e759e22d0b0f87b5c2907010c854c9"
+          "checksumValue": "7e8c3d7a70798293f982edae2c46612f996e589421f212818423558138840a21"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -563,7 +563,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "5fd41ff405352b4ef732695bf666f0284a56215a9d9a3c49f7a5ed57b2c86dc6"
+          "checksumValue": "980c48088f00fd02fcda4752af80789081e696abac0b28f2d31a5f63cf7f31ad"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -608,7 +608,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "daec82def0c3aa0730f4410306658ab47a2e35c875d278ffae94a6e6d8f5c45f"
+          "checksumValue": "91224a663008abf1766bf0fa21e8118008b13c92416f1093b70f6f8675e5e827"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -623,7 +623,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "81bd3cac29ab4b23c88ee351933ac35fb597eeaccd41661c9bec180e0394131a"
+          "checksumValue": "1453d7347db6f50cab6f4cc5cd841f548b8e646b114119222fbba162ed27eda5"
         }
       ],
       "copyrightText": "NOASSERTION",
@@ -692,9 +692,24 @@
       "licenseInfoInFiles": [
         "NOASSERTION"
       ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-REVIEW-40-ROUNDS-RC3.md",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "619987cb9eb9c6ef2a81266038d4ae8304a665653e17edcad41db0b7be1ca05f"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./REVIEW-40-ROUNDS-RC3.md",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
     }
   ],
-  "name": "File 09 Global Doctor Onboarding 1.2.0 RC2",
+  "name": "File 09 Global Doctor Onboarding 1.2.0 RC3",
   "packages": [
     {
       "SPDXID": "SPDXRef-Package",
@@ -704,7 +719,7 @@
       "licenseConcluded": "GPL-2.0-or-later",
       "licenseDeclared": "GPL-2.0-or-later",
       "name": "global-doctor-onboarding-09",
-      "versionInfo": "1.2.0-RC2"
+      "versionInfo": "1.2.0-RC3"
     }
   ],
   "relationships": [
@@ -935,6 +950,11 @@
     },
     {
       "relatedSpdxElement": "SPDXRef-File-REVIEW-ROUND-3-RC2.md",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-REVIEW-40-ROUNDS-RC3.md",
       "relationshipType": "CONTAINS",
       "spdxElementId": "SPDXRef-Package"
     }

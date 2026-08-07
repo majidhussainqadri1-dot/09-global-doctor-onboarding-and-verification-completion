@@ -13,12 +13,25 @@ final class GDO_Policy {
 	const DRAFT_DAYS    = 30;
 
 	public static function evidence_types( $jurisdiction = '', $application_type = 'homeopathic_doctor' ) {
-		$types = array(
+		$minimum = array(
 			'identity'      => __( 'Government identity document', 'global-doctor-onboarding' ),
 			'qualification' => __( 'Professional qualification certificate', 'global-doctor-onboarding' ),
 			'license'       => __( 'Current professional license or registration', 'global-doctor-onboarding' ),
 		);
-		return (array) apply_filters( 'gdo_required_evidence_types', $types, self::normalize_jurisdiction( $jurisdiction ), sanitize_key( $application_type ) );
+		$filtered = (array) apply_filters( 'gdo_required_evidence_types', $minimum, self::normalize_jurisdiction( $jurisdiction ), sanitize_key( $application_type ) );
+		$types = array();
+		foreach ( array_merge( $minimum, $filtered ) as $key => $label ) {
+			$key = sanitize_key( $key );
+			if ( $key ) {
+				$types[ $key ] = wp_strip_all_tags( (string) $label );
+			}
+		}
+		foreach ( $minimum as $key => $label ) {
+			if ( ! isset( $types[ $key ] ) ) {
+				$types[ $key ] = $label;
+			}
+		}
+		return $types;
 	}
 
 	public static function required_fields( $jurisdiction = '', $application_type = 'homeopathic_doctor' ) {
@@ -29,7 +42,8 @@ final class GDO_Policy {
 			'phone', 'bio', 'declaration_accuracy', 'declaration_no_impersonation',
 			'declaration_professional_scope',
 		);
-		return array_values( array_unique( array_map( 'sanitize_key', (array) apply_filters( 'gdo_required_profile_fields', $fields, self::normalize_jurisdiction( $jurisdiction ), sanitize_key( $application_type ) ) ) ) );
+		$filtered = (array) apply_filters( 'gdo_required_profile_fields', $fields, self::normalize_jurisdiction( $jurisdiction ), sanitize_key( $application_type ) );
+		return array_values( array_unique( array_filter( array_map( 'sanitize_key', array_merge( $fields, $filtered ) ) ) ) );
 	}
 
 	public static function normalize_jurisdiction( $value ) {
@@ -61,7 +75,8 @@ final class GDO_Policy {
 		}
 		$base = GDO_Membership_Adapter::base_assertion( $user_id );
 		$subject = GDO_Membership_Adapter::membership_assertion( $user_id, 'clinical_identity_link', 'doctor_application', $result['jurisdiction'] );
-		if ( ! $base || ! $subject ) {
+		if ( ! $base || ! GDO_Membership_Adapter::membership_allows( $subject ) ) {
+			$result['reason_code'] = $subject ? 'membership_context_denied' : 'dependency_unavailable';
 			return $result;
 		}
 		if ( GDO_Membership_Adapter::sanctioned( $user_id ) ) {
@@ -98,7 +113,37 @@ final class GDO_Policy {
 		$result['reason_code'] = 'eligible';
 		$result['subject_uuid'] = isset( $subject['subject']['platform_uuid'] ) ? (string) $subject['subject']['platform_uuid'] : '';
 		$result['membership_record_version'] = isset( $subject['subject']['record_version'] ) ? absint( $subject['subject']['record_version'] ) : 0;
-		return (array) apply_filters( 'gdo_eligibility_result', $result, $user_id, $context );
+		$filtered = apply_filters( 'gdo_eligibility_result', $result, $user_id, $context );
+		if ( ! is_array( $filtered ) ) {
+			return $result;
+		}
+		if ( empty( $filtered['eligible'] ) ) {
+			$result['eligible'] = false;
+			$result['reason_code'] = isset( $filtered['reason_code'] ) ? sanitize_key( $filtered['reason_code'] ) : 'eligibility_narrowed';
+		}
+		return $result;
+	}
+
+	public static function normalize_date( $value ) {
+		$value = trim( (string) $value );
+		if ( 1 !== preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) {
+			return new WP_Error( 'gdo_date_format', __( 'Dates must use a real YYYY-MM-DD calendar date.', 'global-doctor-onboarding' ) );
+		}
+		$date = DateTimeImmutable::createFromFormat( '!Y-m-d', $value, new DateTimeZone( 'UTC' ) );
+		$errors = DateTimeImmutable::getLastErrors();
+		if ( ! $date || ( is_array( $errors ) && ( ! empty( $errors['warning_count'] ) || ! empty( $errors['error_count'] ) ) ) || $date->format( 'Y-m-d' ) !== $value ) {
+			return new WP_Error( 'gdo_date_invalid', __( 'The supplied calendar date is invalid.', 'global-doctor-onboarding' ) );
+		}
+		return $date->format( 'Y-m-d' );
+	}
+
+	public static function normalize_future_date( $value ) {
+		$date = self::normalize_date( $value );
+		if ( is_wp_error( $date ) ) {
+			return $date;
+		}
+		$expires = strtotime( $date . ' 23:59:59 UTC' );
+		return $expires > time() ? $date : new WP_Error( 'gdo_date_not_future', __( 'The date must be in the future.', 'global-doctor-onboarding' ) );
 	}
 
 	public static function draft_expiry() {

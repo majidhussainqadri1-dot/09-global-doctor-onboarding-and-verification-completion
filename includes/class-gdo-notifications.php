@@ -119,8 +119,13 @@ final class GDO_Notifications {
 	public static function process( $limit = 25, $event_uuid = '' ) {
 		global $wpdb;
 		$table = GDO_Schema::table( 'outbox' );
+		$now = current_time( 'mysql', true );
+		$wpdb->query( $wpdb->prepare(
+			"UPDATE {$table} SET status='failed', attempts=attempts+1, last_error=%s, available_at=%s WHERE status='processing' AND available_at<=%s",
+			'Processing lease expired before completion; safe retry scheduled.', $now, $now
+		) );
 		$where = "status IN ('pending','failed') AND available_at<=%s";
-		$values = array( current_time( 'mysql', true ) );
+		$values = array( $now );
 		if ( $event_uuid ) {
 			$where .= ' AND event_uuid=%s';
 			$values[] = sanitize_text_field( $event_uuid );
@@ -128,7 +133,9 @@ final class GDO_Notifications {
 		$values[] = max( 1, min( 100, absint( $limit ) ) );
 		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} WHERE {$where} ORDER BY id ASC LIMIT %d", $values ) );
 		foreach ( $rows as $row ) {
-			$claimed = $wpdb->update( $table, array( 'status'=>'processing' ), array( 'id'=>absint( $row->id ), 'status'=>$row->status ), array( '%s' ), array( '%d','%s' ) );
+			$lease_seconds = max( 60, absint( apply_filters( 'gdo_outbox_processing_lease_seconds', 300, $row->event_type ) ) );
+			$lease_until = gmdate( 'Y-m-d H:i:s', time() + $lease_seconds );
+			$claimed = $wpdb->update( $table, array( 'status'=>'processing', 'available_at'=>$lease_until ), array( 'id'=>absint( $row->id ), 'status'=>$row->status ), array( '%s','%s' ), array( '%d','%s' ) );
 			if ( 1 !== $claimed ) {
 				continue;
 			}
