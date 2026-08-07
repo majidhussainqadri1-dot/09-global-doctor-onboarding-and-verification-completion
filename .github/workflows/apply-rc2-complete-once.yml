@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - codex/file09-1.2.0-rc2-completion
+    paths:
+      - .github/rc2-apply-trigger
   workflow_dispatch:
 
 permissions:
@@ -11,7 +13,7 @@ permissions:
 
 jobs:
   apply:
-    if: ${{ !contains(github.event.head_commit.message, 'apply complete RC2 correction') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'apply complete RC2 correction') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -44,9 +46,10 @@ jobs:
           git apply --index --binary \
             --exclude=EXACT-HEAD-SOURCE-CHECKSUMS.sha256 \
             --exclude=EXACT-HEAD.txt \
+            --exclude='.github/workflows/*' \
             /tmp/rc2-complete-v2.patch
           rm -rf .github/rc2-payload .github/rc2-payload-v2
-          rm -f .github/workflows/apply-rc2-complete-once.yml
+          rm -f .github/rc2-apply-trigger
           git add -A
 
       - name: Run complete correction assurance
