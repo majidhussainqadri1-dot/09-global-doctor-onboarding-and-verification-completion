@@ -2,21 +2,21 @@
   "SPDXID": "SPDXRef-DOCUMENT",
   "annotations": [
     {
-      "annotationDate": "2026-08-07T10:34:21Z",
+      "annotationDate": "2026-08-07T10:38:26Z",
       "annotationType": "OTHER",
-      "annotator": "Tool: File09-RC2-Hardening-SBOM-3.0",
+      "annotator": "Tool: File09-RC2-Release-Metadata-3.0",
       "comment": "SBOM.spdx.json is excluded from its own checksum list to avoid self-reference."
     }
   ],
   "creationInfo": {
-    "created": "2026-08-07T10:34:21Z",
+    "created": "2026-08-07T10:38:26Z",
     "creators": [
       "Organization: Sabri Social Homeopathy Platform",
-      "Tool: File09-RC2-Hardening-SBOM-3.0"
+      "Tool: File09-RC2-Release-Metadata-3.0"
     ]
   },
   "dataLicense": "CC0-1.0",
-  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc2/0592a700699b001d",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file09/1.2.0/rc2/1d0bf2881f8afe1f",
   "files": [
     {
       "SPDXID": "SPDXRef-File-global-doctor-onboarding.php",
