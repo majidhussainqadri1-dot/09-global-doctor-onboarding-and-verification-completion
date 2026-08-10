@@ -72,6 +72,10 @@ jobs:
           p.write_text(s,encoding='utf-8')
           PY
 
+          # The legacy adversarial suite correctly requires a single authoritative workflow.
+          # Hide this temporary applier only in the runner worktree during validation, then restore it before commit.
+          rm -f .github/workflows/file09-r6-apply.yml
+
       - name: Validate R6 corrected source
         if: steps.gate.outputs.run == 'true'
         run: |
@@ -108,7 +112,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf dist-a dist-b
-          git checkout -- .github/workflows/file09-rc2-final.yml
+          git checkout -- .github/workflows/file09-rc2-final.yml .github/workflows/file09-r6-apply.yml
           git rm -f tools/r6-source.part.* tools/r6-overlay.part.*
           git add -A
           git config user.name 'File09 Corrective Assurance Bot'
