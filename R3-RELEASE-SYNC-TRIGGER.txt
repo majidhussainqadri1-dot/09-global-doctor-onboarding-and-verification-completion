@@ -1,0 +1,1 @@
+Temporary trigger; the release synchronization workflow removes this file after successful validation and commit.
