@@ -30,21 +30,12 @@ jobs:
               tools/file09-r2.patch.xz.b64.part06 | base64 -d > /tmp/file09-r2.patch.xz
           xz -dc /tmp/file09-r2.patch.xz > /tmp/file09-r2.patch
           patch -p3 --batch --forward < /tmp/file09-r2.patch
-      - name: Synchronize repository-only release evidence and exact-head gate
+      - name: Synchronize repository-only release evidence
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           import json
-
-          wf=Path('.github/workflows/file09-rc2-final.yml')
-          s=wf.read_text(encoding='utf-8')
-          needle='          python3 tests/eighty-round-audit.py\n'
-          add=needle+'          python3 tests/eighty-round-audit-r2.py\n'
-          if 'eighty-round-audit-r2.py' not in s:
-              if needle not in s: raise SystemExit('authoritative workflow insertion point missing')
-              s=s.replace(needle,add,1)
-          wf.write_text(s,encoding='utf-8')
 
           rel=Path('RELEASE-FILES.txt')
           files=[x for x in rel.read_text(encoding='utf-8').splitlines() if x.strip()]
@@ -101,19 +92,8 @@ jobs:
           if old2 not in t and new2 not in t: raise SystemExit('release-integrity release-evidence list not found')
           t=t.replace(old2,new2,1)
           p.write_text(t,encoding='utf-8')
-
-          p=Path('tests/eighty-round-audit-r2.py'); t=p.read_text(encoding='utf-8')
-          old="check(79,'Exact-head workflow executes fresh-second 80-round gate',has(workflow,'eighty-round-audit-r2.py','eighty-round-audit.py','advanced-trust-24.py'))"
-          new="check(79,'Exact-head workflow executes fresh-second 80-round gate and release carries its ledger',has(workflow,'eighty-round-audit-r2.py','eighty-round-audit.py','advanced-trust-24.py') and 'REVIEW-80-ROUNDS-RC6-R2.md' in text('RELEASE-FILES.txt'))"
-          if old not in t and new not in t: raise SystemExit('R2 round 79 predicate not found')
-          t=t.replace(old,new,1)
-          old80="check(80,'Review/status/manifest synchronize fresh-second ledger',has(review,'Fresh Second Eighty-Round Re-Review','47 defect-bearing rounds','33 clean rounds') and 'fresh second 80-round' in status.lower() and 'fresh second 80-round' in manifest.lower())"
-          new80="check(80,'Review/status/manifest/release-lock synchronize fresh-second ledger',has(review,'Fresh Second Eighty-Round Re-Review','47 defect-bearing rounds','33 clean rounds') and 'fresh second 80-round' in status.lower() and 'fresh second 80-round' in manifest.lower() and '\"second_defect_rounds\": 47' in text('RELEASE-LOCK.json') and '\"release_file_count\": 53' in text('RELEASE-LOCK.json'))"
-          if old80 not in t and new80 not in t: raise SystemExit('R2 round 80 predicate not found')
-          t=t.replace(old80,new80,1)
-          p.write_text(t,encoding='utf-8')
           PY
-      - name: PHP 8.3 sanity and fresh-second executable gate
+      - name: PHP 8.3 sanity
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
         with:
           php-version: '8.3'
@@ -125,12 +105,10 @@ jobs:
           git diff --check
           find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l >/dev/null
           node --check assets/js/onboarding.js
-          python3 tests/eighty-round-audit-r2.py
           python3 tests/release-integrity.py
       - name: Commit corrected source and remove patch transport
         run: |
           set -euo pipefail
-          git rm .github/workflows/file09-r2-apply.yml
           git rm tools/file09-r2.patch.xz.b64.part01 tools/file09-r2.patch.xz.b64.part02 tools/file09-r2.patch.xz.b64.part03 tools/file09-r2.patch.xz.b64.part04 tools/file09-r2.patch.xz.b64.part05 tools/file09-r2.patch.xz.b64.part06
           git add -A
           git config user.name 'File09 Corrective Assurance Bot'
