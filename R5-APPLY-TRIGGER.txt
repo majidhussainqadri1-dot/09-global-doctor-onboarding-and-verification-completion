@@ -1,0 +1,1 @@
+Apply the fifth fresh 80-round corrective assurance to the exact branch head, validate all legacy/current gates, commit the corrected tree, and remove temporary apply tooling.
