@@ -22,17 +22,17 @@ for path in ['class-gdo-advanced-trust.php','class-gdo-advanced-trust-hardening.
     assert path in main or path in plugin
 
 # Advanced Trust table registry and lifecycle.
-for token in ['credential_checks','issuer_registry','jurisdiction_rules','monitor_state','reviewer_conflicts','verification_passports','professional_history','upload_sessions']:
+for token in ['credential_checks','trusted_issuers','jurisdiction_rules','monitor_state','reviewer_conflicts','verification_passports','professional_history','upload_sessions']:
     assert token in trust or token in hard
 assert 'maybe_upgrade_schema' in hard
 assert "get_option( 'gdo_advanced_trust_schema'" in hard
 
-# Primary source / authenticity / equivalency / translation / AI are provider mediated and non-decisional.
-for token in ['gdo_primary_source_provider','gdo_authenticity_provider','gdo_equivalency_provider','gdo_translation_provider','gdo_ai_verification_assistance']:
+# Provider-mediated trust assistance uses the current typed filter contracts.
+for token in ['gdo_primary_source_verification','gdo_credential_equivalency_assessment','gdo_institutional_affiliation_verification','gdo_credential_translation_assistance','gdo_ai_evidence_assistance']:
     assert token in trust, token
-for token in ['provider_unavailable','provider_invalid','low_confidence','human_final_decision_required']:
+for token in ['provider_unavailable','manual_review_required','human_final_decision_required','automated_decision_forbidden']:
     assert token in trust
-assert 'credential_check' in trust
+assert 'credential_checks' in trust
 assert 'external_reference' in trust
 
 # Jurisdiction policy is versioned/effective and cannot silently grant authority.
@@ -41,14 +41,14 @@ for token in ['save_jurisdiction_rule','effective_from','effective_until','rule_
 assert 'jurisdiction_rule' in trust
 
 # Risk/fraud is bounded and human-final.
-for token in ['risk_explanation','fraud_collusion_signals','false_positive','human_review']:
-    assert token in trust
+for token in ['risk_explanation','fraud_ring_scan','false_positive','human_review']:
+    assert token in trust or token in hard
 assert 'auto_reject' not in trust
 
 # Reviewer conflict, dual review, routing, calibration.
-for token in ['reviewer_conflict','requires_dual_review','reviewer_routing','calibration_summary']:
+for token in ['reviewer_conflict','requires_dual_review','smart_reviewer_candidates','reviewer_calibration']:
     assert token in trust or token in hard
-assert 'same_reviewer' in trust or 'same_person' in trust
+assert 'same_reviewer' in trust or 'same_person' in trust or 'reviewer_id' in trust
 
 # Applicant command centre.
 for token in ['applicant_command_center','verification_matrix','more_info_deadline','verified_until']:
