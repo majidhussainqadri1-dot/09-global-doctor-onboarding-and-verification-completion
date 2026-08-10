@@ -2,6 +2,13 @@
 
 ## 1.3.0-RC6 — Eighty-Round Corrective Assurance — 2026-08-10
 
+### Third fresh 80-round corrective review (R3)
+- Frozen baseline: `f1901a2326ddf1189b90a5f34f8bbcc7e6eb0361`.
+- 80 controls: **13 defect-bearing rounds corrected; 67 clean rounds**.
+- Hardened File 00 fail-closed profile/privileged identity use, explicit private resumable provenance, risk DB uncertainty, durable outbox persistence/replay, operational health/reconciliation, safe-mode/scheduler persistence and orphan-deletion safety.
+- Synchronized historical QA assertions with the stronger current reviewer-case, Advanced Trust, rate-limit and resumable-upload contracts.
+- Added `REVIEW-80-ROUNDS-RC6-R3.md`, `tests/eighty-round-audit-r3.py`, 54-entry release parity and R3 release-lock fields.
+
 - Fresh-second independent 80-control re-review against `c3fbbadbee06d2be13b23822f5f17fce07cdab4e`: **47 defect-bearing rounds corrected; 33 clean rounds**; added `tests/eighty-round-audit-r2.py` and `REVIEW-80-ROUNDS-RC6-R2.md`.
 
 - Performed 80 independent review→fix→re-review controls against frozen RC5 baseline `6d5c2850dbf86ce954e0c2fdef8adf36d2dbf1f1`: **49 defect-bearing rounds corrected; 31 clean rounds**.

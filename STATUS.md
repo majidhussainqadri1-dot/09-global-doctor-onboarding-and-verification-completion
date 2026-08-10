@@ -29,7 +29,7 @@ RC6 preserves all 24 approved F09-AT capabilities and uses a corrective layer th
 
 ## Authoritative RC6 repository gate
 
-The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, now named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 syntax/source suites, all legacy adversarial gates, latest-plan parity, `tests/advanced-trust-24.py`, `tests/eighty-round-audit.py`, deterministic double build, **53-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
+The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, now named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 syntax/source suites, all legacy adversarial gates, latest-plan parity, `tests/advanced-trust-24.py`, `tests/eighty-round-audit.py`, deterministic double build, **54-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
 
 ## External gates still pending
 
@@ -41,3 +41,8 @@ Repository HEAD / Deployed Version / DB Version / Migration State / Live Verific
 A second independent 80-control review was opened against frozen baseline `c3fbbadbee06d2be13b23822f5f17fce07cdab4e`. It found **47 defect-bearing rounds**, corrected them immediately, and left **33 clean rounds**. The fresh-second ledger is `REVIEW-80-ROUNDS-RC6-R2.md`, and the new permanent executable gate is `tests/eighty-round-audit-r2.py`. Corrections cover transaction/audit/claim atomicity, consent/submission/evidence races, reviewer case binding, risk/rate-limit DB fail-closed behavior, provider minimization, passport lifecycle, notification acknowledgement, and privacy/retention completion truth.
 
 The authoritative Automated-QA and package status is **the latest exact-head workflow result for the current source HEAD**. Earlier workflow `31364661506` and its artifact certify only the older `c3fbbad...` head and are historical after these fresh-second corrections. Staging accepted, live deployed, and operationally accepted remain false until external gates are executed.
+## Third fresh 80-round re-review — 10 August 2026
+
+A third independent 80-control review was opened against frozen baseline `f1901a2326ddf1189b90a5f34f8bbcc7e6eb0361`. It found **13 defect-bearing rounds**, corrected them immediately, and left **67 clean rounds**. The ledger is `REVIEW-80-ROUNDS-RC6-R3.md`; the executable gate is `tests/eighty-round-audit-r3.py`. The principal corrections are fail-closed File 00 profile/privileged identity handling, explicit trusted-internal resumable provenance, risk-query uncertainty, durable outbox persistence/replay semantics, operational health/reconciliation truth, safe-mode/scheduler persistence, orphan-deletion DB safety, and historical QA contract drift.
+
+The final repository QA/package claim remains conditional on the authoritative workflow passing against the **exact current HEAD** after this R3 evidence synchronization. Staging accepted, live deployed and operationally accepted remain false.

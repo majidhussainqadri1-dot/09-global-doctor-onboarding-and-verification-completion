@@ -37,7 +37,7 @@ checks=[]
 def check(n,topic,condition): checks.append((n,topic,bool(condition)))
 
 # 01–10: exact source/governance/dependency baseline.
-check(1,'Exact R3 review ledger and temporary patch transport absent',has(review,'Frozen review baseline: `f1901a2326ddf1189b90a5f34f8bbcc7e6eb0361`','Total review controls: **80**') and not (root/'R3-APPLY-TRIGGER.txt').exists() and not (root/'tools/file09-r3-apply.py').exists())
+check(1,'Exact R3 review ledger and temporary patch transport absent',has(review,'f1901a2326ddf1189b90a5f34f8bbcc7e6eb0361','Total review controls: **80**') and not (root/'R3-APPLY-TRIGGER.txt').exists() and not (root/'tools/file09-r3-apply.py').exists())
 check(2,'Canonical File09 ownership remains explicit and typed',has(integrations,"'source_of_truth'          => 'file09'","'direct_table_meta_write'=> false"))
 check(3,'Repository/staging/live/operational truth remains separated',has(status.lower(),'staging accepted: **false**','live deployed: **false**','operationally accepted: **false**'))
 profile_block=member[member.index('function profile'):member.index('function status')]
@@ -70,7 +70,7 @@ check(24,'Existing open-risk lookup DB uncertainty fails closed',has(risk,"signa
 check(25,'Risk false-positive/human resolution remains modeled',has(risk,'resolve','reason') and ('false_positive' in risk or 'dismiss' in risk or 'resolved' in risk))
 check(26,'State transitions use row lock/current state',has(state,'FOR UPDATE','row_version'))
 check(27,'Invalid state transitions fail closed',has(state,'WP_Error') and ('transition' in state.lower()))
-check(28,'Audit chain is tamper-evident and DB uncertainty is visible',has(audit,'previous_hash','row_hash','$wpdb->last_error'))
+check(28,'Audit chain is tamper-evident and DB uncertainty is visible',has(audit,'previous_hash','event_hash','$wpdb->last_error','gdo_audit_chain_read_failed','gdo_audit_write_failed'))
 check(29,'Transition/audit publication is separated from durable transition',has(audit,'publish_transition') and 'function transition' in state)
 check(30,'Reviewer reads are exact case-bound',has(member,'reviewer_case_allows') and evidence.count('reviewer_case_allows')>=2)
 
