@@ -13,6 +13,7 @@ final class GDO_Plugin {
             return;
         }
         GDO_Migration::maybe_run();
+        (new GDO_Advanced_Trust())->hooks();
         (new GDO_Frontend())->hooks();
         (new GDO_Admin())->hooks();
         (new GDO_Privacy())->hooks();
@@ -97,6 +98,7 @@ final class GDO_Plugin {
             wp_enqueue_script( 'gdo-onboarding', GDO_URL . 'assets/js/onboarding.js', array(), GDO_VERSION, true );
             wp_localize_script( 'gdo-onboarding', 'gdoOnboarding', array(
                 'restUrl'=>esc_url_raw( rest_url( GDO_REST::NAMESPACE_VERSION . '/application' ) ),
+                'trustRestUrl'=>esc_url_raw( rest_url( GDO_Advanced_Trust::REST_NAMESPACE . '/trust' ) ),
                 'nonce'=>wp_create_nonce( 'wp_rest' ),
                 'autosaveDelay'=>1500,
                 'messages'=>array( 'saving'=>__('Saving…','global-doctor-onboarding'), 'saved'=>__('Draft saved','global-doctor-onboarding'), 'conflict'=>__('The draft changed elsewhere. Reload before continuing.','global-doctor-onboarding') ),
@@ -108,6 +110,8 @@ final class GDO_Plugin {
 
     public function shell_health( $health ) {
         $health['file09'] = GDO_Operations::health();
+        $health['file09']['advanced_trust_schema'] = absint( get_option( 'gdo_advanced_trust_schema', 0 ) );
+        $health['file09']['advanced_trust_contract'] = GDO_Advanced_Trust::CONTRACT_VERSION;
         return $health;
     }
 
