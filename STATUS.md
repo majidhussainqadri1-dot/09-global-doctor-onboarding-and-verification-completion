@@ -1,63 +1,36 @@
 # File 09 — Evidence-Based Status
 
-Runtime version: **1.2.0 RC4 candidate**  
-Schema: **6**  
-Canonical corrective branch: `codex/file09-1.2.0-rc2-final`
+Runtime version: **1.3.0 RC5 candidate**  
+Core schema: **6**  
+Advanced Trust schema: **1**  
+Advanced Trust contract: **1.0.0**  
+Candidate branch: `codex/file09-1.3.0-advanced-trust-24`
 
 ## Repository assurance
 
-- The original RC3 implementation already covered the 17 File 09 functional requirements, 10 non-functional gates, private credential lifecycle, independent review/appeal, signed File 00 claims, migration/rollback, privacy, retention, quality and operational recovery.
-- RC4 reopens exact-head assurance against the newer central and File 09 plans and closes the identified repository gaps: canonical plugin title, File 21/File 23 eligibility projections, File 26 verification/search projection boundary, File 20 page-contract registration, File 19 `sun.event.v1` event integration, minimized notification payloads, latest-plan traceability and exact-head generated SBOM packaging.
-- File 09 private application/evidence remains non-searchable. File 26 owns search/ranking; File 03/File 07 own public doctor/profile/directory projections. The File 09 File 26 connector is `contract_tested`, never silently activated.
-- Current notification delivery remains through File 19. File 09 owns only its transactional outbox and factual producer events; it does not implement email/SMS/push transport.
-- Exact-head CI and deterministic artifact evidence are mandatory. Any subsequent source, release-document or assurance-workflow change reopens automated verification.
+The 1.2.0 RC4 candidate was the latest exact-head QA-green baseline before the newly Founder-approved 24 Advanced Professional Trust enhancements. Because RC5 changes runtime source, additive schema, release documents, package allowlist and assurance workflow, all prior green runs are historical evidence only; RC5 must pass its own exact-head workflow.
+
+RC5 implements all 24 approved additions described in `ADVANCED-TRUST-24.md`: primary-source verification, trusted issuers, authenticity and jurisdiction rules, equivalency/affiliation adapters, continuous/event-driven reverification, verification passports/QR payload, scoped verification matrix, professional history, translation/AI reviewer assistance, explainable risk/fraud-network signals, reviewer conflicts/dual review/routing/calibration, applicant command center, resumable encrypted evidence path, secure no-download viewing-room grants and aggregate trust transparency.
+
+External providers remain advisory/fact adapters. Human authorized File 09 review is the only final professional verification decision authority. Private professional evidence remains non-searchable and File 07/File 26 continue to own ranking/search.
 
 ## Completion truth
 
-- Specified against latest central + File 09 plans: **complete repository trace candidate**
-- Coded RC4 candidate: **complete repository candidate**
-- Deterministic package candidate: **complete only after latest exact-head CI**
-- Automated QA: **must be green on the latest exact head**
+- Latest central + File 09 plan trace: **candidate complete**
+- Advanced Trust 24 approved amendment trace: **candidate complete**
+- Coded RC5 candidate: **candidate complete pending exact-head review**
+- Deterministic package: **pending latest exact-head CI**
+- Automated QA: **pending latest exact-head CI**
 - Staging accepted: **false**
 - Live deployed: **false**
 - Operationally accepted: **false**
 
-## Review record
+## RC5 mandatory gates
 
-### Latest-plan corrective review round 1 — 10 Aug 2026
+RC5 cannot be called packaged/QA-green until the exact current head passes PHP 7.4 and PHP 8.3 syntax/source suites, all legacy adversarial gates, latest-plan parity, `tests/advanced-trust-24.py`, deterministic double build, 50-entry release parity and exact-head SPDX 2.3 generated SBOM verification.
 
-Defects/gaps found before RC4 correction:
+Hostinger staging must then verify additive trust-table migration, provider unavailable/mismatch/revoked/expired paths, no provider auto-decision, conflict/dual-review routing, passport expiry/revocation/public-safe output, chunk interruption/resume/hash mismatch/malware path, secure-room authorization/no-download behavior, privacy export/erasure/retention interaction, mobile/RTL/accessibility, backup/restore/rollback, companion integrations and two fresh review→fix→retest cycles before Founder acceptance.
 
-1. File 09 did not publish explicit File 21/File 23 current professional-eligibility contracts.
-2. File 26 search/verification projection and privacy-preserving connector negotiation were absent.
-3. File 19 integration used only legacy transport-style adapters instead of the current versioned `sun.event.v1` producer contract.
-4. File 20 page ownership was exposed through navigation but not its versioned page-contract registry.
-5. Plugin display title retained the obsolete “Completion” suffix.
-6. RC3 SBOM checksums were repository-static and therefore reopened by any later exact-head change.
-7. Latest `F09-CEN-01`, `F09-CEN-02`, `CEN-SEARCH-001` and applicable AJ traceability was not explicit in repository evidence.
+## Historical assurance retained
 
-All seven were corrected in the initial RC4 commit and received permanent regression assertions in `tests/latest-plan-parity.py` and/or `tests/cross-file-contracts.php`.
-
-### RC4 corrective retest finding
-
-The first RC4 exact-head source matrix passed on PHP 7.4 and PHP 8.3, but its deterministic-package job exposed one release-integrity defect: on a pull-request run, the generated SBOM could bind to the workflow's synthetic `GITHUB_SHA` rather than the explicitly checked-out File 09 source head. The package verifier correctly rejected that mismatch. The builder was then corrected to bind first to `EXPECTED_SHA`, the same exact source-head invariant used by checkout and verification.
-
-### Latest-plan corrective review round 2 — 10 Aug 2026
-
-Fresh review and retest on corrected head `b892f7da10fd8449395db3450b2eb40d1a3e90b1` found **no new repository-level source defect**. GitHub Actions run `31355094846` completed successfully for:
-
-- PHP 7.4 full source, legacy adversarial, forty-round and latest-plan assurance;
-- PHP 8.3 full source, legacy adversarial, forty-round and latest-plan assurance;
-- deterministic double RC4 build;
-- 47-entry package/source parity;
-- generated SPDX 2.3 exact-head SBOM coverage.
-
-That run produced installable RC4 ZIP SHA-256 `2a8967145929bc71d04a074a7fb323427eba610e29d5bfbc0f74f8557760aecb` and GitHub artifact ID `9050345430`. This status-record update itself changes the repository exact head, therefore a final exact-head CI rerun remains mandatory; the prior green run is evidence for the reviewed source tree, not automatic certification of this documentation commit.
-
-## External acceptance gates
-
-`staging_accepted=false`, `live_deployed=false`, `operationally_accepted=false` until Hostinger WordPress staging completes verified backup/restore, fresh install, real upgrade and legacy migration, current File 00/02/03/07/08/19/20/21/23/24/26 companion-contract acceptance, production keyring and malware-scanner failure modes, malicious-upload/private-storage tests, concurrency/stale-state tests, mobile/desktop/RTL/accessibility applicant-reviewer journeys, low-bandwidth/degraded-provider tests, privacy export/erasure, rollback rehearsal, error-log review, two fresh staging review/fix/retest rounds and explicit Founder acceptance.
-
-## Prior forty-round RC3 evidence
-
-RC3 completed forty corrected-tree review/fix rounds: **13 rounds found and corrected defects; 27 rounds found no new defect**. That historical evidence remains useful but does not replace RC4 exact-head or staging evidence.
+RC3 completed 40 corrected-tree review/fix rounds: **13 defect-bearing rounds corrected; 27 clean rounds**. RC4 subsequently passed exact-head source/package/SBOM assurance. Those results remain useful history but do not certify RC5 or any live/staging deployment.
