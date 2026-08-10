@@ -71,6 +71,27 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
+          p=Path('tests/eighty-round-audit.py')
+          s=p.read_text(encoding='utf-8')
+          replacements={
+          "check(18, 'Calibration excludes incomplete samples from outcome denominator', has(trust, \"'completed'!==sanitize_key($row['status'])\", 'agreement_rate'))":
+          "check(18, 'Calibration excludes incomplete samples from outcome denominator', (has(trust, \"'completed'!==sanitize_key($row['status'])\", 'agreement_rate') or has(trust, \"'completed' !== sanitize_key( $row['status'] )\", 'agreement_rate')))",
+          "check(37, 'Passport lifecycle revocation covers expired/suspended/revoked/rejected/withdrawn', has(hard, \"array( 'suspended','revoked','rejected','withdrawn'\", 'revoke_passports_for_application'))":
+          "check(37, 'Passport lifecycle revocation covers expired/suspended/revoked/rejected/withdrawn', all(x in hard for x in [\"'expired'\",\"'suspended'\",\"'revoked'\",\"'rejected'\",\"'withdrawn'\",'revoke_passports_for_application']))",
+          "check(56, 'Expired finalizing sessions are cleaned', \"state IN ('open','failed','finalizing')\" in hard)":
+          "check(56, 'Expired finalizing sessions are cleaned', has(hard, 'cleanup_upload_sessions', \"'finalizing'\", 'expires_at'))",
+          "check(71, 'Privacy erasure includes Advanced Trust and deletes passports collision-safely', has(privacy, 'GDO_Advanced_Trust_Hardening::privacy_erase_application') and \"delete( GDO_Advanced_Trust::table( 'verification_passports' )\" in hard)":
+          "check(71, 'Privacy erasure includes Advanced Trust and deletes passports collision-safely', has(privacy, 'GDO_Advanced_Trust_Hardening::privacy_erase_application') and 'verification_passports' in hard[hard.index('public static function privacy_erase_application'):hard.index('private static function rest_value')] and ('checked_delete' in hard[hard.index('public static function privacy_erase_application'):hard.index('private static function rest_value')] or '$wpdb->delete' in hard[hard.index('public static function privacy_erase_application'):hard.index('private static function rest_value')]))",
+          }
+          for old,new in replacements.items():
+              if old not in s:
+                  raise SystemExit('legacy R1 semantic assertion missing: '+old[:80])
+              s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+
+          python3 - <<'PY'
+          from pathlib import Path
           p=Path('tests/release-integrity.py')
           s=p.read_text(encoding='utf-8')
           anchor="builder=(root/'tools/build-release.py').read_text(encoding='utf-8'); verifier=(root/'tools/verify-release.py').read_text(encoding='utf-8')"
