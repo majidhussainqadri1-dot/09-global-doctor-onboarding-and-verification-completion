@@ -2,6 +2,10 @@
 defined( 'ABSPATH' ) || exit;
 
 final class GDO_Notifications {
+	const FILE19_PRODUCER = 'file09-doctor-verification';
+	const FILE19_OWNER = 'File 09';
+	const FILE19_SCHEMA = '1.0';
+
 	private static function presentation( $event_type, array $payload ) {
 		$application_id = absint( isset( $payload['application_id'] ) ? $payload['application_id'] : 0 );
 		$map = array(
@@ -34,7 +38,33 @@ final class GDO_Notifications {
 			'entity_id'   => $application_id,
 			'source'      => 'file09',
 			'source_id'   => $application_id,
-			'context'     => $payload,
+			// Never forward the raw event payload to a presentation provider.
+			'context'     => array(
+				'application_id' => $application_id,
+				'event_uuid'     => isset( $payload['event_uuid'] ) ? sanitize_text_field( $payload['event_uuid'] ) : '',
+				'source_version' => defined( 'GDO_VERSION' ) ? GDO_VERSION : '',
+			),
+		);
+	}
+
+	/**
+	 * Register File 09 as a versioned File 19 producer when the current provider
+	 * API is available. Re-registration is request-local and idempotent.
+	 *
+	 * @return bool
+	 */
+	public static function register_file19_producer() {
+		if ( ! function_exists( 'sun_register_notification_producer' ) ) {
+			return false;
+		}
+		return (bool) sun_register_notification_producer(
+			self::FILE19_PRODUCER,
+			array(
+				'owner'           => self::FILE19_OWNER,
+				'event_types'     => array( 'DoctorApplication.*', 'DoctorVerification.*', 'DoctorCredential.*' ),
+				'schema_versions' => array( self::FILE19_SCHEMA ),
+				'internal'        => true,
+			)
 		);
 	}
 
@@ -46,6 +76,10 @@ final class GDO_Notifications {
 			return new WP_Error( 'gdo_notification_invalid', __( 'The notification event is invalid.', 'global-doctor-onboarding' ) );
 		}
 		$event_uuid = isset( $payload['event_uuid'] ) && self::valid_uuid( $payload['event_uuid'] ) ? (string) $payload['event_uuid'] : wp_generate_uuid4();
+		$payload['event_uuid'] = $event_uuid;
+		if ( empty( $payload['occurred_at'] ) ) {
+			$payload['occurred_at'] = gmdate( 'c' );
+		}
 		$data = array(
 			'event_uuid'        => $event_uuid,
 			'event_type'        => $event_type,
@@ -102,10 +136,83 @@ final class GDO_Notifications {
 		return true;
 	}
 
+	/** @return string */
+	private static function file19_event_type( $event_type ) {
+		$map = array(
+			'doctor_application_submitted'        => 'DoctorApplication.Submitted',
+			'doctor_application_assigned'         => 'DoctorApplication.Assigned',
+			'doctor_application_more_information' => 'DoctorApplication.MoreInformationRequested',
+			'doctor_application_draft_expiring'   => 'DoctorApplication.DraftExpiring',
+			'doctor_verification_verified'        => 'DoctorVerification.Verified',
+			'doctor_verification_rejected'        => 'DoctorVerification.Rejected',
+			'doctor_verification_suspended'       => 'DoctorVerification.Suspended',
+			'doctor_verification_revoked'         => 'DoctorVerification.Revoked',
+			'doctor_verification_expired'         => 'DoctorVerification.Expired',
+			'doctor_verification_renewal_due'     => 'DoctorVerification.RenewalDue',
+			'doctor_verification_reinstated'      => 'DoctorVerification.Reinstated',
+			'doctor_verification_appeal'          => 'DoctorVerification.AppealFiled',
+			'doctor_verification_appeal_assigned' => 'DoctorVerification.AppealAssigned',
+			'doctor_verification_appeal_resolved' => 'DoctorVerification.AppealResolved',
+			'doctor_credential_accessed'          => 'DoctorCredential.Accessed',
+		);
+		return isset( $map[ $event_type ] ) ? $map[ $event_type ] : 'DoctorVerification.Updated';
+	}
+
+	/**
+	 * Build the current `sun.event.v1` envelope. Only minimized presentation data
+	 * is passed to File 19; credential/evidence objects and reviewer notes remain
+	 * exclusively in File 09.
+	 *
+	 * @return array
+	 */
+	private static function file19_event( $event_type, $recipient_user_id, array $payload, array $args ) {
+		$application_id = absint( isset( $payload['application_id'] ) ? $payload['application_id'] : 0 );
+		$event_uuid = isset( $payload['event_uuid'] ) && self::valid_uuid( $payload['event_uuid'] ) ? (string) $payload['event_uuid'] : wp_generate_uuid4();
+		$sensitivity = 'doctor_credential_accessed' === $event_type ? 'restricted' : 'standard';
+		return array(
+			'producer'        => self::FILE19_PRODUCER,
+			'owner'           => self::FILE19_OWNER,
+			'event_id'        => $event_uuid,
+			'event_type'      => self::file19_event_type( $event_type ),
+			'schema_version'  => self::FILE19_SCHEMA,
+			'occurred_at'     => isset( $payload['occurred_at'] ) ? (string) $payload['occurred_at'] : gmdate( 'c' ),
+			'recipients'      => array( array( 'user_id' => absint( $recipient_user_id ) ) ),
+			'subject'         => array( 'type' => 'doctor_application', 'id' => (string) $application_id ),
+			'trace_id'        => $event_uuid,
+			'category'        => sanitize_key( $args['category'] ),
+			'priority'        => sanitize_key( $args['priority'] ),
+			'sensitivity'     => $sensitivity,
+			'deep_link'       => $args['link'],
+			'deep_context'    => 'file09-doctor-application',
+			'data'            => array(
+				'action_name'   => (string) $args['title'],
+				'summary'       => (string) $args['body'],
+				'application_id'=> $application_id,
+			),
+			'source_version'  => defined( 'GDO_VERSION' ) ? GDO_VERSION : 'unknown',
+			'idempotency_key' => $event_uuid,
+		);
+	}
+
 	private static function deliver_notification( $event_type, $recipient_user_id, array $payload ) {
 		$args = self::presentation( $event_type, $payload );
 		$args['user_id'] = absint( $recipient_user_id );
 		$args['dedupe_key'] = isset( $payload['event_uuid'] ) ? sanitize_text_field( $payload['event_uuid'] ) : '';
+
+		// Current File 19 contract: versioned producer registration + sun.event.v1.
+		if ( function_exists( 'sun_ingest_domain_event' ) && self::register_file19_producer() ) {
+			$result = sun_ingest_domain_event( self::file19_event( $event_type, $recipient_user_id, $payload, $args ) );
+			if ( is_wp_error( $result ) ) {
+				return $result;
+			}
+			$status = is_array( $result ) && isset( $result['status'] ) ? sanitize_key( $result['status'] ) : '';
+			if ( in_array( $status, array( 'processed', 'duplicate' ), true ) ) {
+				return true;
+			}
+			return new WP_Error( 'gdo_notification_provider_rejected', 'File 19 did not explicitly process or deduplicate the event.' );
+		}
+
+		// Compatibility only for older File 19 releases; never implement parallel transport here.
 		if ( class_exists( 'SUN_Core' ) && method_exists( 'SUN_Core', 'create' ) ) {
 			return absint( SUN_Core::create( $args ) ) > 0 ? true : new WP_Error( 'gdo_notification_provider_rejected', 'File 19 rejected the notification.' );
 		}

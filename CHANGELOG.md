@@ -22,7 +22,6 @@
 - Added outbox retry/dead-letter/reconciliation, health, Safe Mode and bounded repairs.
 - Added deterministic package, SBOM, traceability and two fresh review/fix records.
 
-
 ## RC2 Fresh Adversarial Hardening — 2026-08-07
 
 - Closed renewal eligibility bypass on expired/renewal draft creation.
@@ -41,7 +40,6 @@
 - Refreshed approved snapshot validity metadata on reinstatement.
 - Made WhatsApp optional as specified; corrected phone copy and File 20 shell naming boundary.
 
-
 ## 1.2.0-RC3 — Forty-round corrective assurance — 2026-08-07
 
 - Performed 40 independent review/fix rounds against the corrected RC2 baseline; 13 rounds found defects and 27 rounds found no new defect.
@@ -51,3 +49,15 @@
 - Serialized credential upload ownership/quota checks and made quality sampling independent; reviewer-profile persistence failures are now surfaced and successful changes audited.
 - Added `tests/review40-adversarial.py`, `REVIEW-40-ROUNDS-RC3.md`, RC3 release metadata, deterministic RC3 package identity and exact-head CI enforcement.
 - Staging, live deployment and operational acceptance remain explicitly false pending external Hostinger acceptance.
+
+## 1.2.0-RC4 — Latest central + File 09 plan parity — 2026-08-10
+
+- Corrected the plugin display title to the canonical **Global Doctor Onboarding and Verification** name while retaining runtime `1.2.0` and schema `6`.
+- Added the File 09 canonical owner contract `1.1.0` and explicit fail-closed professional-eligibility consumers for Files 21 and 23 in addition to Files 03/07/08.
+- Added `gdo.file26.doctor-verification-projection` and a privacy-preserving File 26 connector negotiation. The connector remains `contract_tested` so File 09 private applications/evidence cannot become search documents by activation side effect.
+- Added File 20 page-contract registration through `sabri_shell_page_contracts`, preserving File 20 as the only application shell.
+- Upgraded File 19 integration to the current `sun.event.v1` producer/event contract with immutable UUID idempotency, minimized safe notification data and current provider registration; legacy File 19 adapters remain compatibility-only fallbacks.
+- Removed raw notification payload forwarding from legacy presentation context.
+- Added `tests/latest-plan-parity.py` and expanded cross-file contract regression coverage for F09-CEN-01, F09-CEN-02, CEN-SEARCH-001 and applicable AJ journeys.
+- Replaced repository-static SBOM truth with a deterministic repository template plus exact-head SPDX 2.3 SBOM generation/verification during RC4 packaging, preventing stale checksum claims after source changes.
+- Staging, live and operational acceptance remain false pending the external RC4 acceptance contract and explicit Founder authorization.

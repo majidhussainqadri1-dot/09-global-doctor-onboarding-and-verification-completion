@@ -3,7 +3,7 @@
   "live_deployed": false,
   "operationally_accepted": false,
   "package_root": "global-doctor-onboarding-09/",
-  "release_candidate": "RC3",
+  "release_candidate": "RC4",
   "release_file_count": 47,
   "runtime": "1.2.0",
   "schema": 6,

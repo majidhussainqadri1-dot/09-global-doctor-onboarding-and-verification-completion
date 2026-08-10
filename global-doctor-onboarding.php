@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name: Global Doctor Onboarding and Verification Completion
+ * Plugin Name: Global Doctor Onboarding and Verification
  * Plugin URI: https://www.sabrihomeopathy.com/
  * Description: Canonical doctor application, private credential evidence, independent review, verification, suspension, renewal, appeal, privacy, and audit workflow.
  * Version: 1.2.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
- * Author: Dr. Allama Majid Hussain Sabri
+ * Author: Dr. Allamah Majid Hussain Sabri Muhaddith Mursheed
  * License: GPL-2.0-or-later
  * Text Domain: global-doctor-onboarding
  */

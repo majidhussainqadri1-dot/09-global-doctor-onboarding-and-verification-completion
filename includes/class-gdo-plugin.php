@@ -7,6 +7,7 @@ final class GDO_Plugin {
         add_action( 'wp_logout', array('GDO_Membership_Adapter','clear_step_up') );
         (new GDO_REST())->hooks();
         (new GDO_Integration_Contracts())->hooks();
+        GDO_Notifications::register_file19_producer();
         add_action( 'smc_professional_claim_acknowledged', array($this,'claim_acknowledged'), 10, 4 );
         if ( ! GDO_Membership_Adapter::available() ) {
             return;
@@ -51,7 +52,7 @@ final class GDO_Plugin {
         if ( is_wp_error($health) ) {
             echo '<div class="notice notice-error"><p><strong>File 09:</strong> '.esc_html($health->get_error_message()).'</p></div>';
         }
-        if ( ! has_action('sabri_notify') && ! class_exists('SUN_Core') ) {
+        if ( ! function_exists('sun_ingest_domain_event') && ! has_action('sabri_notify') && ! class_exists('SUN_Core') ) {
             echo '<div class="notice notice-warning"><p><strong>File 09:</strong> File 19 Unified Notifications is unavailable; notification events remain queued in the outbox.</p></div>';
         }
     }
