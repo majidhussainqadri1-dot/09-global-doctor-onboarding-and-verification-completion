@@ -107,6 +107,15 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
+          p=Path('tests/eighty-round-audit-r4.py'); s=p.read_text(encoding='utf-8')
+          old="check(63,'Hardened resumable cleanup surfaces inventory/file/store failure',has(hard,'gdo_upload_cleanup_inventory','gdo_upload_cleanup_file','gdo_upload_cleanup_store'))"
+          new="""cleanup_start=hard.index('function cleanup_upload_sessions')\ncleanup_tail=hard[cleanup_start:]\nnext_candidates=[cleanup_tail.find(x,1) for x in ['public static function ','private static function ','protected static function '] if cleanup_tail.find(x,1)>0]\ncleanup_block=cleanup_tail[:min(next_candidates)] if next_candidates else cleanup_tail\ncheck(63,'Hardened resumable cleanup surfaces inventory/file/store failure',has(cleanup_block,'$wpdb->get_results','$wpdb->last_error','WP_Error') and ('is_link' in cleanup_block or 'is_file' in cleanup_block) and 'unlink' in cleanup_block and ('$wpdb->delete' in cleanup_block or '$wpdb->update' in cleanup_block) and cleanup_block.count('WP_Error')>=3)"""
+          if old not in s: raise SystemExit('legacy R4 cleanup assertion missing')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+
+          python3 - <<'PY'
+          from pathlib import Path
           p=Path('tests/release-integrity.py'); s=p.read_text(encoding='utf-8')
           anchor="builder=(root/'tools/build-release.py').read_text(encoding='utf-8'); verifier=(root/'tools/verify-release.py').read_text(encoding='utf-8')"
           if anchor not in s: raise SystemExit('release-integrity insertion anchor missing')
