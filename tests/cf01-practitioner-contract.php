@@ -21,8 +21,8 @@ function gdo_cf01_static_assert( $condition, $message ) {
 	echo "PASS: {$message}\n";
 }
 
-gdo_cf01_static_assert( false !== strpos( $main, 'Version: 1.2.0' ), 'plugin header is File 09 1.2.0' );
-gdo_cf01_static_assert( false !== strpos( $main, "define( 'GDO_VERSION', '1.2.0' )" ), 'runtime version is File 09 1.2.0' );
+gdo_cf01_static_assert( false !== strpos( $main, 'Version: 1.3.0' ), 'plugin header is File 09 1.3.0' );
+gdo_cf01_static_assert( false !== strpos( $main, "define( 'GDO_VERSION', '1.3.0' )" ), 'runtime version is File 09 1.3.0' );
 gdo_cf01_static_assert( false !== strpos( $main, "define( 'GDO_CF01_PRACTITIONER_CONTRACT_VERSION', '1.0.0' )" ), 'practitioner contract version is explicit' );
 gdo_cf01_static_assert( false !== strpos( $main, 'class-gdo-cf01-practitioner-contract.php' ), 'practitioner provider loads from bootstrap' );
 gdo_cf01_static_assert( false !== strpos( $contract, "'gdo.cf01.practitioner-eligibility'" ), 'contract name is exact' );
@@ -57,5 +57,5 @@ gdo_cf01_static_assert( false !== strpos( $contract, 'gdo_cf01_practitioner_cont
 gdo_cf01_static_assert( false === strpos( $contract, "3 !== absint" ), 'CF-01 does not fossilize approved snapshots at schema 3' );
 gdo_cf01_static_assert( false !== strpos( $contract, "GDO_SCHEMA_VERSION" ), 'CF-01 accepts supported snapshots through the current schema' );
 gdo_cf01_static_assert( false !== strpos( $contract, "identity_documents_current" ) && false !== strpos( $contract, "professional_verified" ), 'CF-01 requires current high-trust and professional assurance' );
-gdo_cf01_static_assert( false === strpos( $contract, "empty( \$base['guardian_verified'] ) )" ), 'adult practitioner eligibility has no unconditional guardian gate' );
+gdo_cf01_static_assert( false === strpos( $contract, "empty( \$base['guardian_verified'] )" ), 'adult practitioner eligibility has no unconditional guardian gate' );
 echo "File 09 CF-01 static contract: {$tests} PASS, 0 FAIL\n";
