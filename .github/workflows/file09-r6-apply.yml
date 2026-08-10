@@ -74,18 +74,27 @@ jobs:
           p=Path('tests/eighty-round-audit.py')
           s=p.read_text(encoding='utf-8')
           replacements={
-          "check(18, 'Calibration excludes incomplete samples from outcome denominator', has(trust, \"'completed'!==sanitize_key($row['status'])\", 'agreement_rate'))":
-          "check(18, 'Calibration excludes incomplete samples from outcome denominator', (has(trust, \"'completed'!==sanitize_key($row['status'])\", 'agreement_rate') or has(trust, \"'completed' !== sanitize_key( $row['status'] )\", 'agreement_rate')))",
-          "check(37, 'Passport lifecycle revocation covers expired/suspended/revoked/rejected/withdrawn', has(hard, \"array( 'suspended','revoked','rejected','withdrawn'\", 'revoke_passports_for_application'))":
-          "check(37, 'Passport lifecycle revocation covers expired/suspended/revoked/rejected/withdrawn', all(x in hard for x in [\"'expired'\",\"'suspended'\",\"'revoked'\",\"'rejected'\",\"'withdrawn'\",'revoke_passports_for_application']))",
-          "check(56, 'Expired finalizing sessions are cleaned', \"state IN ('open','failed','finalizing')\" in hard)":
-          "check(56, 'Expired finalizing sessions are cleaned', has(hard, 'cleanup_upload_sessions', \"'finalizing'\", 'expires_at'))",
-          "check(71, 'Privacy erasure includes Advanced Trust and deletes passports collision-safely', has(privacy, 'GDO_Advanced_Trust_Hardening::privacy_erase_application') and \"delete( GDO_Advanced_Trust::table( 'verification_passports' )\" in hard)":
-          "check(71, 'Privacy erasure includes Advanced Trust and deletes passports collision-safely', has(privacy, 'GDO_Advanced_Trust_Hardening::privacy_erase_application') and 'verification_passports' in hard[hard.index('public static function privacy_erase_application'):hard.index('private static function rest_value')] and ('checked_delete' in hard[hard.index('public static function privacy_erase_application'):hard.index('private static function rest_value')] or '$wpdb->delete' in hard[hard.index('public static function privacy_erase_application'):hard.index('private static function rest_value')]))",
+          "check(18, 'Calibration excludes incomplete samples from outcome denominator', has(trust, \"'completed'!==sanitize_key($row['status'])\", 'agreement_rate'))":"check(18, 'Calibration excludes incomplete samples from outcome denominator', (has(trust, \"'completed'!==sanitize_key($row['status'])\", 'agreement_rate') or has(trust, \"'completed' !== sanitize_key( $row['status'] )\", 'agreement_rate')))",
+          "check(37, 'Passport lifecycle revocation covers expired/suspended/revoked/rejected/withdrawn', has(hard, \"array( 'suspended','revoked','rejected','withdrawn'\", 'revoke_passports_for_application'))":"check(37, 'Passport lifecycle revocation covers expired/suspended/revoked/rejected/withdrawn', all(x in hard for x in [\"'expired'\",\"'suspended'\",\"'revoked'\",\"'rejected'\",\"'withdrawn'\",'revoke_passports_for_application']))",
+          "check(56, 'Expired finalizing sessions are cleaned', \"state IN ('open','failed','finalizing')\" in hard)":"check(56, 'Expired finalizing sessions are cleaned', has(hard, 'cleanup_upload_sessions', \"'finalizing'\", 'expires_at'))",
+          "check(71, 'Privacy erasure includes Advanced Trust and deletes passports collision-safely', has(privacy, 'GDO_Advanced_Trust_Hardening::privacy_erase_application') and \"delete( GDO_Advanced_Trust::table( 'verification_passports' )\" in hard)":"check(71, 'Privacy erasure includes Advanced Trust and deletes passports collision-safely', has(privacy, 'GDO_Advanced_Trust_Hardening::privacy_erase_application') and 'verification_passports' in hard[hard.index('public static function privacy_erase_application'):hard.index('private static function rest_value')] and ('checked_delete' in hard[hard.index('public static function privacy_erase_application'):hard.index('private static function rest_value')] or '$wpdb->delete' in hard[hard.index('public static function privacy_erase_application'):hard.index('private static function rest_value')]))",
           }
           for old,new in replacements.items():
-              if old not in s:
-                  raise SystemExit('legacy R1 semantic assertion missing: '+old[:80])
+              if old not in s: raise SystemExit('legacy R1 semantic assertion missing: '+old[:80])
+              s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/eighty-round-audit-r2.py')
+          s=p.read_text(encoding='utf-8')
+          replacements={
+          "check(55,'Calibration excludes incomplete samples',has(trust,\"'completed'!==sanitize_key($row['status'])\",'agreement_rate'))":"check(55,'Calibration excludes incomplete samples',(has(trust,\"'completed'!==sanitize_key($row['status'])\",'agreement_rate') or has(trust,\"'completed' !== sanitize_key( $row['status'] )\",'agreement_rate')))",
+          "check(61,'Passport ensure verifies existing token before reuse',has(trust,'ensure_passport','verify_passport_uuid($existing->passport_uuid)'))":"check(61,'Passport ensure verifies existing token before reuse',has(trust,'ensure_passport') and ('verify_passport_uuid($existing->passport_uuid)' in trust or 'verify_passport_uuid( $existing->passport_uuid )' in trust))",
+          }
+          for old,new in replacements.items():
+              if old not in s: raise SystemExit('legacy R2 semantic assertion missing: '+old[:80])
               s=s.replace(old,new,1)
           p.write_text(s,encoding='utf-8')
           PY
@@ -95,8 +104,7 @@ jobs:
           p=Path('tests/release-integrity.py')
           s=p.read_text(encoding='utf-8')
           anchor="builder=(root/'tools/build-release.py').read_text(encoding='utf-8'); verifier=(root/'tools/verify-release.py').read_text(encoding='utf-8')"
-          if anchor not in s:
-              raise SystemExit('release-integrity insertion anchor missing')
+          if anchor not in s: raise SystemExit('release-integrity insertion anchor missing')
           extra="""for key, expected in {'sixth_review_baseline':'6fa0a5cb7063b6b821bd50c105c735470f589b80','sixth_review_rounds':80,'sixth_defect_rounds':60,'sixth_clean_rounds':20}.items():\n    if lock.get(key) != expected: fail('release lock R6 mismatch '+key)\nif 'REVIEW-80-ROUNDS-RC6-R6.md' not in release_files: fail('RC6 R6 release ledger missing')\n"""
           s=s.replace(anchor,extra+anchor,1)
           p.write_text(s,encoding='utf-8')
@@ -107,8 +115,7 @@ jobs:
           p=Path('.github/workflows/file09-rc2-final.yml')
           s=p.read_text(encoding='utf-8')
           anchor='          python3 tests/eighty-round-audit-r5.py\n'
-          if anchor not in s:
-              raise SystemExit('authoritative workflow R5 anchor missing')
+          if anchor not in s: raise SystemExit('authoritative workflow R5 anchor missing')
           if 'python3 tests/eighty-round-audit-r6.py' not in s:
               s=s.replace(anchor,anchor+'          python3 tests/eighty-round-audit-r6.py\n',1)
           p.write_text(s,encoding='utf-8')
