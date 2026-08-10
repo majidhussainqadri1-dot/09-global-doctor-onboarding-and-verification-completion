@@ -147,7 +147,7 @@ round_check(25,'Safe mode and fail-closed mutation dependencies',lambda: (
 ))
 round_check(26,'Rate limiting and bounded abuse state',lambda: (
     require('rate_limits' in rate and 'expires_at' in rate,'rate limiter storage/expiry missing'),
-    require('return $hits <= $limit;' in rate,'rate limiter allow decision missing')
+    require('return $hits > 0 && $hits <= $limit;' in rate,'rate limiter fail-closed allow decision missing')
 ))
 round_check(27,'Duplicate/fraud detection',lambda: (
     require('identity_duplicate' in risk and 'document_hash_duplicate' in risk,'duplicate signals missing'),

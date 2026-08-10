@@ -268,8 +268,12 @@ final class GDO_Retention {
 			return;
 		}
 		$dir = GDO_Storage::directory();
-		$known = $wpdb->get_col( 'SELECT storage_name FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE deleted_at IS NULL' );
-		$known = array_fill_keys( array_map( 'strval', $known ), true );
+		$known_rows = $wpdb->get_col( 'SELECT storage_name FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE deleted_at IS NULL' );
+		if ( null === $known_rows || ! empty( $wpdb->last_error ) ) {
+			GDO_Membership_Adapter::audit( 'doctor_credential_orphan_inventory_failed', array( 'reason'=>'database_inventory_unavailable' ) );
+			return false;
+		}
+		$known = array_fill_keys( array_map( 'strval', $known_rows ), true );
 		$cutoff = time() - absint( apply_filters( 'gdo_orphan_grace_hours', 24 ) ) * HOUR_IN_SECONDS;
 		foreach ( new DirectoryIterator( $dir ) as $file ) {
 			if ( $file->isDot() || ! $file->isFile() || $file->isLink() ) {
@@ -287,5 +291,6 @@ final class GDO_Retention {
 				}
 			}
 		}
+		return true;
 	}
 }

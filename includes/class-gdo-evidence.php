@@ -28,12 +28,25 @@ final class GDO_Evidence {
         ) );
     }
 
-    private static function normalize_upload( array $file, $type ) {
+    private static function normalize_upload( array $file, $type, $trusted_internal_path = '' ) {
         if ( empty( $file['tmp_name'] ) || ! isset( $file['error'], $file['size'], $file['name'] ) ) {
             return new WP_Error( 'gdo_missing_upload', __( 'A required credential file is missing.', 'global-doctor-onboarding' ) );
         }
-        $is_uploaded = is_uploaded_file( $file['tmp_name'] );
-        $is_uploaded = (bool) apply_filters( 'gdo_is_uploaded_file', $is_uploaded, $file['tmp_name'], $type );
+        $native_uploaded = is_uploaded_file( $file['tmp_name'] );
+        $filtered_uploaded = (bool) apply_filters( 'gdo_is_uploaded_file', $native_uploaded, $file['tmp_name'], $type );
+        $is_uploaded = $native_uploaded && $filtered_uploaded;
+        if ( ! $is_uploaded && $trusted_internal_path ) {
+            $storage_dir = GDO_Storage::directory();
+            $real_tmp = realpath( $file['tmp_name'] );
+            $real_trusted = realpath( $trusted_internal_path );
+            $real_storage = $storage_dir ? realpath( $storage_dir ) : false;
+            $prefix = $real_storage ? trailingslashit( wp_normalize_path( $real_storage ) ) : '';
+            $normalized_tmp = $real_tmp ? wp_normalize_path( $real_tmp ) : '';
+            $is_uploaded = $real_tmp && $real_trusted && hash_equals( wp_normalize_path( $real_trusted ), $normalized_tmp )
+                && $prefix && 0 === strpos( $normalized_tmp, $prefix )
+                && 0 === strpos( basename( $normalized_tmp ), '.chunk-' )
+                && is_file( $real_tmp ) && ! is_link( $file['tmp_name'] );
+        }
         if ( UPLOAD_ERR_OK !== (int) $file['error'] || ! $is_uploaded || (int) $file['size'] < 32 || (int) $file['size'] > self::MAX_BYTES ) {
             return new WP_Error( 'gdo_invalid_upload', __( 'The credential upload is invalid or exceeds 5 MB.', 'global-doctor-onboarding' ) );
         }
@@ -125,14 +138,14 @@ final class GDO_Evidence {
         return max( 0, $used - absint($replacing_size) ) + absint($new_size) <= $limit;
     }
 
-    public static function stage_upload( $application, $type, array $file, $manage_transaction = true ) {
+    public static function stage_upload( $application, $type, array $file, $manage_transaction = true, $trusted_internal_path = '' ) {
         global $wpdb;
         $type = sanitize_key( $type );
         $types = $application ? self::types( $application->jurisdiction, $application->application_type ) : array();
         if ( ! GDO_Operations::mutation_allowed() || ! $application || ! isset( $types[ $type ] ) || ! in_array( $application->state, array( 'draft','more_information' ), true ) ) {
             return new WP_Error( 'gdo_document_type', __( 'This credential cannot be uploaded for the current application.', 'global-doctor-onboarding' ) );
         }
-        $normalized = self::normalize_upload( $file, $type );
+        $normalized = self::normalize_upload( $file, $type, $trusted_internal_path );
         if ( is_wp_error( $normalized ) ) {
             return $normalized;
         }

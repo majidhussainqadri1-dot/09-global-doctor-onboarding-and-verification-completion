@@ -235,10 +235,13 @@ final class GDO_Notifications {
 		global $wpdb;
 		$table = GDO_Schema::table( 'outbox' );
 		$now = current_time( 'mysql', true );
-		$wpdb->query( $wpdb->prepare(
+		$lease_recovered = $wpdb->query( $wpdb->prepare(
 			"UPDATE {$table} SET status='failed', attempts=attempts+1, last_error=%s, available_at=%s WHERE status='processing' AND available_at<=%s",
 			'Processing lease expired before completion; safe retry scheduled.', $now, $now
 		) );
+		if ( false === $lease_recovered ) {
+			return new WP_Error( 'gdo_outbox_lease_recovery_failed', __( 'Notification lease recovery could not be persisted safely.', 'global-doctor-onboarding' ) );
+		}
 		$where = "status IN ('pending','failed') AND available_at<=%s";
 		$values = array( $now );
 		if ( $event_uuid ) {
@@ -247,10 +250,17 @@ final class GDO_Notifications {
 		}
 		$values[] = max( 1, min( 100, absint( $limit ) ) );
 		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} WHERE {$where} ORDER BY id ASC LIMIT %d", $values ) );
+		if ( null === $rows || ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_outbox_query_failed', __( 'Pending notification events could not be read safely.', 'global-doctor-onboarding' ) );
+		}
+		$summary = array( 'processed'=>0, 'delivered'=>0, 'failed'=>0, 'dead'=>0 );
 		foreach ( $rows as $row ) {
 			$lease_seconds = max( 60, absint( apply_filters( 'gdo_outbox_processing_lease_seconds', 300, $row->event_type ) ) );
 			$lease_until = gmdate( 'Y-m-d H:i:s', time() + $lease_seconds );
 			$claimed = $wpdb->update( $table, array( 'status'=>'processing', 'available_at'=>$lease_until ), array( 'id'=>absint( $row->id ), 'status'=>$row->status ), array( '%s','%s' ), array( '%d','%s' ) );
+			if ( false === $claimed ) {
+				return new WP_Error( 'gdo_outbox_claim_failed', __( 'A notification event processing lease could not be claimed safely.', 'global-doctor-onboarding' ) );
+			}
 			if ( 1 !== $claimed ) {
 				continue;
 			}
@@ -266,22 +276,31 @@ final class GDO_Notifications {
 			}
 			$attempts = absint( $row->attempts ) + 1;
 			if ( true === $result ) {
-				$wpdb->update(
+				$persisted = $wpdb->update(
 					$table,
 					array( 'status'=>'delivered', 'attempts'=>$attempts, 'last_error'=>null, 'delivered_at'=>current_time( 'mysql', true ), 'dead_at'=>null ),
-					array( 'id'=>absint( $row->id ) ),
+					array( 'id'=>absint( $row->id ), 'status'=>'processing' ),
 					array( '%s','%d','%s','%s','%s' ),
-					array( '%d' )
+					array( '%d','%s' )
 				);
+				if ( 1 !== $persisted ) {
+					GDO_Membership_Adapter::audit( 'doctor_verification_outbox_delivery_persistence_uncertain', array( 'event_uuid'=>$row->event_uuid, 'event_type'=>$row->event_type ) );
+					return new WP_Error( 'gdo_outbox_delivery_persist_failed', __( 'Provider delivery succeeded but the durable outbox receipt could not be persisted safely.', 'global-doctor-onboarding' ) );
+				}
+				++$summary['processed'];
+				++$summary['delivered'];
 				continue;
 			}
 			$error = is_wp_error( $result ) ? $result->get_error_code() . ': ' . $result->get_error_message() : 'Provider returned no explicit success.';
 			if ( 'doctor_professional_claim' === $row->event_type && ! empty( $payload['application_id'] ) ) {
-				$wpdb->update( GDO_Schema::table( 'applications' ), array( 'claim_status'=>'failed', 'claim_last_error'=>sanitize_textarea_field( $error ), 'updated_at'=>current_time( 'mysql', true ) ), array( 'id'=>absint( $payload['application_id'] ) ), array( '%s','%s','%s' ), array( '%d' ) );
+				$claim_marked = $wpdb->update( GDO_Schema::table( 'applications' ), array( 'claim_status'=>'failed', 'claim_last_error'=>sanitize_textarea_field( $error ), 'updated_at'=>current_time( 'mysql', true ) ), array( 'id'=>absint( $payload['application_id'] ) ), array( '%s','%s','%s' ), array( '%d' ) );
+				if ( false === $claim_marked ) {
+					return new WP_Error( 'gdo_claim_failure_persist_failed', __( 'Claim delivery failed but its application status could not be persisted safely.', 'global-doctor-onboarding' ) );
+				}
 			}
 			$terminal = $attempts >= absint( apply_filters( 'gdo_outbox_max_attempts', 7, $row->event_type ) );
 			$delay = min( DAY_IN_SECONDS, (int) pow( 2, min( 10, $attempts ) ) * 60 );
-			$wpdb->update(
+			$persisted = $wpdb->update(
 				$table,
 				array(
 					'status'=>$terminal ? 'dead' : 'failed', 'attempts'=>$attempts,
@@ -289,14 +308,21 @@ final class GDO_Notifications {
 					'available_at'=>gmdate( 'Y-m-d H:i:s', time() + $delay ),
 					'dead_at'=>$terminal ? current_time( 'mysql', true ) : null,
 				),
-				array( 'id'=>absint( $row->id ) ),
+				array( 'id'=>absint( $row->id ), 'status'=>'processing' ),
 				array( '%s','%d','%s','%s','%s' ),
-				array( '%d' )
+				array( '%d','%s' )
 			);
+			if ( 1 !== $persisted ) {
+				return new WP_Error( 'gdo_outbox_failure_persist_failed', __( 'Notification failure state could not be persisted safely.', 'global-doctor-onboarding' ) );
+			}
+			++$summary['processed'];
+			++$summary['failed'];
 			if ( $terminal ) {
+				++$summary['dead'];
 				GDO_Membership_Adapter::audit( 'doctor_verification_outbox_dead_letter', array( 'event_uuid'=>$row->event_uuid, 'event_type'=>$row->event_type, 'attempts'=>$attempts ) );
 			}
 		}
+		return $summary;
 	}
 
 	public static function replay( $event_id, $actor_id, $reason ) {
@@ -304,6 +330,16 @@ final class GDO_Notifications {
 		$reason = sanitize_textarea_field( $reason );
 		if ( strlen( $reason ) < 20 ) {
 			return new WP_Error( 'gdo_outbox_replay_reason', __( 'A reason of at least 20 characters is required.', 'global-doctor-onboarding' ) );
+		}
+		$row = $wpdb->get_row( $wpdb->prepare(
+			'SELECT id,event_uuid,status FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE id=%d LIMIT 1',
+			absint( $event_id )
+		) );
+		if ( null === $row && ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_outbox_replay_query', __( 'The dead-letter event could not be read safely.', 'global-doctor-onboarding' ) );
+		}
+		if ( ! $row || 'dead' !== sanitize_key( $row->status ) || ! self::valid_uuid( $row->event_uuid ) ) {
+			return new WP_Error( 'gdo_outbox_replay_conflict', __( 'The dead-letter event is no longer available for replay.', 'global-doctor-onboarding' ) );
 		}
 		$updated = $wpdb->update(
 			GDO_Schema::table( 'outbox' ),
@@ -315,9 +351,9 @@ final class GDO_Notifications {
 		if ( 1 !== $updated ) {
 			return new WP_Error( 'gdo_outbox_replay_conflict', __( 'The dead-letter event is no longer available for replay.', 'global-doctor-onboarding' ) );
 		}
-		GDO_Membership_Adapter::audit( 'doctor_verification_outbox_replayed', array( 'event_id'=>absint( $event_id ), 'actor_id'=>absint( $actor_id ), 'reason'=>$reason ) );
-		self::process( 1 );
-		return true;
+		GDO_Membership_Adapter::audit( 'doctor_verification_outbox_replayed', array( 'event_id'=>absint( $event_id ), 'event_uuid'=>(string) $row->event_uuid, 'actor_id'=>absint( $actor_id ), 'reason'=>$reason ) );
+		$result = self::process( 1, (string) $row->event_uuid );
+		return is_wp_error( $result ) ? $result : true;
 	}
 
 	private static function valid_uuid( $value ) {

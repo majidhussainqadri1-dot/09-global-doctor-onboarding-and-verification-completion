@@ -14,6 +14,15 @@ final class GDO_Operations {
 			&& ! is_wp_error( GDO_Storage::health() );
 	}
 
+	private static function count_query( $sql, $error_code ) {
+		global $wpdb;
+		$raw = $wpdb->get_var( $sql );
+		if ( null === $raw || ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( sanitize_key( $error_code ), __( 'A File 09 health query could not be completed safely.', 'global-doctor-onboarding' ) );
+		}
+		return absint( $raw );
+	}
+
 	public static function health() {
 		global $wpdb;
 		$checks = array();
@@ -24,16 +33,28 @@ final class GDO_Operations {
 		$checks['schema_version'] = absint( get_option( 'gdo_schema_version', 0 ) ) === GDO_SCHEMA_VERSION ? 'pass' : 'fail';
 		$checks['retention_cron'] = wp_next_scheduled( 'gdo_daily_retention' ) ? 'pass' : 'warn';
 		$checks['outbox_cron'] = wp_next_scheduled( 'gdo_notification_outbox' ) ? 'pass' : 'warn';
-		$checks['notification_provider'] = ( class_exists( 'SUN_Core' ) || has_action( 'sabri_notify' ) ) ? 'pass' : 'warn';
+		$modern_notifications = function_exists( 'sun_ingest_domain_event' ) && function_exists( 'sun_register_notification_producer' );
+		$checks['notification_provider'] = ( $modern_notifications || class_exists( 'SUN_Core' ) || has_action( 'sabri_notify' ) ) ? 'pass' : 'warn';
 		$checks['claim_signing_key'] = defined( 'GDO_CLAIM_SIGNING_KEY' ) && strlen( (string) GDO_CLAIM_SIGNING_KEY ) >= 32 ? 'pass' : 'fail';
 		$checks['claim_consumer'] = self::claim_consumer_available() ? 'pass' : 'warn';
-		$dead = absint( $wpdb->get_var( "SELECT COUNT(*) FROM " . GDO_Schema::table( 'outbox' ) . " WHERE status='dead'" ) );
-		$pending = absint( $wpdb->get_var( "SELECT COUNT(*) FROM " . GDO_Schema::table( 'outbox' ) . " WHERE status IN ('pending','failed','processing')" ) );
-		$stale_claims = absint( $wpdb->get_var( $wpdb->prepare(
-			"SELECT COUNT(*) FROM " . GDO_Schema::table( 'applications' ) . " WHERE claim_status IN ('pending','failed','rejected') AND updated_at<%s",
-			gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS )
-		) ) );
-		$open_critical_risks = absint( $wpdb->get_var( "SELECT COUNT(*) FROM " . GDO_Schema::table( 'risk_signals' ) . " WHERE severity='critical' AND status IN ('open','reviewing')" ) );
+		$counts = array(
+			'dead_letters' => self::count_query( "SELECT COUNT(*) FROM " . GDO_Schema::table( 'outbox' ) . " WHERE status='dead'", 'gdo_health_dead_letters' ),
+			'pending_outbox' => self::count_query( "SELECT COUNT(*) FROM " . GDO_Schema::table( 'outbox' ) . " WHERE status IN ('pending','failed','processing')", 'gdo_health_pending_outbox' ),
+			'stale_claims' => self::count_query( $wpdb->prepare(
+				"SELECT COUNT(*) FROM " . GDO_Schema::table( 'applications' ) . " WHERE claim_status IN ('pending','failed','rejected') AND updated_at<%s",
+				gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS )
+			), 'gdo_health_stale_claims' ),
+			'open_critical_risks' => self::count_query( "SELECT COUNT(*) FROM " . GDO_Schema::table( 'risk_signals' ) . " WHERE severity='critical' AND status IN ('open','reviewing')", 'gdo_health_critical_risks' ),
+		);
+		$db_ok = true;
+		foreach ( $counts as $value ) {
+			if ( is_wp_error( $value ) ) { $db_ok = false; break; }
+		}
+		$checks['database_observability'] = $db_ok ? 'pass' : 'fail';
+		$dead = is_wp_error( $counts['dead_letters'] ) ? 0 : $counts['dead_letters'];
+		$pending = is_wp_error( $counts['pending_outbox'] ) ? 0 : $counts['pending_outbox'];
+		$stale_claims = is_wp_error( $counts['stale_claims'] ) ? 0 : $counts['stale_claims'];
+		$open_critical_risks = is_wp_error( $counts['open_critical_risks'] ) ? 0 : $counts['open_critical_risks'];
 		$checks['dead_letters'] = $dead ? 'warn' : 'pass';
 		$checks['stale_claims'] = $stale_claims ? 'warn' : 'pass';
 		$checks['critical_risks'] = $open_critical_risks ? 'warn' : 'pass';
@@ -62,24 +83,31 @@ final class GDO_Operations {
 			"SELECT id,user_id,row_version FROM " . GDO_Schema::table( 'applications' ) . " WHERE state IN ('verified','reinstated','renewal_due') AND verified_until IS NOT NULL AND verified_until<%s LIMIT %d",
 			$now, $limit
 		) );
+		if ( null === $expired || ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_reconcile_query_failed', __( 'Expired verification records could not be read safely.', 'global-doctor-onboarding' ) );
+		}
 		$count = 0;
 		foreach ( $expired as $app ) {
 			if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
-				continue;
+				return new WP_Error( 'gdo_reconcile_transaction_failed', __( 'Verification reconciliation could not start a safe transaction.', 'global-doctor-onboarding' ) );
 			}
 			$result = GDO_State::transition( $app->id, 'expired', 0, 'verification_expired', 'Verification validity period ended.', $app->row_version, false );
 			$claim = is_wp_error( $result ) ? $result : GDO_Claims::issue( $app->id, 'expired', array(), false );
 			$notice = is_wp_error( $claim ) ? $claim : GDO_Notifications::queue( 'doctor_verification_expired', $app->user_id, array( 'application_id'=>$app->id ), false );
 			if ( is_wp_error( $result ) || is_wp_error( $claim ) || is_wp_error( $notice ) || false === $wpdb->query( 'COMMIT' ) ) {
 				$wpdb->query( 'ROLLBACK' );
-				continue;
+				$error = is_wp_error( $result ) ? $result : ( is_wp_error( $claim ) ? $claim : ( is_wp_error( $notice ) ? $notice : new WP_Error( 'gdo_reconcile_commit_failed', __( 'Verification reconciliation could not be committed.', 'global-doctor-onboarding' ) ) ) );
+				return $error;
 			}
 			GDO_Audit::publish_transition( $result );
 			GDO_Claims::publish( $claim );
 			++$count;
 		}
-		GDO_Notifications::process( $limit );
-		self::record_metric( 'reconciliation.expired', $count, array( 'limit'=>$limit ) );
+		$outbox = GDO_Notifications::process( $limit );
+		if ( is_wp_error( $outbox ) ) { return $outbox; }
+		if ( ! self::record_metric( 'reconciliation.expired', $count, array( 'limit'=>$limit ) ) ) {
+			return new WP_Error( 'gdo_reconcile_metric_failed', __( 'Reconciliation completed but its operational metric could not be recorded.', 'global-doctor-onboarding' ) );
+		}
 		return array( 'expired_reconciled'=>$count, 'processed_at'=>gmdate( 'c' ) );
 	}
 
@@ -98,13 +126,15 @@ final class GDO_Operations {
 			$result = GDO_Migration::maybe_run();
 		} elseif ( 'schedules' === $action ) {
 			if ( ! wp_next_scheduled( 'gdo_daily_retention' ) ) {
-				wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'gdo_daily_retention' );
+				$scheduled = wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'gdo_daily_retention', array(), true );
+				if ( is_wp_error( $scheduled ) || false === $scheduled || ! wp_next_scheduled( 'gdo_daily_retention' ) ) { return new WP_Error( 'gdo_repair_retention_schedule', __( 'The retention schedule could not be persisted safely.', 'global-doctor-onboarding' ) ); }
 			}
 			if ( ! wp_next_scheduled( 'gdo_notification_outbox' ) ) {
-				wp_schedule_event( time() + 5 * MINUTE_IN_SECONDS, 'hourly', 'gdo_notification_outbox' );
+				$scheduled = wp_schedule_event( time() + 5 * MINUTE_IN_SECONDS, 'hourly', 'gdo_notification_outbox', array(), true );
+				if ( is_wp_error( $scheduled ) || false === $scheduled || ! wp_next_scheduled( 'gdo_notification_outbox' ) ) { return new WP_Error( 'gdo_repair_outbox_schedule', __( 'The outbox schedule could not be persisted safely.', 'global-doctor-onboarding' ) ); }
 			}
 		} elseif ( 'outbox' === $action ) {
-			GDO_Notifications::process( 100 );
+			$result = GDO_Notifications::process( 100 );
 		} elseif ( 'reconcile' === $action ) {
 			$result = self::reconcile( 200 );
 		} elseif ( 'storage_check' === $action ) {
@@ -122,8 +152,14 @@ final class GDO_Operations {
 		if ( strlen( $reason ) < 20 ) {
 			return new WP_Error( 'gdo_safe_mode_reason', __( 'A reason of at least 20 characters is required.', 'global-doctor-onboarding' ) );
 		}
-		update_option( 'gdo_safe_mode', (bool) $enabled, false );
-		GDO_Membership_Adapter::audit( $enabled ? 'doctor_verification_safe_mode_enabled' : 'doctor_verification_safe_mode_disabled', array( 'actor_id'=>absint( $actor_id ), 'reason'=>$reason ) );
+		$desired = (bool) $enabled;
+		if ( self::safe_mode() !== $desired ) {
+			update_option( 'gdo_safe_mode', $desired, false );
+		}
+		if ( self::safe_mode() !== $desired ) {
+			return new WP_Error( 'gdo_safe_mode_persist_failed', __( 'Safe Mode could not be persisted safely.', 'global-doctor-onboarding' ) );
+		}
+		GDO_Membership_Adapter::audit( $desired ? 'doctor_verification_safe_mode_enabled' : 'doctor_verification_safe_mode_disabled', array( 'actor_id'=>absint( $actor_id ), 'reason'=>$reason ) );
 		return true;
 	}
 

@@ -72,7 +72,7 @@ check(36,'Chunk append serializes DB row and file lock',has(trust,'FOR UPDATE','
 check(37,'Chunk order and exact size enforced',has(trust,'Upload chunks must arrive exactly once and in order','gdo_upload_chunk_size'))
 check(38,'Finalize atomically claims open session',has(trust,"'state'=>'finalizing'",'gdo_upload_finalize_conflict'))
 check(39,'Finalize marker failure is repair-observable',has(trust,'doctor_resumable_upload_commit_marker_failed','gdo_upload_commit_marker'))
-check(40,'Resumable finalize uses canonical evidence path',has(trust,'GDO_Evidence::stage_upload','gdo_is_uploaded_file'))
+check(40,'Resumable finalize uses canonical evidence path with explicit trusted internal provenance',has(trust,'GDO_Evidence::stage_upload','stage_upload($app,$row->document_type,$file,true,$path)') and has(evidence,'trusted_internal_path','native_uploaded && $filtered_uploaded'))
 check(41,'Evidence grants recheck current case relation',has(evidence,'issue_view_grant','reviewer_case_allows','consume_view_grant'))
 check(42,'Evidence grant one-time/session/step-up',has(evidence,'used_at','session_digest','recent_step_up'))
 check(43,'Secure room no-download/watermark contract',has(trust,"'download_allowed'=>false",'watermark'))

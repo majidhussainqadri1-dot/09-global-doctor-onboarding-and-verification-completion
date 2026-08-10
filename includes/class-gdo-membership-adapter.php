@@ -64,12 +64,12 @@ final class GDO_Membership_Adapter {
 		if ( ! $user_id ) {
 			return array();
 		}
-		$profile = function_exists( 'smc_get_profile' ) ? (array) smc_get_profile( $user_id ) : array();
 		$base = self::base_assertion( $user_id );
-		$subject = self::membership_assertion( $user_id );
 		if ( ! $base ) {
-			return $profile;
+			return array();
 		}
+		$profile = function_exists( 'smc_get_profile' ) ? (array) smc_get_profile( $user_id ) : array();
+		$subject = self::membership_assertion( $user_id );
 		$profile['account_type']      = sanitize_key( $base['membership_type'] );
 		$profile['membership_status'] = sanitize_key( $base['status'] );
 		$profile['email_verified']    = ! empty( $base['email_verified'] );
@@ -157,7 +157,7 @@ final class GDO_Membership_Adapter {
 		$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
 		$capability = sanitize_key( $capability );
 		$base = self::base_assertion( $user_id );
-		if ( ! $base || ! $user_id || empty( $base['approved'] ) || self::sanctioned( $user_id ) ) {
+		if ( ! $base || ! $user_id || empty( $base['approved'] ) || self::sanctioned( $user_id ) || ! self::identity_assurance_current( $user_id ) ) {
 			return false;
 		}
 		$map = self::capability_map();

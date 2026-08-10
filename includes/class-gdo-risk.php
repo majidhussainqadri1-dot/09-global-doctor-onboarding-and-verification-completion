@@ -65,6 +65,9 @@ final class GDO_Risk {
 			'SELECT id FROM ' . GDO_Schema::table( 'risk_signals' ) . " WHERE application_id=%d AND signal_type=%s AND status IN ('open','reviewing') LIMIT 1",
 			absint( $application_id ), $type
 		) );
+		if ( ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_risk_query_failed', __( 'Existing professional-verification risk state could not be checked safely.', 'global-doctor-onboarding' ) );
+		}
 		if ( $existing ) {
 			return absint( $existing );
 		}
