@@ -27,6 +27,9 @@ final class GDO_Retention {
 		$this->delete_superseded( $now, $evidence_table );
 		$this->apply_retention( $now, $apps_table );
 		$this->cleanup_access( $now );
+		if ( class_exists( 'GDO_Advanced_Trust' ) ) {
+			GDO_Advanced_Trust::cleanup_upload_sessions();
+		}
 		self::cleanup_orphans();
 		GDO_Membership_Adapter::audit( 'doctor_verification_retention_completed', array( 'completed_at'=>$now ) );
 		do_action( 'gdo_retention_completed', $now );
@@ -165,19 +168,26 @@ final class GDO_Retention {
 			if ( $failed ) {
 				continue;
 			}
+			if ( class_exists( 'GDO_Advanced_Trust' ) ) {
+				$advanced = GDO_Advanced_Trust::retention_anonymize_application( $app->id, absint( $app->user_id ) );
+				if ( is_wp_error( $advanced ) ) {
+					GDO_Membership_Adapter::audit( 'doctor_advanced_trust_retention_failed', array( 'application_id'=>absint( $app->id ), 'error'=>$advanced->get_error_code() ) );
+					continue;
+				}
+			}
 			$anonymous = hash( 'sha256', 'retained|' . $app->application_uuid . '|' . wp_salt( 'nonce' ) );
 			$wpdb->update( $apps_table, array(
 				'user_id'=>null, 'profile_json'=>'{}', 'profile_fingerprint'=>$anonymous, 'identity_fingerprint'=>'',
 				'approved_snapshot_json'=>null, 'approved_fingerprint'=>null, 'submission_hash'=>null,
 				'assigned_reviewer_id'=>null, 'recommender_id'=>null, 'finalizer_id'=>null,
 				'recommendation_reason'=>'anonymized', 'claim_last_error'=>null, 'updated_at'=>$now,
-			), array( 'id'=>absint( $app->id ) ), array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ), array( '%d' ) );
-			$wpdb->update( GDO_Schema::table( 'consents' ), array( 'user_id'=>0, 'purpose'=>'retained-accountability-record', 'retention_notice'=>'anonymized', 'withdrawn_at'=>$now ), array( 'application_id'=>$app->id ), array( '%d','%s','%s','%s' ), array( '%d' ) );
-			$wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'application_id'=>$app->id ), array( '%d' ), array( '%d' ) );
-			$wpdb->update( GDO_Schema::table( 'appeals' ), array( 'user_id'=>0, 'reason'=>'anonymized', 'evidence_json'=>null, 'resolution'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%d','%s','%s','%s' ), array( '%d' ) );
-			$wpdb->update( GDO_Schema::table( 'risk_signals' ), array( 'related_digest'=>null, 'resolution_reason'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%s','%s' ), array( '%d' ) );
-			$wpdb->update( GDO_Schema::table( 'quality_samples' ), array( 'reason'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%s' ), array( '%d' ) );
-			$wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'application_id'=>$app->id ), array( '%d' ) );
+			), array( 'id'=>absint( $app->id ) ) );
+			$wpdb->update( GDO_Schema::table( 'consents' ), array( 'user_id'=>0, 'purpose'=>'retained-accountability-record', 'retention_notice'=>'anonymized', 'withdrawn_at'=>$now ), array( 'application_id'=>$app->id ) );
+			$wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'application_id'=>$app->id ) );
+			$wpdb->update( GDO_Schema::table( 'appeals' ), array( 'user_id'=>0, 'reason'=>'anonymized', 'evidence_json'=>null, 'resolution'=>'anonymized' ), array( 'application_id'=>$app->id ) );
+			$wpdb->update( GDO_Schema::table( 'risk_signals' ), array( 'related_digest'=>null, 'resolution_reason'=>'anonymized' ), array( 'application_id'=>$app->id ) );
+			$wpdb->update( GDO_Schema::table( 'quality_samples' ), array( 'reason'=>'anonymized' ), array( 'application_id'=>$app->id ) );
+			$wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'application_id'=>$app->id ) );
 			GDO_Membership_Adapter::audit( 'doctor_verification_retention_anonymized', array( 'application_id'=>absint( $app->id ) ) );
 		}
 	}
@@ -208,9 +218,7 @@ final class GDO_Retention {
 		$updated = $wpdb->update(
 			GDO_Schema::table( 'evidence' ),
 			array( 'user_id'=>0, 'retention_state'=>$state, 'deletion_proof'=>$proof, 'deleted_at'=>$now, 'storage_name'=>'deleted-' . absint( $record->id ), 'original_name'=>'erased', 'source_sha256'=>'', 'ciphertext_sha256'=>'', 'content_hmac'=>'', 'key_id'=>'', 'scan_reference'=>null, 'checklist_json'=>null, 'findings_json'=>null, 'review_note'=>null, 'registry_source'=>null, 'updated_at'=>$now ),
-			array( 'id'=>absint( $record->id ) ),
-			array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ),
-			array( '%d' )
+			array( 'id'=>absint( $record->id ) )
 		);
 		return false !== $updated;
 	}
@@ -233,9 +241,12 @@ final class GDO_Retention {
 			if ( isset( $known[ $name ] ) || $file->getMTime() >= $cutoff ) {
 				continue;
 			}
-			if ( 0 === strpos( $name, '.tmp-' ) || preg_match( '/\.(?:gdo1|gdo2)$/i', $name ) ) {
-				@unlink( $file->getPathname() );
-				GDO_Membership_Adapter::audit( 'doctor_credential_orphan_removed', array( 'storage_digest'=>hash( 'sha256', $name ) ) );
+			if ( 0 === strpos( $name, '.tmp-' ) || 0 === strpos( $name, '.chunk-' ) || preg_match( '/\.(?:gdo1|gdo2)$/i', $name ) ) {
+				if ( @unlink( $file->getPathname() ) ) {
+					GDO_Membership_Adapter::audit( 'doctor_credential_orphan_removed', array( 'storage_digest'=>hash( 'sha256', $name ) ) );
+				} else {
+					GDO_Membership_Adapter::audit( 'doctor_credential_orphan_remove_failed', array( 'storage_digest'=>hash( 'sha256', $name ) ) );
+				}
 			}
 		}
 	}
