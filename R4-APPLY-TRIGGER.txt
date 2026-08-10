@@ -1,0 +1,1 @@
+Apply the frozen-baseline File 09 R4 80-round corrective patch, synchronize release evidence, validate all assurance suites, and remove this trigger in the bot commit.
