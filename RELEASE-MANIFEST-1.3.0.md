@@ -30,14 +30,15 @@ The RC6 corrective layer fixes lifecycle-state drift, issuer/rule governance, mo
 
 `tools/build-release.py` builds `global-doctor-onboarding-09-1.3.0-RC6.zip` twice using the exact **52-entry** release allowlist. `tools/verify-release.py` requires identical entry order, fixed ZIP timestamps, source/package SHA-256 parity and an exact-head generated SPDX 2.3 SBOM whose package identity is `1.3.0-RC6`.
 
-The exact-head source gate must run all legacy suites plus `tests/advanced-trust-24.py` and `tests/eighty-round-audit.py` on PHP 7.4 and PHP 8.3. No earlier RC5 run can certify RC6.
+The exact-head source gate runs all legacy suites plus `tests/advanced-trust-24.py` and `tests/eighty-round-audit.py` on PHP 7.4 and PHP 8.3. No earlier RC5 run can certify RC6. Because this manifest itself is inside the release allowlist, **the authoritative source/package/QA result is always the workflow result for the exact final commit that contains this manifest**; any later commit automatically reopens the gate.
 
 ## Acceptance state
 
 - Specified: candidate complete
-- Coded: RC6 corrective candidate complete pending final exact-head assurance
-- Packaged: only after latest exact-head package workflow succeeds
-- Automated QA: only after latest exact-head workflow succeeds on PHP 7.4 and PHP 8.3
+- Coded: RC6 corrective candidate complete at repository-source level
+- 80-round review: complete — 49 defect-bearing rounds corrected; 31 clean rounds
+- Packaged: determined only by the authoritative exact-final-commit RC6 package job
+- Automated QA: determined only by the authoritative exact-final-commit PHP 7.4/8.3 RC6 workflow
 - Staging Accepted: false
 - Live Deployed: false
 - Operational: false
