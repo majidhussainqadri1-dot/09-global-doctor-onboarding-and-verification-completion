@@ -290,12 +290,18 @@ new = "\t\t$known_rows = $wpdb->get_col( 'SELECT storage_name FROM ' . GDO_Schem
 if old not in s:
     raise SystemExit('orphan inventory anchor missing')
 s = s.replace(old, new, 1)
-# Explicit success makes this bounded operation observable and testable.
 needle = "\t\t}\n\t}\n}"
 pos = s.rfind(needle)
 if pos < 0:
     raise SystemExit('cleanup close anchor missing')
 s = s[:pos] + "\t\t}\n\t\treturn true;\n\t}\n}" + s[pos + len(needle):]
 p.write_text(s, encoding='utf-8')
+
+# R3-80: legacy QA expected the earlier limiter expression and rejected the stronger fail-closed invariant.
+replace_once(
+    'tests/review40-adversarial.py',
+    "require('return $hits <= $limit;' in rate,'rate limiter allow decision missing')",
+    "require('return $hits > 0 && $hits <= $limit;' in rate,'rate limiter fail-closed allow decision missing')",
+)
 
 print('File 09 R3 root-cause corrections applied.')
