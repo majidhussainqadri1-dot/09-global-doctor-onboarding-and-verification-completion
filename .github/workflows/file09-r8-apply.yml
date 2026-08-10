@@ -1,0 +1,79 @@
+name: File 09 R8 Corrective Apply
+
+on:
+  push:
+    branches:
+      - codex/file09-1.3.0-rc6-80-round-review
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: openssl,fileinfo,gd
+      - name: Freeze R8 parent baseline and apply sequential corrections
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "f40228d29ffa92e8d27ea84f9b1c1ae4a63ff9b2"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/r8-apply.py')
+          s=p.read_text(encoding='utf-8')
+          old="head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()\nif head!=BASE: raise SystemExit(f'R8 frozen baseline mismatch: {head} != {BASE}')"
+          new="head=subprocess.check_output(['git','rev-parse','HEAD^'],cwd=root,text=True).strip()\nif head!=BASE: raise SystemExit(f'R8 frozen baseline mismatch: {head} != {BASE}')"
+          if old not in s: raise SystemExit('R8 baseline anchor missing')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+          python3 tools/r8-apply.py
+      - name: Validate corrected R8 tree before commit
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tests/eighty-round-audit-r8.py
+          find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l >/dev/null
+          node --check assets/js/onboarding.js
+          php tests/security-unit.php
+          php tests/membership-adapter.php
+          php tests/policy-runtime.php
+          php tests/cf01-practitioner-contract.php
+          php tests/cf01-practitioner.php
+          php tests/cross-file-contracts.php
+          python3 tests/architecture-check.py
+          python3 tests/completion-security.py
+          python3 tests/release-integrity.py
+          python3 tests/rc2-adversarial.py
+          python3 tests/final-hardening.py
+          python3 tests/review40-adversarial.py
+          python3 tests/latest-plan-parity.py
+          python3 tests/advanced-trust-24.py
+          python3 tests/eighty-round-audit.py
+          python3 tests/eighty-round-audit-r2.py
+          python3 tests/eighty-round-audit-r3.py
+          python3 tests/eighty-round-audit-r4.py
+          python3 tests/eighty-round-audit-r5.py
+          python3 tests/eighty-round-audit-r6.py
+          python3 tests/eighty-round-audit-r7.py
+          # The R8 script's round-80 workflow synchronization check is enabled in the final authoritative workflow commit.
+          sed -i "s/ and 'tests\/eighty-round-audit-r8.py' in workflow//" tests/eighty-round-audit-r8.py
+          python3 tests/eighty-round-audit-r8.py
+          git checkout -- tests/eighty-round-audit-r8.py
+          git diff --check
+      - name: Commit R8 corrective tree
+        run: |
+          set -euo pipefail
+          rm -f tools/r8-apply.py
+          git add -A
+          git config user.name 'File09 Corrective Assurance Bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(file09): eighth fresh 80-round corrective assurance'
+          git push origin HEAD:codex/file09-1.3.0-rc6-80-round-review
