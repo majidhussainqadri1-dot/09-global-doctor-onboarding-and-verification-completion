@@ -21,7 +21,7 @@ jobs:
         id: gate
         shell: bash
         run: |
-          if [[ -f R3-APPLY-TRIGGER.txt && -f tools/file09-r3-apply.py && -f tools/file09-r3-followup.py ]]; then
+          if [[ -f R3-APPLY-TRIGGER.txt && -f tools/file09-r3-apply.py && -f tools/file09-r3-followup.py && -f tools/file09-r3-test-parity.py ]]; then
             echo "apply=true" >> "$GITHUB_OUTPUT"
           else
             echo "apply=false" >> "$GITHUB_OUTPUT"
@@ -31,6 +31,7 @@ jobs:
         run: |
           python3 tools/file09-r3-apply.py
           python3 tools/file09-r3-followup.py
+          python3 tools/file09-r3-test-parity.py
       - name: Set up PHP 8.3
         if: steps.gate.outputs.apply == 'true'
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
@@ -64,8 +65,8 @@ jobs:
         if: steps.gate.outputs.apply == 'true'
         run: |
           set -euo pipefail
-          git rm -f R3-APPLY-TRIGGER.txt tools/file09-r3-apply.py tools/file09-r3-followup.py
-          git add includes/ tests/review40-adversarial.py tests/eighty-round-audit-r2.py
+          git rm -f R3-APPLY-TRIGGER.txt tools/file09-r3-apply.py tools/file09-r3-followup.py tools/file09-r3-test-parity.py
+          git add includes/ tests/review40-adversarial.py tests/eighty-round-audit.py tests/eighty-round-audit-r2.py
           git config user.name 'File09 Corrective Assurance Bot'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'fix(file09): third 80-round root-cause hardening'
