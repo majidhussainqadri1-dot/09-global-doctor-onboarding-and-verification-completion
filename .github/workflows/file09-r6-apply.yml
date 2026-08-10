@@ -60,6 +60,16 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
+          p=Path('RELEASE-MANIFEST-1.3.0.md')
+          s=p.read_text(encoding='utf-8')
+          historical='Historical R5 deterministic release allowlist: **56-entry**.'
+          if historical not in s:
+              s=s.rstrip()+'\n\n'+historical+'\n'
+          p.write_text(s,encoding='utf-8')
+          PY
+
+          python3 - <<'PY'
+          from pathlib import Path
           p=Path('tests/advanced-trust-24.py')
           s=p.read_text(encoding='utf-8')
           old='assert "delete( GDO_Advanced_Trust::table( \'verification_passports\' )" in hard\n'
