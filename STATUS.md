@@ -36,11 +36,23 @@ Defects/gaps found before RC4 correction:
 6. RC3 SBOM checksums were repository-static and therefore reopened by any later exact-head change.
 7. Latest `F09-CEN-01`, `F09-CEN-02`, `CEN-SEARCH-001` and applicable AJ traceability was not explicit in repository evidence.
 
-All seven are corrected in the RC4 candidate and have permanent regression assertions in `tests/latest-plan-parity.py` and/or `tests/cross-file-contracts.php`.
+All seven were corrected in the initial RC4 commit and received permanent regression assertions in `tests/latest-plan-parity.py` and/or `tests/cross-file-contracts.php`.
 
-### Latest-plan corrective review round 2
+### RC4 corrective retest finding
 
-Pending the exact-head CI result on the RC4 commit. It may be recorded as clean only after the new exact tree passes all PHP 7.4/8.3, legacy adversarial, latest-plan and deterministic-package gates. A historical RC3 run is not evidence for RC4.
+The first RC4 exact-head source matrix passed on PHP 7.4 and PHP 8.3, but its deterministic-package job exposed one release-integrity defect: on a pull-request run, the generated SBOM could bind to the workflow's synthetic `GITHUB_SHA` rather than the explicitly checked-out File 09 source head. The package verifier correctly rejected that mismatch. The builder was then corrected to bind first to `EXPECTED_SHA`, the same exact source-head invariant used by checkout and verification.
+
+### Latest-plan corrective review round 2 — 10 Aug 2026
+
+Fresh review and retest on corrected head `b892f7da10fd8449395db3450b2eb40d1a3e90b1` found **no new repository-level source defect**. GitHub Actions run `31355094846` completed successfully for:
+
+- PHP 7.4 full source, legacy adversarial, forty-round and latest-plan assurance;
+- PHP 8.3 full source, legacy adversarial, forty-round and latest-plan assurance;
+- deterministic double RC4 build;
+- 47-entry package/source parity;
+- generated SPDX 2.3 exact-head SBOM coverage.
+
+That run produced installable RC4 ZIP SHA-256 `2a8967145929bc71d04a074a7fb323427eba610e29d5bfbc0f74f8557760aecb` and GitHub artifact ID `9050345430`. This status-record update itself changes the repository exact head, therefore a final exact-head CI rerun remains mandatory; the prior green run is evidence for the reviewed source tree, not automatic certification of this documentation commit.
 
 ## External acceptance gates
 
