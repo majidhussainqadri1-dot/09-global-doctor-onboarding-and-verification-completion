@@ -27,12 +27,22 @@ jobs:
           python3 -m py_compile tools/r7-apply.py
           python3 tools/r7-apply.py
           sed -i 's/in workflow))/in workflow)/' tests/eighty-round-audit-r7.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/eighty-round-audit-r6.py')
+          s=p.read_text(encoding='utf-8')
+          old="c(80,'Sixth fresh ledger/gate/release lock/package count synchronized',(root/'REVIEW-80-ROUNDS-RC6-R6.md').exists() and lock.get('sixth_review_baseline')=='6fa0a5cb7063b6b821bd50c105c735470f589b80' and lock.get('sixth_review_rounds')==80 and lock.get('sixth_defect_rounds')==60 and lock.get('sixth_clean_rounds')==20 and lock.get('release_file_count')==57 and len(release_files)==57 and 'REVIEW-80-ROUNDS-RC6-R6.md' in release_files and 'python3 tests/eighty-round-audit-r6.py' in workflow and '**57-entry**' in manifest)"
+          new="c(80,'Sixth fresh historical ledger/gate evidence remains preserved',(root/'REVIEW-80-ROUNDS-RC6-R6.md').exists() and lock.get('sixth_review_baseline')=='6fa0a5cb7063b6b821bd50c105c735470f589b80' and lock.get('sixth_review_rounds')==80 and lock.get('sixth_defect_rounds')==60 and lock.get('sixth_clean_rounds')==20 and 'REVIEW-80-ROUNDS-RC6-R6.md' in release_files and 'python3 tests/eighty-round-audit-r6.py' in workflow and '**57-entry**' in manifest)"
+          if old not in s:
+              raise SystemExit('R6 historical package-count assertion anchor missing')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
       - name: Validate corrected R7 tree
         run: |
           set -euo pipefail
           git rm -f .github/workflows/file09-r7-apply.yml
           git diff --check
-          python3 -m py_compile tests/eighty-round-audit-r7.py
+          python3 -m py_compile tests/eighty-round-audit-r6.py tests/eighty-round-audit-r7.py
           find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l >/dev/null
           node --check assets/js/onboarding.js
           php tests/security-unit.php
