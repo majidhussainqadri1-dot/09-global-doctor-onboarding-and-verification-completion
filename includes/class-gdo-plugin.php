@@ -14,6 +14,7 @@ final class GDO_Plugin {
         }
         GDO_Migration::maybe_run();
         (new GDO_Advanced_Trust())->hooks();
+        GDO_Advanced_Trust_Events::hooks();
         (new GDO_Frontend())->hooks();
         (new GDO_Admin())->hooks();
         (new GDO_Privacy())->hooks();
