@@ -29,11 +29,15 @@ final class GDO_Activator {
 			deactivate_plugins( plugin_basename( GDO_FILE ) );
 			wp_die( esc_html( $result->get_error_message() ), '', array( 'back_link' => true ) );
 		}
-		GDO_Advanced_Trust::maybe_install();
+		$result = GDO_Advanced_Trust_Hardening::maybe_upgrade_schema();
+		if ( is_wp_error( $result ) ) {
+			deactivate_plugins( plugin_basename( GDO_FILE ) );
+			wp_die( esc_html( $result->get_error_message() ), '', array( 'back_link' => true ) );
+		}
 		self::page();
 		self::schedules();
 		update_option( 'gdo_version', GDO_VERSION, false );
-		update_option( 'gdo_activation_evidence', array( 'version' => GDO_VERSION, 'schema' => GDO_SCHEMA_VERSION, 'advanced_trust_schema'=>GDO_Advanced_Trust::SCHEMA_VERSION, 'activated_at' => gmdate( 'c' ) ), false );
+		update_option( 'gdo_activation_evidence', array( 'version'=>GDO_VERSION, 'schema'=>GDO_SCHEMA_VERSION, 'advanced_trust_schema'=>GDO_Advanced_Trust_Hardening::SCHEMA_VERSION, 'advanced_trust_contract'=>GDO_Advanced_Trust_Hardening::CONTRACT_VERSION, 'review80_corrective_layer'=>true, 'activated_at'=>gmdate( 'c' ) ), false );
 	}
 
 	private static function schedules() {
@@ -51,27 +55,23 @@ final class GDO_Activator {
 	private static function page() {
 		$key = 'doctor-application';
 		$shortcode = '[gdo_doctor_application]';
-		$owned = get_posts( array( 'post_type' => 'page', 'post_status' => 'any', 'meta_key' => '_gdo_managed_page_key', 'meta_value' => $key, 'numberposts' => 2 ) );
+		$owned = get_posts( array( 'post_type'=>'page', 'post_status'=>'any', 'meta_key'=>'_gdo_managed_page_key', 'meta_value'=>$key, 'numberposts'=>2 ) );
 		if ( count( $owned ) > 1 ) {
 			wp_die( esc_html__( 'Multiple File 09-owned application pages exist. Resolve the ownership conflict.', 'global-doctor-onboarding' ) );
 		}
 		if ( $owned ) {
 			$id = $owned[0]->ID;
 			if ( trim( $owned[0]->post_content ) !== $shortcode ) {
-				wp_update_post( array( 'ID' => $id, 'post_content' => $shortcode ) );
+				wp_update_post( array( 'ID'=>$id, 'post_content'=>$shortcode ) );
 			}
 		} else {
 			$slug = 'doctor-application';
-			if ( get_page_by_path( $slug ) ) {
-				$slug = 'doctor-application-file-09';
-			}
-			$id = wp_insert_post( array( 'post_title' => 'Doctor Application and Verification', 'post_name' => $slug, 'post_content' => $shortcode, 'post_status' => 'publish', 'post_type' => 'page' ), true );
-			if ( is_wp_error( $id ) ) {
-				wp_die( esc_html( $id->get_error_message() ) );
-			}
+			if ( get_page_by_path( $slug ) ) { $slug = 'doctor-application-file-09'; }
+			$id = wp_insert_post( array( 'post_title'=>'Doctor Application and Verification', 'post_name'=>$slug, 'post_content'=>$shortcode, 'post_status'=>'publish', 'post_type'=>'page' ), true );
+			if ( is_wp_error( $id ) ) { wp_die( esc_html( $id->get_error_message() ) ); }
 			update_post_meta( $id, '_gdo_managed_page_key', $key );
 		}
-		update_option( 'gdo_page_map', array( 'apply' => absint( $id ) ), false );
+		update_option( 'gdo_page_map', array( 'apply'=>absint( $id ) ), false );
 	}
 
 	public static function deactivate() {
