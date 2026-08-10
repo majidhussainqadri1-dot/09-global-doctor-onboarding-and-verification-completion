@@ -26,7 +26,7 @@ with zipfile.ZipFile(zpath) as z:
     sbom = json.loads(z.read(package_root + 'SBOM.spdx.json').decode('utf-8'))
     if sbom.get('spdxVersion') != 'SPDX-2.3': raise SystemExit('invalid generated SBOM')
     package = (sbom.get('packages') or [{}])[0]
-    if package.get('versionInfo') != '1.2.0-RC4' or package.get('filesAnalyzed') is not True: raise SystemExit('generated SBOM identity mismatch')
+    if package.get('versionInfo') != '1.3.0-RC5' or package.get('filesAnalyzed') is not True: raise SystemExit('generated SBOM identity mismatch')
     declared = {}
     for item in sbom.get('files', []):
         rel = item.get('fileName','').removeprefix('./')
