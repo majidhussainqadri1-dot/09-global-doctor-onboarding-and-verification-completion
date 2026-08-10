@@ -63,7 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           git rm -f R3-APPLY-TRIGGER.txt tools/file09-r3-apply.py
-          git add includes/
+          git add includes/ tests/review40-adversarial.py
           git config user.name 'File09 Corrective Assurance Bot'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'fix(file09): third 80-round root-cause hardening'
