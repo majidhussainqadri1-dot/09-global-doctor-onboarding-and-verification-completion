@@ -1,0 +1,71 @@
+name: Synchronize File 09 R3 Release Evidence
+
+on:
+  push:
+    branches:
+      - codex/file09-1.3.0-rc6-80-round-review
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+      - name: Gate
+        id: gate
+        run: |
+          if [[ -f R3-RELEASE-SYNC-TRIGGER.txt && -f tools/file09-r3-release-sync.py ]]; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "run=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Synchronize R3 evidence
+        if: steps.gate.outputs.run == 'true'
+        run: python3 tools/file09-r3-release-sync.py
+      - name: Set up PHP 8.3
+        if: steps.gate.outputs.run == 'true'
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: openssl,fileinfo,gd
+      - name: Validate synchronized repository and deterministic package
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          git diff --check
+          find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l >/dev/null
+          node --check assets/js/onboarding.js
+          php tests/security-unit.php
+          php tests/membership-adapter.php
+          php tests/policy-runtime.php
+          php tests/cf01-practitioner-contract.php
+          php tests/cf01-practitioner.php
+          php tests/cross-file-contracts.php
+          python3 tests/architecture-check.py
+          python3 tests/completion-security.py
+          python3 tests/release-integrity.py
+          python3 tests/final-hardening.py
+          python3 tests/review40-adversarial.py
+          python3 tests/latest-plan-parity.py
+          python3 tests/advanced-trust-24.py
+          python3 tests/eighty-round-audit.py
+          python3 tests/eighty-round-audit-r2.py
+          python3 tests/eighty-round-audit-r3.py
+          EXPECTED_SHA=$(git rev-parse HEAD) GITHUB_SHA=$(git rev-parse HEAD) python3 tools/build-release.py --output dist-a
+          EXPECTED_SHA=$(git rev-parse HEAD) GITHUB_SHA=$(git rev-parse HEAD) python3 tools/build-release.py --output dist-b
+          cmp dist-a/global-doctor-onboarding-09-1.3.0-RC6.zip dist-b/global-doctor-onboarding-09-1.3.0-RC6.zip
+          python3 tools/verify-release.py dist-a/global-doctor-onboarding-09-1.3.0-RC6.zip RELEASE-FILES.txt
+      - name: Commit synchronized R3 release evidence
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          rm -rf dist-a dist-b
+          git rm -f R3-RELEASE-SYNC-TRIGGER.txt tools/file09-r3-release-sync.py
+          git add RELEASE-FILES.txt RELEASE-LOCK.json README.md STATUS.md RELEASE-MANIFEST-1.3.0.md STAGING-ACCEPTANCE.md CHANGELOG.md tools/build-release.py tests/release-integrity.py
+          git config user.name 'File09 Corrective Assurance Bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(file09): synchronize third-review release evidence'
+          git push origin HEAD:codex/file09-1.3.0-rc6-80-round-review
