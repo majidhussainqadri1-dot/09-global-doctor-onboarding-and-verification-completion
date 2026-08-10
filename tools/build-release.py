@@ -11,8 +11,9 @@ out = root / a.output
 out.mkdir(exist_ok=True)
 files = [x.strip() for x in (root / 'RELEASE-FILES.txt').read_text(encoding='utf-8').splitlines() if x.strip()]
 slug = 'global-doctor-onboarding-09'
-release_candidate = 'RC4'
-name = f'global-doctor-onboarding-09-1.2.0-{release_candidate}.zip'
+version = '1.3.0'
+release_candidate = 'RC5'
+name = f'global-doctor-onboarding-09-{version}-{release_candidate}.zip'
 zpath = out / name
 
 try:
@@ -59,21 +60,21 @@ def generate_sbom(source_bytes):
         'spdxVersion': 'SPDX-2.3',
         'dataLicense': 'CC0-1.0',
         'name': f'File 09 {release_candidate} exact-head SBOM',
-        'documentNamespace': f'https://sabrihomeopathy.com/spdx/file09/1.2.0/{release_candidate.lower()}/{head}',
+        'documentNamespace': f'https://sabrihomeopathy.com/spdx/file09/{version}/{release_candidate.lower()}/{head}',
         'creationInfo': {
             'created': created,
-            'creators': ['Organization: Sabri Social Homeopathy Platform','Tool: File09-Deterministic-SBOM-5.0'],
+            'creators': ['Organization: Sabri Social Homeopathy Platform','Tool: File09-Deterministic-SBOM-6.0'],
         },
         'annotations': [{
             'annotationDate': created,
             'annotationType': 'OTHER',
-            'annotator': 'Tool: File09-Deterministic-SBOM-5.0',
+            'annotator': 'Tool: File09-Deterministic-SBOM-6.0',
             'comment': 'Generated from the exact checked-out release allowlist. SBOM.spdx.json is excluded from its own checksum list to avoid self-reference.',
         }],
         'packages': [{
             'SPDXID': package_id,
             'name': slug,
-            'versionInfo': f'1.2.0-{release_candidate}',
+            'versionInfo': f'{version}-{release_candidate}',
             'downloadLocation': 'NOASSERTION',
             'filesAnalyzed': True,
             'licenseConcluded': 'NOASSERTION',
@@ -115,7 +116,7 @@ digest = sha256(zpath.read_bytes())
 (out / (name + '.sha256')).write_text(f'{digest}  {name}\n', encoding='utf-8', newline='')
 (out / 'PACKAGE-MANIFEST.json').write_text(json.dumps({
     'package':name,'sha256':digest,'bytes':zpath.stat().st_size,'root':slug+'/',
-    'version':'1.2.0','schema':6,'release_candidate':release_candidate,'source_head':head,
+    'version':version,'schema':6,'advanced_trust_schema':1,'release_candidate':release_candidate,'source_head':head,
     'staging_accepted':False,'live_deployed':False,'operationally_accepted':False,'files':manifest,
 }, indent=2, sort_keys=True) + '\n', encoding='utf-8', newline='')
 print(digest)
