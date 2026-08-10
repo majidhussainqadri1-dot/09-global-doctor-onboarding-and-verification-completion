@@ -109,6 +109,7 @@ jobs:
       - name: Commit corrected source and remove patch transport
         run: |
           set -euo pipefail
+          git rm -f R2-APPLY-TRIGGER.txt
           git rm tools/file09-r2.patch.xz.b64.part01 tools/file09-r2.patch.xz.b64.part02 tools/file09-r2.patch.xz.b64.part03 tools/file09-r2.patch.xz.b64.part04 tools/file09-r2.patch.xz.b64.part05 tools/file09-r2.patch.xz.b64.part06
           git add -A
           git config user.name 'File09 Corrective Assurance Bot'
