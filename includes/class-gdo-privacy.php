@@ -63,6 +63,9 @@ final class GDO_Privacy {
 					$rows[] = array( 'name'=>$label, 'value'=>wp_json_encode( $item ) );
 				}
 			}
+			if ( class_exists( 'GDO_Advanced_Trust' ) ) {
+				$rows = array_merge( $rows, GDO_Advanced_Trust::privacy_export_rows( $app->id ) );
+			}
 			$data[] = array( 'group_id'=>'global-doctor-verification', 'group_label'=>__( 'Global Doctor Verification', 'global-doctor-onboarding' ), 'item_id'=>'application-' . absint( $app->id ), 'data'=>$rows );
 		}
 		return array( 'data'=>$data, 'done'=>count( $apps ) < $per );
@@ -136,9 +139,7 @@ final class GDO_Privacy {
 				$updated = $wpdb->update(
 					GDO_Schema::table( 'evidence' ),
 					array( 'user_id'=>0, 'retention_state'=>'deleted', 'deletion_proof'=>$proof, 'deleted_at'=>current_time( 'mysql', true ), 'original_name'=>'erased', 'storage_name'=>'deleted-' . absint( $record->id ), 'source_sha256'=>'', 'ciphertext_sha256'=>'', 'content_hmac'=>'', 'key_id'=>'', 'scan_reference'=>null, 'checklist_json'=>null, 'findings_json'=>null, 'review_note'=>null, 'registry_source'=>null, 'updated_at'=>current_time( 'mysql', true ) ),
-					array( 'id'=>absint( $record->id ) ),
-					array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ),
-					array( '%d' )
+					array( 'id'=>absint( $record->id ) )
 				);
 				if ( false === $updated ) {
 					$deletion_failed = true;
@@ -152,6 +153,15 @@ final class GDO_Privacy {
 				continue;
 			}
 
+			if ( class_exists( 'GDO_Advanced_Trust' ) ) {
+				$advanced = GDO_Advanced_Trust::privacy_erase_application( $app->id, $user->ID );
+				if ( is_wp_error( $advanced ) ) {
+					$retained = true;
+					$messages[] = $advanced->get_error_message();
+					continue;
+				}
+			}
+
 			$anonymous = hash( 'sha256', 'erased|' . $app->application_uuid . '|' . wp_salt( 'nonce' ) );
 			$updated = $wpdb->update(
 				GDO_Schema::table( 'applications' ),
@@ -161,23 +171,21 @@ final class GDO_Privacy {
 					'assigned_reviewer_id'=>null, 'recommender_id'=>null, 'finalizer_id'=>null,
 					'recommendation_reason'=>'anonymized', 'claim_last_error'=>null, 'updated_at'=>current_time( 'mysql', true ),
 				),
-				array( 'id'=>absint( $app->id ), 'user_id'=>$user->ID ),
-				array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ),
-				array( '%d','%d' )
+				array( 'id'=>absint( $app->id ), 'user_id'=>$user->ID )
 			);
 			if ( 1 !== $updated ) {
 				$retained = true;
 				$messages[] = 'Application anonymization requires administrator repair.';
 				continue;
 			}
-			$wpdb->update( GDO_Schema::table( 'consents' ), array( 'user_id'=>0, 'purpose'=>'retained-accountability-record', 'retention_notice'=>'anonymized', 'withdrawn_at'=>current_time( 'mysql', true ) ), array( 'application_id'=>$app->id ), array( '%d','%s','%s','%s' ), array( '%d' ) );
-			$wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'application_id'=>$app->id ), array( '%d' ), array( '%d' ) );
-			$wpdb->update( GDO_Schema::table( 'access_log' ), array( 'reviewer_id'=>0, 'purpose_code'=>'anonymized' ), array( 'application_id'=>$app->id, 'reviewer_id'=>$user->ID ), array( '%d','%s' ), array( '%d','%d' ) );
-			$wpdb->update( GDO_Schema::table( 'appeals' ), array( 'user_id'=>0, 'status'=>'closed', 'reason'=>'anonymized', 'evidence_json'=>null, 'resolution'=>'anonymized', 'decision'=>'withdrawn', 'resolved_at'=>current_time( 'mysql', true ) ), array( 'application_id'=>$app->id ), array( '%d','%s','%s','%s','%s','%s','%s' ), array( '%d' ) );
-			$wpdb->update( GDO_Schema::table( 'risk_signals' ), array( 'related_digest'=>null, 'resolution_reason'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%s','%s' ), array( '%d' ) );
-			$wpdb->update( GDO_Schema::table( 'quality_samples' ), array( 'reason'=>'anonymized' ), array( 'application_id'=>$app->id ), array( '%s' ), array( '%d' ) );
+			$wpdb->update( GDO_Schema::table( 'consents' ), array( 'user_id'=>0, 'purpose'=>'retained-accountability-record', 'retention_notice'=>'anonymized', 'withdrawn_at'=>current_time( 'mysql', true ) ), array( 'application_id'=>$app->id ) );
+			$wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'application_id'=>$app->id ) );
+			$wpdb->update( GDO_Schema::table( 'access_log' ), array( 'reviewer_id'=>0, 'purpose_code'=>'anonymized' ), array( 'application_id'=>$app->id, 'reviewer_id'=>$user->ID ) );
+			$wpdb->update( GDO_Schema::table( 'appeals' ), array( 'user_id'=>0, 'status'=>'closed', 'reason'=>'anonymized', 'evidence_json'=>null, 'resolution'=>'anonymized', 'decision'=>'withdrawn', 'resolved_at'=>current_time( 'mysql', true ) ), array( 'application_id'=>$app->id ) );
+			$wpdb->update( GDO_Schema::table( 'risk_signals' ), array( 'related_digest'=>null, 'resolution_reason'=>'anonymized' ), array( 'application_id'=>$app->id ) );
+			$wpdb->update( GDO_Schema::table( 'quality_samples' ), array( 'reason'=>'anonymized' ), array( 'application_id'=>$app->id ) );
 			// Transition rows are hash-chained immutable accountability evidence; actor_id is retained under that integrity purpose.
-			$wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'application_id'=>$app->id ), array( '%d' ) );
+			$wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'application_id'=>$app->id ) );
 			$payload_like = '%"application_id":' . absint( $app->id ) . '%';
 			$wpdb->query( $wpdb->prepare(
 				'UPDATE ' . GDO_Schema::table( 'outbox' ) . ' SET recipient_user_id=0,payload_json=%s WHERE recipient_user_id=%d AND event_type<>\'doctor_professional_claim\' AND payload_json LIKE %s',
@@ -186,7 +194,7 @@ final class GDO_Privacy {
 			do_action( 'gdo_identity_projection_erased', $user->ID, $app->id );
 			$removed = true;
 			$retained = true;
-			$messages[] = 'Personal credential data was erased; minimal anonymized decision and audit evidence was retained for accountability.';
+			$messages[] = 'Personal credential and Advanced Trust data were erased or anonymized; minimal accountability evidence was retained.';
 		}
 		return array( 'items_removed'=>$removed, 'items_retained'=>$retained, 'messages'=>array_values( array_unique( $messages ) ), 'done'=>count( $apps ) < $limit );
 	}
@@ -195,7 +203,7 @@ final class GDO_Privacy {
 		if ( function_exists( 'wp_add_privacy_policy_content' ) ) {
 			wp_add_privacy_policy_content(
 				__( 'Global Doctor Verification', 'global-doctor-onboarding' ),
-				'<p class="privacy-policy-tutorial">Doctor applicants provide professional information and private credential evidence. File 09 stores versioned consent, uses encrypted private storage, audits purpose-bound credential access, supports export and correction workflows, and applies legal-hold, appeal, retention, anonymization, and verified physical-erasure controls. Public profiles never expose credential documents, private contact details, reviewer notes, license evidence, encryption metadata, or security signals.</p>'
+				'<p class="privacy-policy-tutorial">Doctor applicants provide professional information and private credential evidence. File 09 stores versioned consent, uses encrypted private storage, records professional trust checks and verification-passport lifecycle data, audits purpose-bound credential access, supports export and correction workflows, and applies legal-hold, appeal, retention, anonymization, and verified physical-erasure controls. Public profiles never expose credential documents, private contact details, reviewer notes, license evidence, encryption metadata, or security signals.</p>'
 			);
 		}
 	}
