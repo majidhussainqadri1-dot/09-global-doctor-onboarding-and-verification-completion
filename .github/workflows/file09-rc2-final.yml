@@ -64,6 +64,7 @@ jobs:
           python3 tests/eighty-round-audit-r3.py
           python3 tests/eighty-round-audit-r4.py
           python3 tests/eighty-round-audit-r5.py
+          python3 tests/eighty-round-audit-r6.py
       - name: Exact-head source evidence
         run: |
           git rev-parse HEAD | tee exact-head.txt
