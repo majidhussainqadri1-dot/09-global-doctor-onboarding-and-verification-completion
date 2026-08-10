@@ -29,7 +29,7 @@ RC6 preserves all 24 approved F09-AT capabilities and uses a corrective layer th
 
 ## Authoritative RC6 repository gate
 
-The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, now named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 syntax/source suites, all legacy adversarial gates, latest-plan parity, `tests/advanced-trust-24.py`, `tests/eighty-round-audit.py`, deterministic double build, **55-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
+The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, now named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 syntax/source suites, all legacy adversarial gates, latest-plan parity, `tests/advanced-trust-24.py`, `tests/eighty-round-audit.py`, deterministic double build, **56-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
 
 ## External gates still pending
 
@@ -51,3 +51,7 @@ The final repository QA/package claim remains conditional on the authoritative w
 A fourth independent 80-control review was opened against frozen exact-head baseline `7875ce20a0fd40c0952960b6e45cf1e869b9c4dd`. It found **30 defect-bearing rounds**, corrected each root cause before advancing, and left **50 clean rounds**. The ledger is `REVIEW-80-ROUNDS-RC6-R4.md`; the executable gate is `tests/eighty-round-audit-r4.py`. Corrections cover physical schema postconditions, migration/version persistence, runtime fail-closed schema gating, activation/repair/reverification scheduling, applicant mutation boundaries, privacy export/erasure uncertainty, retention completion truth, hardened resumable cleanup, rate-limit maintenance truth and complete guarded uninstall of Advanced Trust state.
 
 The authoritative repository QA/package claim remains conditional on the final exact-head workflow passing after these R4 corrections and evidence synchronization. Staging accepted, live deployed and operationally accepted remain false.
+
+## Fifth fresh 80-round corrective assurance — R5
+
+Frozen baseline `58313a67e1d21ad17c9a066e9a29c34245a0763e` was re-reviewed through 80 independent controls. **29 rounds found defects and were corrected immediately; 51 rounds were clean.** Defect-bearing rounds: 04, 06, 08, 09, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 41, 42, 43, 80. The fifth executable gate is `tests/eighty-round-audit-r5.py`; current deterministic release allowlist is 56 entries. Repository-level completion still requires the authoritative exact-final-head workflow to be green after these changes. Staging accepted, live deployed and operationally accepted remain **false**.

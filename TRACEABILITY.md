@@ -130,3 +130,7 @@ RC6 extends AJ-03/AJ-33/AJ-34/AJ-35/AJ-36/AJ-37/AJ-40 with schema-2 migration, p
 `Central CEN/AJ or F09-AT ID → File 09 requirement → design/data/API/event → test ID → review round/defect/fix/commit → package/checksum → staging evidence → Founder approval → rollout/live verification`.
 
 Repository source proves only the early links. Staging/live/operational links remain false until separately observed and recorded.
+
+## Fifth fresh 80-round corrective trace — R5
+
+Baseline `58313a67e1d21ad17c9a066e9a29c34245a0763e` → source corrections → `tests/eighty-round-audit-r5.py` → `REVIEW-80-ROUNDS-RC6-R5.md` → exact-head PHP 7.4/8.3 workflow → deterministic 56-entry package/SBOM. R5 specifically closes future-schema fail-open behavior, pre-migration normal-hook exposure, Advanced Trust REST/monitor mutation-gate gaps, monitor DB/provider/cleanup failure semantics, recurring/wakeup scheduler ambiguity, activation persistence gaps, canonical private-storage/symlink use-time safety, Safe Mode manager bypass and fail-silent destructive uninstall paths. External staging/live acceptance remains separate.

@@ -19,6 +19,12 @@ final class GDO_Operations {
 			&& ! is_wp_error( GDO_Storage::health() );
 	}
 
+	private static function recurring_schedule_ready( $hook, $recurrence ) {
+		if ( ! function_exists( 'wp_get_scheduled_event' ) ) { return false; }
+		$event = wp_get_scheduled_event( $hook, array() );
+		return is_object( $event ) && isset( $event->schedule ) && $recurrence === $event->schedule;
+	}
+
 	private static function count_query( $sql, $error_code ) {
 		global $wpdb;
 		$raw = $wpdb->get_var( $sql );
@@ -37,9 +43,9 @@ final class GDO_Operations {
 		$checks['private_storage'] = is_wp_error( GDO_Storage::health() ) ? 'fail' : 'pass';
 		$checks['schema_version'] = absint( get_option( 'gdo_schema_version', 0 ) ) === GDO_SCHEMA_VERSION ? 'pass' : 'fail';
 		$checks['advanced_trust_schema'] = ! class_exists( 'GDO_Advanced_Trust_Hardening' ) || absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) === GDO_Advanced_Trust_Hardening::SCHEMA_VERSION ? 'pass' : 'fail';
-		$checks['retention_cron'] = wp_next_scheduled( 'gdo_daily_retention' ) ? 'pass' : 'warn';
-		$checks['outbox_cron'] = wp_next_scheduled( 'gdo_notification_outbox' ) ? 'pass' : 'warn';
-		$checks['trust_monitor_cron'] = wp_next_scheduled( 'gdo_trust_continuous_monitor' ) ? 'pass' : 'warn';
+		$checks['retention_cron'] = self::recurring_schedule_ready( 'gdo_daily_retention', 'daily' ) ? 'pass' : 'warn';
+		$checks['outbox_cron'] = self::recurring_schedule_ready( 'gdo_notification_outbox', 'hourly' ) ? 'pass' : 'warn';
+		$checks['trust_monitor_cron'] = self::recurring_schedule_ready( 'gdo_trust_continuous_monitor', 'daily' ) ? 'pass' : 'warn';
 		$modern_notifications = function_exists( 'sun_ingest_domain_event' ) && function_exists( 'sun_register_notification_producer' );
 		$checks['notification_provider'] = ( $modern_notifications || class_exists( 'SUN_Core' ) || has_action( 'sabri_notify' ) ) ? 'pass' : 'warn';
 		$checks['claim_signing_key'] = defined( 'GDO_CLAIM_SIGNING_KEY' ) && strlen( (string) GDO_CLAIM_SIGNING_KEY ) >= 32 ? 'pass' : 'fail';
@@ -131,16 +137,20 @@ final class GDO_Operations {
 		$result = true;
 		if ( 'schema' === $action ) {
 			$result = GDO_Migration::maybe_run();
+			if ( ! is_wp_error( $result ) && class_exists( 'GDO_Advanced_Trust_Hardening' ) ) { $result = GDO_Advanced_Trust_Hardening::maybe_upgrade_schema(); }
 		} elseif ( 'schedules' === $action ) {
-			if ( ! wp_next_scheduled( 'gdo_daily_retention' ) ) {
+			if ( ! self::recurring_schedule_ready( 'gdo_daily_retention', 'daily' ) ) {
+				wp_clear_scheduled_hook( 'gdo_daily_retention' );
 				$scheduled = wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'gdo_daily_retention', array(), true );
 				if ( is_wp_error( $scheduled ) || false === $scheduled || ! wp_next_scheduled( 'gdo_daily_retention' ) ) { return new WP_Error( 'gdo_repair_retention_schedule', __( 'The retention schedule could not be persisted safely.', 'global-doctor-onboarding' ) ); }
 			}
-			if ( ! wp_next_scheduled( 'gdo_notification_outbox' ) ) {
+			if ( ! self::recurring_schedule_ready( 'gdo_notification_outbox', 'hourly' ) ) {
+				wp_clear_scheduled_hook( 'gdo_notification_outbox' );
 				$scheduled = wp_schedule_event( time() + 5 * MINUTE_IN_SECONDS, 'hourly', 'gdo_notification_outbox', array(), true );
 				if ( is_wp_error( $scheduled ) || false === $scheduled || ! wp_next_scheduled( 'gdo_notification_outbox' ) ) { return new WP_Error( 'gdo_repair_outbox_schedule', __( 'The outbox schedule could not be persisted safely.', 'global-doctor-onboarding' ) ); }
 			}
-			if ( ! wp_next_scheduled( 'gdo_trust_continuous_monitor' ) ) {
+			if ( ! self::recurring_schedule_ready( 'gdo_trust_continuous_monitor', 'daily' ) ) {
+				wp_clear_scheduled_hook( 'gdo_trust_continuous_monitor' );
 				$scheduled = wp_schedule_event( time() + 2 * HOUR_IN_SECONDS, 'daily', 'gdo_trust_continuous_monitor', array(), true );
 				if ( is_wp_error( $scheduled ) || false === $scheduled || ! wp_next_scheduled( 'gdo_trust_continuous_monitor' ) ) { return new WP_Error( 'gdo_repair_trust_monitor_schedule', __( 'The professional trust monitor schedule could not be persisted safely.', 'global-doctor-onboarding' ) ); }
 			}

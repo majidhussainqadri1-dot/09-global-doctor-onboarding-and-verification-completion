@@ -24,6 +24,7 @@ final class GDO_Advanced_Trust_Hardening {
 
         add_action( 'init', array( __CLASS__, 'maybe_upgrade_schema' ), 6 );
         add_action( 'gdo_trust_continuous_monitor', array( __CLASS__, 'continuous_monitor' ) );
+        add_action( 'gdo_trust_reverification_wakeup', array( __CLASS__, 'continuous_monitor' ) );
         add_action( 'gdo_application_submitted', array( __CLASS__, 'application_submitted' ), 10, 1 );
         add_action( 'gdo_application_decided', array( __CLASS__, 'application_decided' ), 10, 2 );
         add_action( 'gdo_professional_status_changed', array( __CLASS__, 'event_reverification' ), 10, 3 );
@@ -43,6 +44,10 @@ final class GDO_Advanced_Trust_Hardening {
 
     public static function maybe_upgrade_schema() {
         global $wpdb;
+        $current_schema = absint( get_option( 'gdo_advanced_trust_schema', 0 ) );
+        if ( $current_schema > self::SCHEMA_VERSION ) {
+            return new WP_Error( 'gdo_advanced_schema_future_version', __( 'The Advanced Trust database schema is newer than this plugin and cannot be mutated safely.', 'global-doctor-onboarding' ) );
+        }
         $base = GDO_Advanced_Trust::maybe_install();
         if ( is_wp_error( $base ) ) { return $base; }
         $indexes = array(
@@ -63,7 +68,7 @@ final class GDO_Advanced_Trust_Hardening {
                 }
             }
         }
-        if ( absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) < self::SCHEMA_VERSION ) {
+        if ( $current_schema < self::SCHEMA_VERSION ) {
             if ( ! update_option( 'gdo_advanced_trust_schema', self::SCHEMA_VERSION, false ) && absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) !== self::SCHEMA_VERSION ) {
                 return new WP_Error( 'gdo_advanced_schema_version', __( 'Advanced Trust schema version could not be persisted.', 'global-doctor-onboarding' ) );
             }
@@ -193,9 +198,9 @@ final class GDO_Advanced_Trust_Hardening {
     private static function schedule_wakeup( $when ) {
         $when = absint( $when );
         if ( ! $when || $when <= time() ) { return true; }
-        $next = wp_next_scheduled( 'gdo_trust_continuous_monitor' );
+        $next = wp_next_scheduled( 'gdo_trust_reverification_wakeup' );
         if ( ! $next || $next > $when + MINUTE_IN_SECONDS ) {
-            $scheduled = wp_schedule_single_event( $when, 'gdo_trust_continuous_monitor', array(), true );
+            $scheduled = wp_schedule_single_event( $when, 'gdo_trust_reverification_wakeup', array(), true );
             if ( is_wp_error( $scheduled ) || false === $scheduled ) {
                 return new WP_Error( 'gdo_trust_wakeup_schedule', __( 'Professional reverification wake-up could not be scheduled safely.', 'global-doctor-onboarding' ) );
             }
@@ -351,21 +356,59 @@ final class GDO_Advanced_Trust_Hardening {
 
     public static function continuous_monitor() {
         global $wpdb;
-        self::maybe_upgrade_schema();
+        $upgrade = self::maybe_upgrade_schema();
+        if ( is_wp_error( $upgrade ) ) {
+            GDO_Membership_Adapter::audit( 'doctor_continuous_verification_runtime_failed', array( 'reason'=>$upgrade->get_error_code() ) );
+            return $upgrade;
+        }
+        if ( ! GDO_Operations::mutation_allowed() ) {
+            $error = new WP_Error( 'gdo_trust_monitor_runtime_not_ready', __( 'Continuous professional verification is paused until File 09 runtime dependencies are healthy.', 'global-doctor-onboarding' ) );
+            GDO_Membership_Adapter::audit( 'doctor_continuous_verification_runtime_failed', array( 'reason'=>$error->get_error_code() ) );
+            return $error;
+        }
         $table = GDO_Advanced_Trust::table( 'monitor_state' );
+        $wpdb->last_error = '';
         $rows = $wpdb->get_results( $wpdb->prepare(
             "SELECT * FROM {$table} WHERE monitor_status IN ('scheduled','degraded') AND next_check_at<=%s ORDER BY next_check_at ASC LIMIT 50",
             current_time( 'mysql', true )
         ) );
-        foreach ( (array) $rows as $row ) {
+        if ( null === $rows || ! empty( $wpdb->last_error ) ) {
+            $error = new WP_Error( 'gdo_trust_monitor_query_failed', __( 'Continuous verification work could not be read safely.', 'global-doctor-onboarding' ) );
+            GDO_Membership_Adapter::audit( 'doctor_continuous_verification_runtime_failed', array( 'reason'=>$error->get_error_code() ) );
+            return $error;
+        }
+        foreach ( $rows as $row ) {
+            $wpdb->last_error = '';
             $app = GDO_Application::get( $row->application_id );
-            if ( ! $app ) { $wpdb->delete( $table, array( 'application_id'=>$row->application_id ) ); continue; }
-            $result = 'no_license_evidence'; $provider_failure = false; $adverse = false;
-            foreach ( GDO_Evidence::records( $app->id, true ) as $evidence ) {
+            if ( ! empty( $wpdb->last_error ) ) {
+                return new WP_Error( 'gdo_trust_monitor_application_query', __( 'A monitored application could not be read safely.', 'global-doctor-onboarding' ) );
+            }
+            if ( ! $app ) {
+                if ( false === $wpdb->delete( $table, array( 'application_id'=>$row->application_id ) ) ) {
+                    return new WP_Error( 'gdo_trust_monitor_orphan_delete', __( 'An orphaned continuous-verification record could not be removed safely.', 'global-doctor-onboarding' ) );
+                }
+                continue;
+            }
+            $result = 'no_license_evidence';
+            $provider_failure = false;
+            $adverse = false;
+            $wpdb->last_error = '';
+            $evidence_rows = GDO_Evidence::records( $app->id, true );
+            if ( null === $evidence_rows || ! empty( $wpdb->last_error ) ) {
+                return new WP_Error( 'gdo_trust_monitor_evidence_query', __( 'Credential evidence could not be read safely for continuous verification.', 'global-doctor-onboarding' ) );
+            }
+            foreach ( $evidence_rows as $evidence ) {
                 if ( ! in_array( $evidence->document_type, array( 'license','registration','professional_registration' ), true ) ) { continue; }
                 $check = GDO_Advanced_Trust::primary_source_verify( $app->id, $evidence->id );
-                $result = is_wp_error( $check ) ? $check->get_error_code() : $check['status'];
-                if ( in_array( $result, array( 'provider_unavailable','provider_error','gdo_primary_source_rate','gdo_trust_check_store_failed' ), true ) ) { $provider_failure = true; }
+                if ( is_wp_error( $check ) ) {
+                    $result = $check->get_error_code();
+                    $provider_failure = true;
+                    continue;
+                }
+                $result = isset( $check['status'] ) ? sanitize_key( $check['status'] ) : 'provider_error';
+                if ( 'provider_error' === $result || in_array( $result, array( 'provider_unavailable','pending','timeout','malformed_response' ), true ) ) {
+                    $provider_failure = true;
+                }
                 if ( in_array( $result, array( 'revoked','expired','not_matched' ), true ) ) {
                     $adverse = true;
                     do_action( 'gdo_continuous_verification_adverse_result', $app->id, $result, $check );
@@ -383,20 +426,31 @@ final class GDO_Advanced_Trust_Hardening {
             ), array( 'application_id'=>$app->id ) );
             if ( false === $updated ) {
                 GDO_Membership_Adapter::audit( 'doctor_continuous_verification_monitor_store_failed', array( 'application_id'=>$app->id ) );
-                continue;
+                return new WP_Error( 'gdo_trust_monitor_store_failed', __( 'Continuous verification state could not be persisted safely.', 'global-doctor-onboarding' ) );
             }
             if ( $provider_failure ) {
                 GDO_Membership_Adapter::audit( 'doctor_continuous_verification_provider_degraded', array( 'application_id'=>$app->id, 'failure_count'=>$failures, 'last_result'=>$result ) );
                 $wake = self::schedule_wakeup( $next_check );
-                if ( is_wp_error( $wake ) ) { GDO_Membership_Adapter::audit( 'doctor_reverification_wakeup_failed', array( 'application_id'=>$app->id, 'reason'=>$wake->get_error_code() ) ); }
+                if ( is_wp_error( $wake ) ) {
+                    GDO_Membership_Adapter::audit( 'doctor_reverification_wakeup_failed', array( 'application_id'=>$app->id, 'reason'=>$wake->get_error_code() ) );
+                    return $wake;
+                }
             } elseif ( $adverse ) {
                 $wake = self::schedule_wakeup( $next_check );
-                if ( is_wp_error( $wake ) ) { GDO_Membership_Adapter::audit( 'doctor_reverification_wakeup_failed', array( 'application_id'=>$app->id, 'reason'=>$wake->get_error_code() ) ); }
+                if ( is_wp_error( $wake ) ) {
+                    GDO_Membership_Adapter::audit( 'doctor_reverification_wakeup_failed', array( 'application_id'=>$app->id, 'reason'=>$wake->get_error_code() ) );
+                    return $wake;
+                }
             } elseif ( 'no_license_evidence' === $result ) {
                 GDO_Membership_Adapter::audit( 'doctor_continuous_verification_license_missing', array( 'application_id'=>$app->id ) );
             }
         }
-        self::cleanup_upload_sessions();
+        $cleanup = self::cleanup_upload_sessions();
+        if ( is_wp_error( $cleanup ) ) {
+            GDO_Membership_Adapter::audit( 'doctor_resumable_upload_cleanup_failed', array( 'reason'=>$cleanup->get_error_code() ) );
+            return $cleanup;
+        }
+        return true;
     }
 
     public static function cleanup_upload_sessions() {
@@ -412,8 +466,12 @@ final class GDO_Advanced_Trust_Hardening {
         foreach ( (array) $rows as $row ) {
             $dir = GDO_Storage::directory();
             $path = $dir ? trailingslashit( $dir ) . '.chunk-' . basename( sanitize_file_name( $row->temp_name ) ) : '';
+            if ( $path && ( is_link( $path ) || ( file_exists( $path ) && ! is_file( $path ) ) ) ) {
+                GDO_Membership_Adapter::audit( 'doctor_resumable_upload_cleanup_failed', array( 'upload_uuid'=>$row->upload_uuid, 'reason'=>'unsafe_chunk_path' ) );
+                return new WP_Error( 'gdo_upload_cleanup_unsafe_path', __( 'An expired resumable upload has an unsafe private path and requires operator review.', 'global-doctor-onboarding' ) );
+            }
             $deleted = true;
-            if ( $path && is_file( $path ) && ! is_link( $path ) ) { $deleted = @unlink( $path ); }
+            if ( $path && is_file( $path ) ) { $deleted = @unlink( $path ) && ! file_exists( $path ); }
             if ( ! $deleted ) {
                 GDO_Membership_Adapter::audit( 'doctor_resumable_upload_cleanup_failed', array( 'upload_uuid'=>$row->upload_uuid ) );
                 return new WP_Error( 'gdo_upload_cleanup_file', __( 'An expired resumable upload could not be deleted safely.', 'global-doctor-onboarding' ) );
@@ -437,7 +495,10 @@ final class GDO_Advanced_Trust_Hardening {
         foreach ( (array) $uploads as $row ) {
             $dir = GDO_Storage::directory();
             $path = $dir ? trailingslashit( $dir ) . '.chunk-' . basename( sanitize_file_name( $row->temp_name ) ) : '';
-            if ( $path && is_file( $path ) && ! is_link( $path ) && ! @unlink( $path ) ) {
+            if ( $path && ( is_link( $path ) || ( file_exists( $path ) && ! is_file( $path ) ) ) ) {
+                return new WP_Error( 'gdo_privacy_upload_unsafe_path', __( 'A private resumable upload has an unsafe path; erasure is paused for operator review.', 'global-doctor-onboarding' ) );
+            }
+            if ( $path && is_file( $path ) && ( ! @unlink( $path ) || file_exists( $path ) ) ) {
                 return new WP_Error( 'gdo_privacy_upload_cleanup', __( 'A private resumable upload could not be deleted.', 'global-doctor-onboarding' ) );
             }
         }
@@ -496,6 +557,9 @@ final class GDO_Advanced_Trust_Hardening {
     }
 
     public static function rest_jurisdiction( WP_REST_Request $request ) {
+        if ( ! GDO_Operations::mutation_allowed() ) {
+            return new WP_Error( 'gdo_trust_runtime_not_ready', __( 'Professional trust changes are temporarily unavailable.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );
+        }
         $p = (array) $request->get_json_params();
         $result = self::save_jurisdiction_rule(
             isset( $p['jurisdiction'] ) ? $p['jurisdiction'] : '',
@@ -509,6 +573,9 @@ final class GDO_Advanced_Trust_Hardening {
     }
 
     public static function rest_check( WP_REST_Request $request ) {
+        if ( ! GDO_Operations::mutation_allowed() ) {
+            return new WP_Error( 'gdo_trust_runtime_not_ready', __( 'Professional trust checks are temporarily unavailable.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );
+        }
         $app_id = absint( $request['application_id'] ); $evidence_id = absint( $request['evidence_id'] );
         $app = GDO_Application::get( $app_id ); $reviewer = get_current_user_id();
         if ( ! $app || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer, $app->user_id, $app->id ) ) {

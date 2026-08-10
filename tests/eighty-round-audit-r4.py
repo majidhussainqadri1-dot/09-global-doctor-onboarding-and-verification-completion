@@ -20,7 +20,7 @@ check(10,'Already-current core schema is still physically verified',has(migratio
 check(11,'Advanced Trust base tables have postcondition verification',has(adv,'verify_installation','gdo_advanced_schema_table','SHOW COLUMNS FROM','Advanced Trust transactional tables must use InnoDB'))
 check(12,'Advanced hardening propagates base/index/version uncertainty',has(hard,'$base = GDO_Advanced_Trust::maybe_install()','gdo_advanced_schema_index_read','gdo_advanced_schema_version'))
 check(13,'Advanced schema verification runs even when schema option already current',has(adv,'return self::verify_installation();'))
-check(14,'Activation retention cron persistence is checked',has(act,"'gdo_daily_retention'",'wp_schedule_event','$scheduled','wp_next_scheduled'))
+check(14,'Activation retention cron persistence is checked',has(act,"'gdo_daily_retention'",'wp_schedule_event','$scheduled','recurring_schedule_ready'))
 check(15,'Activation outbox cron persistence is checked',has(act,"'gdo_notification_outbox'",'gdo_activation_outbox_schedule'))
 check(16,'Activation trust-monitor cron persistence is checked',has(act,"'gdo_trust_continuous_monitor'",'gdo_activation_trust_schedule'))
 check(17,'Event-driven reverification wakeup scheduling is fail-visible',has(hard,'wp_schedule_single_event','gdo_trust_wakeup_schedule','doctor_reverification_wakeup_failed'))
@@ -86,7 +86,7 @@ check(70,'Canonical integration contracts disallow direct table/meta writes',has
 # 71-80 destructive purge/release/QA truth
 check(71,'Guarded destructive uninstall purges Advanced Trust tables too',all(x in uninstall for x in ['trusted_issuers','jurisdiction_rules','credential_checks','professional_history','reviewer_conflicts','verification_passports','monitor_state','upload_sessions']))
 check(72,'Guarded destructive uninstall removes exact migration/schema checkpoint options', all(x in uninstall for x in ['gdo_schema_migration_lock','gdo_advanced_trust_schema','gdo_last_migration','gdo_legacy_migration_user_checkpoint']) and 'gdo_migration_lock' not in uninstall)
-check(73,'Guarded destructive uninstall clears trust-monitor cron',has(uninstall,"wp_clear_scheduled_hook( 'gdo_trust_continuous_monitor' )"))
+check(73,'Guarded destructive uninstall clears trust-monitor cron', 'gdo_trust_continuous_monitor' in uninstall and 'wp_clear_scheduled_hook' in uninstall)
 check(74,'Destructive uninstall remains explicit triple-authorized, not default destructive',has(uninstall,'SABRI_ALLOW_DESTRUCTIVE_UNINSTALL','gdo_allow_destructive_uninstall','gdo_destructive_uninstall_confirmation','hash_equals'))
 check(75,'Release docs require staging rather than claiming production',has(staging,'Staging') and 'false' in status.lower())
 check(76,'Rollback/migration evidence remains present',has(t('MIGRATION-ROLLBACK-1.3.0.md'),'rollback') or 'rollback' in t('MIGRATION-ROLLBACK-1.3.0.md').lower())

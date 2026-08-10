@@ -35,12 +35,12 @@ final class GDO_Admin {
 		}
 	}
 
-	private function guard( $capability ) {
+	private function guard( $capability, $allow_recovery = false ) {
 		if ( ! GDO_Membership_Adapter::can( $capability ) || ! GDO_Membership_Adapter::recent_step_up( get_current_user_id() ) ) {
 			wp_die( esc_html__( 'Access requires an authorized File 00 reviewer and recent password plus Authenticator verification.', 'global-doctor-onboarding' ), '', array( 'response'=>403 ) );
 		}
-		if ( GDO_Operations::safe_mode() && ! in_array( $capability, array( 'sabri_manage_doctor_verification' ), true ) ) {
-			wp_die( esc_html__( 'File 09 Safe Mode is active. High-risk changes are disabled.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
+		if ( ! $allow_recovery && ! GDO_Operations::mutation_allowed() ) {
+			wp_die( esc_html__( 'File 09 mutations are unavailable until Safe Mode is cleared and all runtime dependencies and schemas are healthy.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
 		}
 	}
 
@@ -611,7 +611,7 @@ final class GDO_Admin {
 	}
 
 	public function toggle_safe_mode() {
-		$this->guard( 'sabri_manage_doctor_verification' );
+		$this->guard( 'sabri_manage_doctor_verification', true );
 		check_admin_referer( 'gdo_toggle_safe_mode' );
 		$result = GDO_Operations::set_safe_mode( ! empty( $_POST['enabled'] ), get_current_user_id(), isset( $_POST['reason'] ) ? $_POST['reason'] : '' );
 		if ( is_wp_error( $result ) ) { wp_die( esc_html( $result->get_error_message() ), '', array( 'response'=>400 ) ); }
@@ -619,7 +619,7 @@ final class GDO_Admin {
 	}
 
 	public function run_repair() {
-		$this->guard( 'sabri_manage_doctor_verification' );
+		$this->guard( 'sabri_manage_doctor_verification', true );
 		check_admin_referer( 'gdo_run_repair' );
 		$result = GDO_Operations::repair( isset( $_POST['repair_action'] ) ? $_POST['repair_action'] : '', get_current_user_id(), isset( $_POST['reason'] ) ? $_POST['reason'] : '' );
 		if ( is_wp_error( $result ) ) {
@@ -629,7 +629,7 @@ final class GDO_Admin {
 	}
 
 	public function replay_outbox() {
-		$this->guard( 'sabri_manage_doctor_verification' );
+		$this->guard( 'sabri_manage_doctor_verification', true );
 		check_admin_referer( 'gdo_replay_outbox' );
 		GDO_Notifications::process( 100 );
 		$this->redirect();

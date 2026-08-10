@@ -6,7 +6,10 @@ final class GDO_Migration {
 
 	public static function maybe_run() {
 		$current = absint( get_option( 'gdo_schema_version', 0 ) );
-		if ( $current >= GDO_SCHEMA_VERSION ) {
+		if ( $current > GDO_SCHEMA_VERSION ) {
+			return new WP_Error( 'gdo_schema_future_version', __( 'The File 09 database schema is newer than this plugin and cannot be mutated safely.', 'global-doctor-onboarding' ) );
+		}
+		if ( $current === GDO_SCHEMA_VERSION ) {
 			return GDO_Schema::verify_installation();
 		}
 		$token = wp_generate_uuid4();

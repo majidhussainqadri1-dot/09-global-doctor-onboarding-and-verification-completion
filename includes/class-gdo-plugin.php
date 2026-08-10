@@ -5,9 +5,6 @@ final class GDO_Plugin {
     public function run() {
         add_action( 'admin_notices', array($this,'dependency_notice') );
         add_action( 'wp_logout', array('GDO_Membership_Adapter','clear_step_up') );
-        (new GDO_REST())->hooks();
-        (new GDO_Integration_Contracts())->hooks();
-        GDO_Notifications::register_file19_producer();
         add_action( 'smc_professional_claim_acknowledged', array($this,'claim_acknowledged'), 10, 4 );
         if ( ! GDO_Membership_Adapter::available() ) {
             return;
@@ -22,6 +19,9 @@ final class GDO_Plugin {
             GDO_Membership_Adapter::audit( 'doctor_verification_runtime_blocked', array( 'reason'=>$advanced->get_error_code(), 'layer'=>'advanced_trust_schema' ) );
             return;
         }
+        (new GDO_REST())->hooks();
+        (new GDO_Integration_Contracts())->hooks();
+        GDO_Notifications::register_file19_producer();
         (new GDO_Advanced_Trust())->hooks();
         GDO_Advanced_Trust_Hardening::hooks();
         GDO_Advanced_Trust_Events::hooks();

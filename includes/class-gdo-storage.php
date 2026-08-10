@@ -13,15 +13,6 @@ final class GDO_Storage {
         if ( ! $dir || ( ! is_dir( $dir ) && ! is_writable( dirname( $dir ) ) ) ) {
             return new WP_Error( 'gdo_storage_unconfigured', __( 'Private credential storage is not configured or writable.', 'global-doctor-onboarding' ) );
         }
-        $uploads = wp_upload_dir();
-        $upload_base = wp_normalize_path( untrailingslashit( $uploads['basedir'] ) );
-        $content_base = wp_normalize_path( untrailingslashit( WP_CONTENT_DIR ) );
-        if ( 0 === strpos( $dir . '/', $upload_base . '/' ) ) {
-            return new WP_Error( 'gdo_storage_public', __( 'Credential storage must be outside the public uploads directory.', 'global-doctor-onboarding' ) );
-        }
-        if ( (bool) apply_filters( 'gdo_require_storage_outside_wp_content', true ) && 0 === strpos( $dir . '/', $content_base . '/' ) ) {
-            return new WP_Error( 'gdo_storage_wp_content', __( 'Credential storage must be outside the publicly served WordPress content tree.', 'global-doctor-onboarding' ) );
-        }
         if ( ! is_dir( $dir ) && ! wp_mkdir_p( $dir ) ) {
             return new WP_Error( 'gdo_storage_create_failed', __( 'Private credential storage could not be created.', 'global-doctor-onboarding' ) );
         }
@@ -29,7 +20,23 @@ final class GDO_Storage {
         if ( ! is_writable( $dir ) || is_link( $dir ) ) {
             return new WP_Error( 'gdo_storage_not_writable', __( 'Private credential storage is unsafe or not writable.', 'global-doctor-onboarding' ) );
         }
-        if ( (bool) apply_filters( 'gdo_private_storage_url_exposed', false, $dir ) ) {
+        $uploads = wp_upload_dir();
+        $real_dir = realpath( $dir );
+        $real_upload = realpath( $uploads['basedir'] );
+        $real_content = realpath( WP_CONTENT_DIR );
+        if ( false === $real_dir || false === $real_upload || false === $real_content ) {
+            return new WP_Error( 'gdo_storage_realpath', __( 'Private credential storage could not be resolved to a canonical filesystem path.', 'global-doctor-onboarding' ) );
+        }
+        $canonical_dir = trailingslashit( wp_normalize_path( $real_dir ) );
+        $upload_base = trailingslashit( wp_normalize_path( $real_upload ) );
+        $content_base = trailingslashit( wp_normalize_path( $real_content ) );
+        if ( 0 === strpos( $canonical_dir, $upload_base ) ) {
+            return new WP_Error( 'gdo_storage_public', __( 'Credential storage must be outside the public uploads directory.', 'global-doctor-onboarding' ) );
+        }
+        if ( (bool) apply_filters( 'gdo_require_storage_outside_wp_content', true ) && 0 === strpos( $canonical_dir, $content_base ) ) {
+            return new WP_Error( 'gdo_storage_wp_content', __( 'Credential storage must be outside the publicly served WordPress content tree.', 'global-doctor-onboarding' ) );
+        }
+        if ( (bool) apply_filters( 'gdo_private_storage_url_exposed', false, wp_normalize_path( $real_dir ) ) ) {
             return new WP_Error( 'gdo_storage_url_exposed', __( 'Private credential storage is web-accessible.', 'global-doctor-onboarding' ) );
         }
         return true;
@@ -68,10 +75,17 @@ final class GDO_Storage {
             return new WP_Error( 'gdo_storage_commit_failed', __( 'The encrypted credential could not be committed.', 'global-doctor-onboarding' ) );
         }
         @chmod( $final, 0600 );
-        return array( 'path' => $final, 'sha256' => hash_file( 'sha256', $final ) );
+        $sha256 = hash_file( 'sha256', $final );
+        if ( ! is_string( $sha256 ) || 64 !== strlen( $sha256 ) ) {
+            @unlink( $final );
+            return new WP_Error( 'gdo_storage_hash_failed', __( 'The committed credential could not be verified after storage.', 'global-doctor-onboarding' ) );
+        }
+        return array( 'path' => $final, 'sha256' => $sha256 );
     }
 
     public static function read( $storage_name ) {
+        $health = self::health();
+        if ( is_wp_error( $health ) ) { return $health; }
         $path = self::path( $storage_name );
         if ( ! is_file( $path ) || ! is_readable( $path ) || is_link( $path ) ) {
             return new WP_Error( 'gdo_storage_missing', __( 'The credential file is unavailable.', 'global-doctor-onboarding' ) );
@@ -81,6 +95,8 @@ final class GDO_Storage {
     }
 
     public static function delete_verified( $storage_name, $expected_sha256 ) {
+        $health = self::health();
+        if ( is_wp_error( $health ) ) { return $health; }
         $path = self::path( $storage_name );
         if ( ! is_file( $path ) ) {
             return true;

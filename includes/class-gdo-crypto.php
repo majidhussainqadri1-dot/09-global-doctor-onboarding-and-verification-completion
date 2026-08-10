@@ -19,9 +19,14 @@ final class GDO_Crypto {
                 return new WP_Error( 'gdo_keyring_invalid', __( 'The File 09 encryption keyring is invalid.', 'global-doctor-onboarding' ) );
             }
         }
-        if ( ! isset( $ring['keys'][ $ring['active'] ] ) ) {
+        $active = is_scalar( $ring['active'] ) ? (string) $ring['active'] : '';
+        if ( ! preg_match( '/^[A-Za-z0-9._-]{1,64}$/', $active ) ) {
+            return new WP_Error( 'gdo_active_key_invalid', __( 'The active File 09 encryption key identifier is invalid.', 'global-doctor-onboarding' ) );
+        }
+        if ( ! isset( $ring['keys'][ $active ] ) ) {
             return new WP_Error( 'gdo_active_key_missing', __( 'The active File 09 encryption key is missing.', 'global-doctor-onboarding' ) );
         }
+        $ring['active'] = $active;
         return $ring;
     }
 

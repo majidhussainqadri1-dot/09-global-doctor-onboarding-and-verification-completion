@@ -28,7 +28,7 @@ The RC6 corrective layer fixes lifecycle-state drift, issuer/rule governance, mo
 
 ## Deterministic package gate
 
-`tools/build-release.py` builds `global-doctor-onboarding-09-1.3.0-RC6.zip` twice using the exact **55-entry** release allowlist. `tools/verify-release.py` requires identical entry order, fixed ZIP timestamps, source/package SHA-256 parity and an exact-head generated SPDX 2.3 SBOM whose package identity is `1.3.0-RC6`.
+`tools/build-release.py` builds `global-doctor-onboarding-09-1.3.0-RC6.zip` twice using the exact **56-entry** release allowlist. `tools/verify-release.py` requires identical entry order, fixed ZIP timestamps, source/package SHA-256 parity and an exact-head generated SPDX 2.3 SBOM whose package identity is `1.3.0-RC6`.
 
 The exact-head source gate runs all legacy suites plus `tests/advanced-trust-24.py` and `tests/eighty-round-audit.py` on PHP 7.4 and PHP 8.3. No earlier RC5 run can certify RC6. Because this manifest itself is inside the release allowlist, **the authoritative source/package/QA result is always the workflow result for the exact final commit that contains this manifest**; any later commit automatically reopens the gate.
 
@@ -53,3 +53,6 @@ RC6 has undergone a third independent 80-control repository review against froze
 ## Fourth fresh 80-round corrective assurance
 
 RC6 has undergone a fourth independent 80-control repository review against frozen baseline `7875ce20a0fd40c0952960b6e45cf1e869b9c4dd`: **30 defect-bearing rounds corrected; 50 clean rounds**. `REVIEW-80-ROUNDS-RC6-R4.md` records the ledger and `tests/eighty-round-audit-r4.py` is mandatory alongside the three earlier 80-round gates. The release allowlist is **55 entries**. The exact final HEAD must pass PHP 7.4/8.3 source suites, all four 80-round executable gates, deterministic double build, source/package parity and generated exact-head SPDX SBOM before repository package/QA status is green.
+## Fifth fresh 80-round corrective assurance
+
+RC6 has undergone a fifth independent 80-control repository review against frozen baseline `58313a67e1d21ad17c9a066e9a29c34245a0763e`: **29 defect-bearing rounds corrected; 51 clean rounds**. `REVIEW-80-ROUNDS-RC6-R5.md` records the ledger and `tests/eighty-round-audit-r5.py` is mandatory alongside all prior gates. The current release allowlist is **56 entries**. The exact final HEAD must pass PHP 7.4/8.3 suites, all five 80-round executable gates, deterministic double build, source/package parity and generated exact-head SPDX SBOM before repository package/QA status is green.
