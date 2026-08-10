@@ -65,12 +65,12 @@ p.write_text(s,encoding='utf-8')
 
 p=root/'STATUS.md'; s=p.read_text(encoding='utf-8')
 section='''\n## Third fresh 80-round re-review — 10 August 2026\n\nA third independent 80-control review was opened against frozen baseline `f1901a2326ddf1189b90a5f34f8bbcc7e6eb0361`. It found **13 defect-bearing rounds**, corrected them immediately, and left **67 clean rounds**. The ledger is `REVIEW-80-ROUNDS-RC6-R3.md`; the executable gate is `tests/eighty-round-audit-r3.py`. The principal corrections are fail-closed File 00 profile/privileged identity handling, explicit trusted-internal resumable provenance, risk-query uncertainty, durable outbox persistence/replay semantics, operational health/reconciliation truth, safe-mode/scheduler persistence, orphan-deletion DB safety, and historical QA contract drift.\n\nThe final repository QA/package claim remains conditional on the authoritative workflow passing against the **exact current HEAD** after this R3 evidence synchronization. Staging accepted, live deployed and operationally accepted remain false.\n'''
-if '## Third fresh 80-round re-review' not in s: s=s.rstrip()+section+'\n'
+if '## Third fresh 80-round re-review' not in s: s=s.rstrip()+section.rstrip()+'\n'
 p.write_text(s,encoding='utf-8')
 
 p=root/'RELEASE-MANIFEST-1.3.0.md'; s=p.read_text(encoding='utf-8')
 section='''\n## Third fresh 80-round corrective assurance\n\nRC6 has undergone a third independent 80-control repository review against frozen baseline `f1901a2326ddf1189b90a5f34f8bbcc7e6eb0361`: **13 defect-bearing rounds corrected; 67 clean rounds**. `REVIEW-80-ROUNDS-RC6-R3.md` records the ledger and `tests/eighty-round-audit-r3.py` is mandatory alongside both earlier 80-round gates. The release allowlist is **54 entries**. The exact current HEAD must pass PHP 7.4/8.3 source suites, all three 80-round executable gates, deterministic double build, source/package parity and generated exact-head SPDX SBOM before repository package/QA status is green.\n'''
-if '## Third fresh 80-round corrective assurance' not in s: s=s.rstrip()+section+'\n'
+if '## Third fresh 80-round corrective assurance' not in s: s=s.rstrip()+section.rstrip()+'\n'
 p.write_text(s,encoding='utf-8')
 
 p=root/'STAGING-ACCEPTANCE.md'; s=p.read_text(encoding='utf-8')
