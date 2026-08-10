@@ -44,7 +44,6 @@ assert "unset( $result['decision'], $result['approve'], $result['reject'] )" in 
 assert "private_evidence_searchable'] = false" in trust
 assert "donor_rank_advantage'] = false" in trust
 assert "professional verification does not guarantee treatment outcomes" in trust.lower()
-assert "download_allowed'=>false" in trust
 assert "outside the public" in (root / 'includes/class-gdo-storage.php').read_text(encoding='utf-8').lower()
 
 # Reviewer conflict is a narrowing filter, never a broadening authorization shortcut.
@@ -73,6 +72,24 @@ assert "Upload chunks must arrive exactly once and in order" in trust
 passport_fn = trust[trust.index('function verify_passport_uuid'):trust.index('function schedule_reverification')]
 for forbidden in ['profile_json','storage_name','source_sha256','review_note']:
     assert forbidden not in passport_fn, f'public passport leaks {forbidden}'
+
+# Secure-room public route is hardened after base registration: evidence must belong to
+# the requested application and the mature one-time view grant is reused.
+for token in [
+    "register_hardened_routes", "'/trust/viewing-room'", 'rest_safe_viewing_room',
+    'GDO_Evidence::records( $application_id, true )',
+    "GDO_Evidence::issue_view_grant( $evidence_id, $reviewer_id, $purpose, 'view' )",
+    "'download_allowed'=>false", "true\n        );"
+]:
+    assert token in events, f'missing secure-room hardening: {token}'
+
+# Public transparency is fixed-window and cohort-suppressed; arbitrary tiny date
+# windows cannot expose applicant-level count differences.
+for token in [
+    'rest_safe_transparency', '$days = 90;', 'gdo_public_transparency_minimum_cohort',
+    "'suppressed'=>true", "'minimum_cohort'=>$minimum"
+]:
+    assert token in events, f'missing transparency privacy hardening: {token}'
 
 # Release package must contain both new runtime files.
 assert 'includes/class-gdo-advanced-trust.php' in release
