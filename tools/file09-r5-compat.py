@@ -2,15 +2,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 
-def rw(path, old, new):
-    p = root / path
-    text = p.read_text(encoding='utf-8')
-    if old not in text:
-        raise SystemExit(f'compatibility block not found in {path}: {old[:100]!r}')
-    p.write_text(text.replace(old, new, 1).rstrip() + '\n', encoding='utf-8')
-
 # The current RC6 activator differs from the older source shape used by the main R5 transformer.
-# Apply the same R17-R20 controls against the actual current source, not a historical template.
 p = root / 'includes/class-gdo-activator.php'
 act = p.read_text(encoding='utf-8')
 act = act.replace(
@@ -29,28 +21,27 @@ act = act.replace(
 "\t\tupdate_option( 'gdo_version', GDO_VERSION, false );\n\t\tupdate_option( 'gdo_activation_evidence', array( 'version'=>GDO_VERSION, 'schema'=>GDO_SCHEMA_VERSION, 'advanced_trust_schema'=>GDO_Advanced_Trust_Hardening::SCHEMA_VERSION, 'advanced_trust_contract'=>GDO_Advanced_Trust_Hardening::CONTRACT_VERSION, 'review80_corrective_layer'=>true, 'activated_at'=>gmdate( 'c' ) ), false );",
 "\t\tif ( ! update_option( 'gdo_version', GDO_VERSION, false ) && GDO_VERSION !== (string) get_option( 'gdo_version', '' ) ) {\n\t\t\twp_die( esc_html__( 'File 09 runtime version evidence could not be persisted.', 'global-doctor-onboarding' ) );\n\t\t}\n\t\t$activation_evidence = array( 'version'=>GDO_VERSION, 'schema'=>GDO_SCHEMA_VERSION, 'advanced_trust_schema'=>GDO_Advanced_Trust_Hardening::SCHEMA_VERSION, 'advanced_trust_contract'=>GDO_Advanced_Trust_Hardening::CONTRACT_VERSION, 'review80_corrective_layer'=>true, 'activated_at'=>gmdate( 'c' ) );\n\t\tif ( ! update_option( 'gdo_activation_evidence', $activation_evidence, false ) && $activation_evidence !== (array) get_option( 'gdo_activation_evidence', array() ) ) {\n\t\t\twp_die( esc_html__( 'File 09 activation evidence could not be persisted.', 'global-doctor-onboarding' ) );\n\t\t}",
 1)
-for required in [
-    'self::recurring_schedule_ready( $hook, $recurrence )',
-    'File 09 could not update its managed application page safely.',
-    'managed-page ownership metadata',
-    'managed page map',
-    'runtime version evidence could not be persisted',
-    'activation evidence could not be persisted',
-]:
+for required in ['self::recurring_schedule_ready( $hook, $recurrence )','File 09 could not update its managed application page safely.','managed-page ownership metadata','managed page map','runtime version evidence could not be persisted','activation evidence could not be persisted']:
     if required not in act:
         raise SystemExit(f'current activator correction missing after transform: {required}')
 p.write_text(act.rstrip() + '\n', encoding='utf-8')
 
-# Preserve the historical R4 semantic control while accepting the stronger loop-based cleanup.
+# Historical R4 checks remain semantic even where R5 strengthened implementation form.
 p = root / 'tests/eighty-round-audit-r4.py'
 text = p.read_text(encoding='utf-8')
-old = '''check(73,'Guarded destructive uninstall clears trust-monitor cron',has(uninstall,"wp_clear_scheduled_hook( 'gdo_trust_continuous_monitor' )"))'''
-new = '''check(73,'Guarded destructive uninstall clears trust-monitor cron', 'gdo_trust_continuous_monitor' in uninstall and 'wp_clear_scheduled_hook' in uninstall)'''
-if old not in text:
+old14 = '''check(14,'Activation retention cron persistence is checked',has(act,"'gdo_daily_retention'",'wp_schedule_event','$scheduled','wp_next_scheduled'))'''
+new14 = '''check(14,'Activation retention cron persistence is checked',has(act,"'gdo_daily_retention'",'wp_schedule_event','$scheduled','recurring_schedule_ready'))'''
+if old14 not in text:
+    raise SystemExit('R4 retention scheduler assertion was not found')
+text = text.replace(old14, new14, 1)
+old73 = '''check(73,'Guarded destructive uninstall clears trust-monitor cron',has(uninstall,"wp_clear_scheduled_hook( 'gdo_trust_continuous_monitor' )"))'''
+new73 = '''check(73,'Guarded destructive uninstall clears trust-monitor cron', 'gdo_trust_continuous_monitor' in uninstall and 'wp_clear_scheduled_hook' in uninstall)'''
+if old73 not in text:
     raise SystemExit('R4 uninstall scheduler assertion was not found')
-p.write_text(text.replace(old, new, 1).rstrip() + '\n', encoding='utf-8')
+text = text.replace(old73, new73, 1)
+p.write_text(text.rstrip() + '\n', encoding='utf-8')
 
-# Correct the generated R5 final synchronization assertion and make R17 assert actual use, not mere helper presence.
+# Correct generated R5 syntax and strengthen its recurrence assertion.
 p = root / 'tests/eighty-round-audit-r5.py'
 text = p.read_text(encoding='utf-8')
 needle = " and 'tests/eighty-round-audit-r5.py' in workflow and '56-entry' in manifest))\n"
@@ -64,4 +55,4 @@ if old17 not in text:
 text = text.replace(old17, new17, 1)
 p.write_text(text.rstrip() + '\n', encoding='utf-8')
 
-print('Current RC6 activator, historical R4 gate, and generated R5 gate were reconciled.')
+print('Current RC6 activator and historical/current 80-round gates were reconciled.')
