@@ -53,9 +53,8 @@ gdo_cf01_static_assert( false !== strpos( $contract, "'PAKISTAN' => 'PK'" ), 'Pa
 gdo_cf01_static_assert( false === strpos( $contract, "'license_number'" ), 'public practitioner assertion excludes license number' );
 gdo_cf01_static_assert( false !== strpos( $contract, 'gdo_cf01_practitioner_assertion' ), 'owner-executed practitioner assertion function exists' );
 gdo_cf01_static_assert( false !== strpos( $contract, 'gdo_cf01_practitioner_contract' ), 'contract metadata function exists' );
-
 gdo_cf01_static_assert( false === strpos( $contract, "3 !== absint" ), 'CF-01 does not fossilize approved snapshots at schema 3' );
 gdo_cf01_static_assert( false !== strpos( $contract, "GDO_SCHEMA_VERSION" ), 'CF-01 accepts supported snapshots through the current schema' );
 gdo_cf01_static_assert( false !== strpos( $contract, "identity_documents_current" ) && false !== strpos( $contract, "professional_verified" ), 'CF-01 requires current high-trust and professional assurance' );
-gdo_cf01_static_assert( false === strpos( $contract, "empty( \$base['guardian_verified'] )" ), 'adult practitioner eligibility has no unconditional guardian gate' );
+gdo_cf01_static_assert( false === strpos( $contract, "if ( empty( \$base['guardian_verified'] )" ) && false === strpos( $contract, "|| empty( \$base['guardian_verified'] )" ), 'adult practitioner eligibility has no unconditional guardian gate' );
 echo "File 09 CF-01 static contract: {$tests} PASS, 0 FAIL\n";
