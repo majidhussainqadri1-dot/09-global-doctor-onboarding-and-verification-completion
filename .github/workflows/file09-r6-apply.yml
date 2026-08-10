@@ -60,6 +60,17 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
+          p=Path('tests/advanced-trust-24.py')
+          s=p.read_text(encoding='utf-8')
+          old='assert "delete( GDO_Advanced_Trust::table( \'verification_passports\' )" in hard\n'
+          new="""privacy_erase = hard[hard.index('public static function privacy_erase_application'):hard.index('private static function rest_value')]\nassert 'verification_passports' in privacy_erase\nassert ('checked_delete' in privacy_erase or '$wpdb->delete' in privacy_erase)\nassert 'gdo_privacy_operational_cleanup' in privacy_erase\n"""
+          if old not in s:
+              raise SystemExit('legacy Advanced Trust privacy erasure assertion missing')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+
+          python3 - <<'PY'
+          from pathlib import Path
           p=Path('tests/release-integrity.py')
           s=p.read_text(encoding='utf-8')
           anchor="builder=(root/'tools/build-release.py').read_text(encoding='utf-8'); verifier=(root/'tools/verify-release.py').read_text(encoding='utf-8')"
