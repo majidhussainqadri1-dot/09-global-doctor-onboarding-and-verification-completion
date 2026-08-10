@@ -30,6 +30,9 @@ final class GDO_Advanced_Trust_Events {
             }
             if ( in_array( $to, array( 'verified','reinstated','expired','suspended','revoked','rejected','withdrawn' ), true ) ) {
                 GDO_Advanced_Trust_Hardening::application_decided( $application_id, $to );
+                if ( 'expired' === $to ) {
+                    GDO_Advanced_Trust_Hardening::event_reverification( $application_id, 'expired', $context );
+                }
                 return;
             }
             if ( in_array( $to, array( 'renewal_due','appeal_pending','more_information','resubmitted','under_review' ), true ) ) {
@@ -52,6 +55,9 @@ final class GDO_Advanced_Trust_Events {
                 GDO_Advanced_Trust_Hardening::application_submitted( $application_id );
             } else {
                 GDO_Advanced_Trust_Hardening::application_decided( $application_id, $direct[ $event ] );
+                if ( 'expired' === $direct[ $event ] ) {
+                    GDO_Advanced_Trust_Hardening::event_reverification( $application_id, 'expired', $context );
+                }
             }
         }
     }
