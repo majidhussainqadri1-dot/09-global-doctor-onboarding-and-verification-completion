@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.0-RC6 — Eighty-Round Corrective Assurance — 2026-08-10
+
+- Performed 80 independent review→fix→re-review controls against frozen RC5 baseline `6d5c2850dbf86ce954e0c2fdef8adf36d2dbf1f1`: **49 defect-bearing rounds corrected; 31 clean rounds**.
+- Preserved all 24 Founder-approved Advanced Professional Trust capabilities and retained File 09 as the only professional-verification owner.
+- Corrected trusted issuer governance to proposed-first + independent initial verification; hardened provider-domain/metadata normalization and duplicate issuer prevention.
+- Corrected jurisdiction rules to draft-first, independent second approval, effective-date validation and immutable approved versions.
+- Minimized/bounded provider requests/results, normalized provider expiry data and added primary-source/AI rate limits without delegating final decisions.
+- Corrected continuous monitoring so `degraded` rows retry with bounded exponential backoff and adverse/expiry events receive targeted reverification without silent professional-state mutation.
+- Corrected professional verification passport eligibility, issuance locking/version serialization, supersession failure handling, suspension/revocation/expiry invalidation, current underlying File 09/File 00 recheck, and public read-only/no-cache semantics.
+- Corrected verification-scope badge to current predecessor-aware verification plus `verified/pending/not_verified/not_applicable` semantics.
+- Corrected reviewer conflict declaration/resolution, adaptive dual-review state/monotonicity, max reviewer workload and completed-sample calibration.
+- Deduplicated credential-reuse/fraud-network signals and preserved explainable human-reviewed risk.
+- Serialized resumable private-upload DB/file state, enforced exact chunk geometry/order/size, added atomic `open→finalizing` ownership, commit-marker diagnostics and stale-finalizing cleanup while preserving canonical malware/type/quota/encryption handoff.
+- Removed active duplicate evidence-grant semantics by routing the Secure Evidence Viewing Room through canonical `GDO_Evidence::issue_view_grant()` one-time/session/step-up authorization.
+- Added Advanced Trust REST object-scope reauthorization, structured per-check failure responses and fixed-window minimum-cohort public transparency.
+- Extended WordPress privacy export/erasure and application-scoped retention across Advanced Trust; derivative passports are deleted on erasure/retention rather than collision-prone shared-user anonymization; `.chunk-*` private orphans are covered.
+- Advanced Advanced Trust schema to `2`, contract to `1.1.0`, release identity to `1.3.0-RC6`, 52-entry deterministic package and new `tests/eighty-round-audit.py`/`REVIEW-80-ROUNDS-RC6.md` gates.
+- Staging Accepted, Live Deployed and Operational remain false until the new exact-head RC6 workflow and external Hostinger acceptance are separately evidenced.
+
 ## 1.3.0-RC5 — Advanced Professional Trust & Verification — 2026-08-10
 
 - Implemented all 24 Founder-approved Advanced Professional Trust enhancements in the File 09 canonical boundary.
