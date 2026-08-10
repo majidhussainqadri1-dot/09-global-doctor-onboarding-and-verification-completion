@@ -11,6 +11,8 @@ includes/class-gdo-application.php
 includes/class-gdo-audit.php
 includes/class-gdo-cf01-practitioner-contract.php
 includes/class-gdo-integration-contracts.php
+includes/class-gdo-advanced-trust.php
+includes/class-gdo-advanced-trust-events.php
 includes/class-gdo-claims.php
 includes/class-gdo-crypto.php
 includes/class-gdo-evidence.php
@@ -35,6 +37,7 @@ MIGRATION-ROLLBACK-1.2.0.md
 OPERATIONS.md
 README.md
 RELEASE-MANIFEST-1.2.0.md
+ADVANCED-TRUST-24.md
 SBOM.spdx.json
 SECURITY-PRIVACY.md
 STAGING-ACCEPTANCE.md
