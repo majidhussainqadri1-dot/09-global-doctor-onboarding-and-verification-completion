@@ -20,10 +20,12 @@ jobs:
       - name: Gate
         id: gate
         run: |
-          if [[ -f R3-RELEASE-SYNC-TRIGGER.txt && -f tools/file09-r3-release-sync.py ]]; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "run=false" >> "$GITHUB_OUTPUT"; fi
-      - name: Synchronize R3 evidence
+          if [[ -f R3-RELEASE-SYNC-TRIGGER.txt && -f tools/file09-r3-release-sync.py && -f tools/file09-r3-release-test-fix.py ]]; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "run=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Synchronize R3 evidence and current gate assertions
         if: steps.gate.outputs.run == 'true'
-        run: python3 tools/file09-r3-release-sync.py
+        run: |
+          python3 tools/file09-r3-release-sync.py
+          python3 tools/file09-r3-release-test-fix.py
       - name: Set up PHP 8.3
         if: steps.gate.outputs.run == 'true'
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
@@ -63,8 +65,8 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf dist-a dist-b
-          git rm -f R3-RELEASE-SYNC-TRIGGER.txt tools/file09-r3-release-sync.py
-          git add RELEASE-FILES.txt RELEASE-LOCK.json README.md STATUS.md RELEASE-MANIFEST-1.3.0.md STAGING-ACCEPTANCE.md CHANGELOG.md tools/build-release.py tests/release-integrity.py
+          git rm -f R3-RELEASE-SYNC-TRIGGER.txt tools/file09-r3-release-sync.py tools/file09-r3-release-test-fix.py
+          git add RELEASE-FILES.txt RELEASE-LOCK.json README.md STATUS.md RELEASE-MANIFEST-1.3.0.md STAGING-ACCEPTANCE.md CHANGELOG.md tools/build-release.py tests/release-integrity.py tests/eighty-round-audit-r3.py
           git config user.name 'File09 Corrective Assurance Bot'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'chore(file09): synchronize third-review release evidence'
