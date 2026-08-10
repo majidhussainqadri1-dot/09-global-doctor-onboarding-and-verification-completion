@@ -132,6 +132,7 @@ final class GDO_Application {
 	}
 
 	private static function create_draft( $user_id, $version, array $profile, $renewed_from_id = 0 ) {
+		if ( ! GDO_Operations::mutation_allowed() ) { return new WP_Error( 'gdo_safe_mode', __( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ) ); }
 		global $wpdb;
 		$requested_jurisdiction = ! empty( $profile['license_jurisdiction'] ) ? GDO_Policy::normalize_jurisdiction( $profile['license_jurisdiction'] ) : '';
 		$eligibility = GDO_Policy::eligibility( $user_id, array( 'jurisdiction'=>$requested_jurisdiction ) );
@@ -247,6 +248,7 @@ final class GDO_Application {
 	}
 
 	public static function record_consent( $application_id, $user_id, $accepted, $manage_transaction = true ) {
+		if ( ! GDO_Operations::mutation_allowed() ) { return new WP_Error( 'gdo_safe_mode', __( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ) ); }
 		global $wpdb;
 		$application_id = absint( $application_id );
 		$user_id = absint( $user_id );

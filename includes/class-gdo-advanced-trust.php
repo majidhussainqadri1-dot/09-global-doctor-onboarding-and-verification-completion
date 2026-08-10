@@ -352,7 +352,8 @@ final class GDO_Advanced_Trust {
         $matrix['identity'] = (bool) $identity;
         $matrix['current_status'] = (bool) ( $identity && $current );
         $matrix['jurisdiction'] = sanitize_text_field( $app->jurisdiction );
-        $matrix['next_review'] = $app->verified_until ? gmdate( 'c', strtotime( $app->verified_until . ' UTC' ) ) : null;
+        $next_review_ts = $app->verified_until ? strtotime( $app->verified_until . ' UTC' ) : false;
+        $matrix['next_review'] = $next_review_ts ? gmdate( 'c', $next_review_ts ) : null;
         $matrix['scope_status']['identity'] = $identity ? 'verified' : 'not_verified';
         $matrix['scope_status']['current_status'] = $matrix['current_status'] ? 'verified' : 'not_verified';
 
@@ -435,7 +436,7 @@ final class GDO_Advanced_Trust {
             'SELECT id FROM ' . self::table( 'trusted_issuers' ) . " WHERE name=%s AND jurisdiction=%s AND status<>'retired' LIMIT 1",
             $name, $jurisdiction
         ) );
-        if ( null === $duplicate_raw || ! empty( $wpdb->last_error ) ) {
+        if ( ! empty( $wpdb->last_error ) ) {
             return new WP_Error( 'gdo_issuer_duplicate_query', __( 'Issuer uniqueness could not be verified safely.', 'global-doctor-onboarding' ) );
         }
         if ( absint( $duplicate_raw ) ) {
@@ -474,17 +475,27 @@ final class GDO_Advanced_Trust {
             return new WP_Error( 'gdo_issuer_review_query', __( 'Issuer state could not be read safely for review.', 'global-doctor-onboarding' ) );
         }
         $actor = get_current_user_id();
-        if ( ! $issuer || ( 'verified' === $status && absint( $issuer->created_by ) === $actor ) ) {
+        if ( ! $issuer ) {
+            return new WP_Error( 'gdo_issuer_review_not_found', __( 'The trusted issuer could not be found for review.', 'global-doctor-onboarding' ) );
+        }
+        if ( 'verified' === $status && absint( $issuer->created_by ) === $actor ) {
             return new WP_Error( 'gdo_issuer_review_separation', __( 'A second authorized reviewer must verify a newly proposed issuer.', 'global-doctor-onboarding' ) );
+        }
+        if ( sanitize_key( $issuer->status ) === $status ) {
+            if ( absint( $issuer->reviewed_by ) === $actor ) { return true; }
+            return new WP_Error( 'gdo_issuer_review_no_transition', __( 'Issuer review requires a real lifecycle transition; an existing review cannot be silently reassigned.', 'global-doctor-onboarding' ) );
         }
         $updated = $wpdb->update(
             self::table( 'trusted_issuers' ),
             array( 'status'=>$status, 'assurance_level'=>substr( sanitize_key( $assurance_level ), 0, 30 ), 'reviewed_by'=>$actor, 'updated_at'=>self::now() ),
-            array( 'id'=>absint( $issuer->id ) ),
-            array( '%s','%s','%d','%s' ), array( '%d' )
+            array( 'id'=>absint( $issuer->id ), 'status'=>sanitize_key( $issuer->status ) ),
+            array( '%s','%s','%d','%s' ), array( '%d','%s' )
         );
-        if ( 1 !== $updated ) {
+        if ( false === $updated ) {
             return new WP_Error( 'gdo_issuer_review_store', __( 'Issuer review could not be stored.', 'global-doctor-onboarding' ) );
+        }
+        if ( 1 !== $updated ) {
+            return new WP_Error( 'gdo_issuer_review_conflict', __( 'Issuer state changed during review. Reload the current state before retrying.', 'global-doctor-onboarding' ) );
         }
         GDO_Membership_Adapter::audit( 'doctor_trusted_issuer_reviewed', array( 'issuer_uuid'=>$issuer_uuid, 'status'=>$status, 'actor_id'=>$actor ) );
         return true;
@@ -506,6 +517,9 @@ final class GDO_Advanced_Trust {
     }
 
     public static function save_jurisdiction_rule( $jurisdiction, $version, array $rules, $status = 'draft', $effective_from = '', $effective_until = '' ) {
+        if ( ! GDO_Operations::mutation_allowed() ) {
+            return new WP_Error( 'gdo_jurisdiction_runtime_not_ready', __( 'Jurisdiction-rule changes are temporarily unavailable.', 'global-doctor-onboarding' ) );
+        }
         if ( ! self::can_manage() ) {
             return new WP_Error( 'gdo_trust_forbidden', __( 'Jurisdiction rules require privileged step-up.', 'global-doctor-onboarding' ) );
         }
@@ -774,6 +788,7 @@ final class GDO_Advanced_Trust {
     }
 
     public static function declare_conflict( $reviewer_id, $applicant_id, $application_id, $type, $reason ) {
+        if ( ! GDO_Operations::mutation_allowed() ) { return new WP_Error( 'gdo_conflict_runtime_not_ready', __( 'Reviewer-conflict changes are temporarily unavailable.', 'global-doctor-onboarding' ) ); }
         global $wpdb;
         $reviewer_id=absint($reviewer_id); $applicant_id=absint($applicant_id); $application_id=absint($application_id); $actor=get_current_user_id();
         $type=substr(sanitize_key($type),0,50); $reason=sanitize_textarea_field($reason);
@@ -790,6 +805,7 @@ final class GDO_Advanced_Trust {
     }
 
     public static function resolve_conflict( $conflict_id ) {
+        if ( ! GDO_Operations::mutation_allowed() ) { return new WP_Error( 'gdo_conflict_runtime_not_ready', __( 'Reviewer-conflict changes are temporarily unavailable.', 'global-doctor-onboarding' ) ); }
         if(!self::can_manage()){return new WP_Error('gdo_conflict_forbidden',__('Conflict resolution requires privileged authorization and step-up.','global-doctor-onboarding'));}
         global $wpdb; $id=absint($conflict_id); $actor=get_current_user_id();
         $updated=$wpdb->update(self::table('reviewer_conflicts'),array('status'=>'resolved','resolved_by'=>$actor,'resolved_at'=>self::now()),array('id'=>$id,'status'=>'active'),array('%s','%d','%s'),array('%d','%s'));
@@ -799,6 +815,7 @@ final class GDO_Advanced_Trust {
 
     public static function has_conflict( $reviewer_id, $applicant_id, $application_id = 0 ) {
         global $wpdb; if(absint($reviewer_id)===absint($applicant_id)){return true;}
+        $wpdb->last_error='';
         $raw_count=$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::table('reviewer_conflicts')." WHERE reviewer_id=%d AND applicant_id=%d AND status='active' AND (application_id IS NULL OR application_id=0 OR application_id=%d)",absint($reviewer_id),absint($applicant_id),absint($application_id)));
         // Conflict uncertainty must narrow authorization, never widen it. COUNT(*)
         // always returns a row on success, so NULL/DB error is a fail-closed conflict.
@@ -812,6 +829,7 @@ final class GDO_Advanced_Trust {
 
     public static function requires_dual_review( $application_id ) {
         global $wpdb; $app=GDO_Application::get($application_id); if(!$app){return true;}
+        $wpdb->last_error='';
         $raw_high=$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.GDO_Schema::table('risk_signals')." WHERE application_id=%d AND status='open' AND severity IN ('high','critical')",$app->id));
         if(null===$raw_high||!empty($wpdb->last_error)){return true;}
         $high=absint($raw_high);
@@ -824,11 +842,13 @@ final class GDO_Advanced_Trust {
 
     public static function smart_reviewer_candidates( $application_id, $limit = 10 ) {
         global $wpdb; $app=GDO_Application::get($application_id); if(!$app){return array();}
+        $wpdb->last_error='';
         $profiles=$wpdb->get_results('SELECT * FROM '.GDO_Schema::table('reviewer_profiles')." WHERE status='active' ORDER BY updated_at DESC LIMIT 200"); $out=array();
-        if(null===$profiles||!empty($wpdb->last_error)){return array();}
+        if(null===$profiles||!empty($wpdb->last_error)){GDO_Membership_Adapter::audit('gdo_reviewer_candidates_query_failed',array('application_id'=>absint($application_id)));return array();}
         foreach((array)$profiles as $profile){$uid=absint($profile->user_id); if(!GDO_Membership_Adapter::reviewer_scope_allows($uid,$app->user_id,$app->id)||self::has_conflict($uid,$app->user_id,$app->id)){continue;}
+            $wpdb->last_error='';
             $raw_open=$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.GDO_Schema::table('applications')." WHERE assigned_reviewer_id=%d AND state IN ('submitted','under_review','more_information')",$uid));
-            if(null===$raw_open||!empty($wpdb->last_error)){continue;}
+            if(null===$raw_open||!empty($wpdb->last_error)){GDO_Membership_Adapter::audit('gdo_reviewer_workload_query_failed',array('application_id'=>absint($application_id),'reviewer_id'=>$uid));continue;}
             $open=absint($raw_open);
             $max=max(1,absint($profile->max_open_cases)); if($open>=$max){continue;}
             $langs=json_decode($profile->languages_json,true);$jur=json_decode($profile->jurisdictions_json,true);$score=100-min(60,$open*3);if(in_array($app->jurisdiction,(array)$jur,true)){$score+=20;}if(in_array($app->preferred_language,(array)$langs,true)){$score+=10;}$out[]=array('reviewer_id'=>$uid,'score'=>$score,'open_cases'=>$open,'max_open_cases'=>$max);
@@ -894,19 +914,24 @@ final class GDO_Advanced_Trust {
     public static function issue_passport( $application_id ) {
         global $wpdb; $application_id=absint($application_id); if(!self::passport_key()){return new WP_Error('gdo_passport_key',__('Professional passport signing is unavailable.','global-doctor-onboarding'));}
         if(false===$wpdb->query('START TRANSACTION')){return new WP_Error('gdo_passport_transaction',__('A professional passport transaction could not be started safely.','global-doctor-onboarding'));}
+        $wpdb->last_error='';
         $app=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.GDO_Schema::table('applications').' WHERE id=%d FOR UPDATE',$application_id));
+        if(null===$app&&!empty($wpdb->last_error)){$wpdb->query('ROLLBACK');return new WP_Error('gdo_passport_application_query',__('Professional application state could not be locked safely for passport issuance.','global-doctor-onboarding'));}
         $verified_expiry=self::current_verification_expiry($app);$approved_snapshot=$app?GDO_Application::stored_approved_snapshot($app):array();if(!$app||!$approved_snapshot||empty($approved_snapshot['captured_at'])||!GDO_State::public_verified($app->state)||!GDO_Membership_Adapter::identity_assurance_current($app->user_id)||!$verified_expiry){$wpdb->query('ROLLBACK');return new WP_Error('gdo_passport_not_eligible',__('A current verified application, intact approved snapshot, explicit future validity date, and current identity assurance are required for a professional passport.','global-doctor-onboarding'));}
+        $wpdb->last_error='';
         $raw_version=$wpdb->get_var($wpdb->prepare('SELECT MAX(version) FROM '.self::table('verification_passports').' WHERE user_id=%d FOR UPDATE',$app->user_id));
         if(!empty($wpdb->last_error)){$wpdb->query('ROLLBACK');return new WP_Error('gdo_passport_version',__('Professional passport version state could not be verified safely.','global-doctor-onboarding'));}
         $version=absint($raw_version)+1;
         $uuid=wp_generate_uuid4();$issued=time();$exp=min($issued+self::PASSPORT_TTL,$verified_expiry);$scope=self::public_matrix_for_app($app);
-        $payload=array('passport_uuid'=>$uuid,'user_id'=>absint($app->user_id),'application_id'=>absint($app->id),'version'=>$version,'scope'=>$scope,'iat'=>$issued,'exp'=>$exp);
+        $payload=array('passport_uuid'=>$uuid,'version'=>$version,'scope'=>$scope,'iat'=>$issued,'exp'=>$exp);
         $body=rtrim(strtr(base64_encode(wp_json_encode($payload)),'+/','-_'),'=');$sig=hash_hmac('sha256',$body,self::passport_key());$token=$body.'.'.$sig;$now=self::now();
         $revoked=$wpdb->update(self::table('verification_passports'),array('status'=>'revoked','revoked_at'=>$now,'revoke_reason'=>'superseded'),array('user_id'=>$app->user_id,'status'=>'active'),array('%s','%s','%s'),array('%d','%s'));
         if(false===$revoked){$wpdb->query('ROLLBACK');return new WP_Error('gdo_passport_supersede',__('Existing professional passports could not be superseded safely.','global-doctor-onboarding'));}
         $inserted=$wpdb->insert(self::table('verification_passports'),array('passport_uuid'=>$uuid,'user_id'=>$app->user_id,'application_id'=>$app->id,'version'=>$version,'status'=>'active','scope_json'=>wp_json_encode($scope),'token_hash'=>hash('sha256',$token),'issued_at'=>gmdate('Y-m-d H:i:s',$issued),'expires_at'=>gmdate('Y-m-d H:i:s',$exp)));
-        if(1!==$inserted||false===$wpdb->query('COMMIT')){$wpdb->query('ROLLBACK');return new WP_Error('gdo_passport_store',__('The professional verification passport could not be issued.','global-doctor-onboarding'));}
-        self::add_history($app->user_id,$app->id,'verification_passport_issued',array('version'=>$version,'expires_at'=>gmdate('c',$exp)),true);
+        if(1!==$inserted){$wpdb->query('ROLLBACK');return new WP_Error('gdo_passport_store',__('The professional verification passport could not be issued.','global-doctor-onboarding'));}
+        $history=self::add_history($app->user_id,$app->id,'verification_passport_issued',array('version'=>$version,'expires_at'=>gmdate('c',$exp)),true);
+        if(is_wp_error($history)){$wpdb->query('ROLLBACK');return $history;}
+        if(false===$wpdb->query('COMMIT')){$wpdb->query('ROLLBACK');return new WP_Error('gdo_passport_store',__('The professional verification passport could not be committed.','global-doctor-onboarding'));}
         GDO_Membership_Adapter::audit('doctor_verification_passport_issued',array('application_id'=>$app->id,'passport_uuid'=>$uuid,'version'=>$version));
         return array('token'=>$token,'passport_uuid'=>$uuid,'verification_url'=>rest_url(self::REST_NAMESPACE.'/public/passport/'.$uuid),'qr_payload'=>rest_url(self::REST_NAMESPACE.'/public/passport/'.$uuid));
     }
@@ -926,9 +951,11 @@ final class GDO_Advanced_Trust {
     }
 
     public static function verify_passport_uuid( $uuid ) {
-        global $wpdb; $row=$wpdb->get_row($wpdb->prepare('SELECT passport_uuid,user_id,application_id,version,status,scope_json,issued_at,expires_at FROM '.self::table('verification_passports').' WHERE passport_uuid=%s LIMIT 1',sanitize_text_field($uuid)),ARRAY_A);
+        global $wpdb; $wpdb->last_error=''; $row=$wpdb->get_row($wpdb->prepare('SELECT passport_uuid,user_id,application_id,version,status,scope_json,issued_at,expires_at FROM '.self::table('verification_passports').' WHERE passport_uuid=%s LIMIT 1',sanitize_text_field($uuid)),ARRAY_A);
+        if(null===$row&&!empty($wpdb->last_error)){return new WP_Error('gdo_passport_lookup_query',__('Professional passport state is temporarily unavailable.','global-doctor-onboarding'),array('status'=>503));}
         if(!$row||'active'!==$row['status']||strtotime($row['expires_at'].' UTC')<=time()){return new WP_Error('gdo_passport_inactive',__('This professional verification passport is not active.','global-doctor-onboarding'),array('status'=>404));}
-        $app=GDO_Application::get($row['application_id']);
+        $wpdb->last_error='';$app=GDO_Application::get($row['application_id']);
+        if(!$app&&!empty($wpdb->last_error)){return new WP_Error('gdo_passport_lookup_query',__('Professional verification state is temporarily unavailable.','global-doctor-onboarding'),array('status'=>503));}
         $verified_expiry=self::current_verification_expiry($app);$approved_snapshot=$app?GDO_Application::stored_approved_snapshot($app):array();$passport_issued=!empty($row['issued_at'])?strtotime($row['issued_at'].' UTC'):0;$snapshot_captured=!empty($approved_snapshot['captured_at'])?strtotime($approved_snapshot['captured_at'].' UTC'):0;if(!$app||!$approved_snapshot||!$passport_issued||!$snapshot_captured||$passport_issued<$snapshot_captured||absint($app->user_id)!==absint($row['user_id'])||!GDO_State::public_verified($app->state)||!GDO_Membership_Adapter::identity_assurance_current($row['user_id'])||!$verified_expiry){
             // Verification is read-only. Lifecycle/reconciliation callbacks own
             // derivative revocation; a token/public read must never mutate state.
@@ -1028,7 +1055,7 @@ final class GDO_Advanced_Trust {
     }
 
     public static function public_card_shortcode( $atts ) {
-        $atts=shortcode_atts(array('user_id'=>0),$atts,'gdo_public_verification_card');$uid=absint($atts['user_id']);if(!$uid){return '';}$matrix=self::verification_matrix($uid);$labels=array('identity'=>'Identity','qualification'=>'Qualification','institution'=>'Institution','registration'=>'Registration','license'=>'License','current_status'=>'Current status');$status_labels=array('verified'=>__('Verified','global-doctor-onboarding'),'pending'=>__('Pending','global-doctor-onboarding'),'not_verified'=>__('Not verified','global-doctor-onboarding'),'not_applicable'=>__('Not applicable','global-doctor-onboarding'));ob_start();?><section class="gdo-public-verification-card"><h3><?php esc_html_e('Professional Verification','global-doctor-onboarding');?></h3><ul><?php foreach($labels as $key=>$label):$state=isset($matrix['scope_status'][$key])?$matrix['scope_status'][$key]:'not_verified';?><li><?php echo esc_html($label);?>: <strong><?php echo esc_html(isset($status_labels[$state])?$status_labels[$state]:$status_labels['not_verified']);?></strong></li><?php endforeach;?></ul><?php if($matrix['last_reverified']):?><p><?php echo esc_html($matrix['last_reverified']);?></p><?php endif;?><p><?php esc_html_e('Professional verification does not guarantee treatment outcomes or grant clinical authorization.','global-doctor-onboarding');?></p></section><?php return ob_get_clean();
+        $atts=shortcode_atts(array('user_id'=>0),$atts,'gdo_public_verification_card');$uid=absint($atts['user_id']);if(!$uid){return '';}$matrix=self::verification_matrix($uid);$labels=array('identity'=>__('Identity','global-doctor-onboarding'),'qualification'=>__('Qualification','global-doctor-onboarding'),'institution'=>__('Institution','global-doctor-onboarding'),'registration'=>__('Registration','global-doctor-onboarding'),'license'=>__('License','global-doctor-onboarding'),'current_status'=>__('Current status','global-doctor-onboarding'));$status_labels=array('verified'=>__('Verified','global-doctor-onboarding'),'pending'=>__('Pending','global-doctor-onboarding'),'not_verified'=>__('Not verified','global-doctor-onboarding'),'not_applicable'=>__('Not applicable','global-doctor-onboarding'));ob_start();?><section class="gdo-public-verification-card"><h3><?php esc_html_e('Professional Verification','global-doctor-onboarding');?></h3><ul><?php foreach($labels as $key=>$label):$state=isset($matrix['scope_status'][$key])?$matrix['scope_status'][$key]:'not_verified';?><li><?php echo esc_html($label);?>: <strong><?php echo esc_html(isset($status_labels[$state])?$status_labels[$state]:$status_labels['not_verified']);?></strong></li><?php endforeach;?></ul><?php if($matrix['last_reverified']):?><p><?php echo esc_html($matrix['last_reverified']);?></p><?php endif;?><p><?php esc_html_e('Professional verification does not guarantee treatment outcomes or grant clinical authorization.','global-doctor-onboarding');?></p></section><?php return ob_get_clean();
     }
     public static function issue_viewing_room_grant( $application_id, $evidence_id, $reviewer_id, $purpose = 'credential_review' ) {
         if ( ! GDO_Operations::mutation_allowed() ) {
@@ -1212,7 +1239,22 @@ final class GDO_Advanced_Trust {
         return $snapshot;
     }
     public static function public_transparency_snapshot() {
-        $days=self::PUBLIC_WINDOW_DAYS;$snapshot=self::transparency_snapshot($days);if(is_wp_error($snapshot)){return $snapshot;}$minimum=max(20,min(100,absint(apply_filters('gdo_public_transparency_minimum_cohort',20))));if(absint($snapshot['decisions'])<$minimum){return array('period_days'=>$days,'privacy'=>'aggregate_only','suppressed'=>true,'minimum_cohort'=>$minimum);}$snapshot['suppressed']=false;$snapshot['minimum_cohort']=$minimum;return $snapshot;
+        $days=self::PUBLIC_WINDOW_DAYS;
+        $snapshot=self::transparency_snapshot($days);
+        if(is_wp_error($snapshot)){return $snapshot;}
+        $minimum=max(20,min(100,absint(apply_filters('gdo_public_transparency_minimum_cohort',20))));
+        if(absint($snapshot['decisions'])<$minimum){return array('period_days'=>$days,'privacy'=>'aggregate_only','suppressed'=>true,'minimum_cohort'=>$minimum);}
+        $minimum_cell=max(5,min(20,absint(apply_filters('gdo_public_transparency_minimum_cell',5))));
+        $suppressed_fields=array();
+        foreach(array('verified','appeals_resolved','appeals_overturned','quality_samples','fraud_signals') as $field){
+            $value=absint($snapshot[$field]);
+            if($value>0&&$value<$minimum_cell){$snapshot[$field]=null;$suppressed_fields[]=$field;}
+        }
+        $snapshot['suppressed']=false;
+        $snapshot['minimum_cohort']=$minimum;
+        $snapshot['minimum_cell']=$minimum_cell;
+        $snapshot['suppressed_fields']=$suppressed_fields;
+        return $snapshot;
     }
 
     public function rest_routes() {

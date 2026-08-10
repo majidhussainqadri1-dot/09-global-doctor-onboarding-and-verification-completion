@@ -107,6 +107,9 @@ final class GDO_Advanced_Trust_Hardening {
     }
 
     public static function save_jurisdiction_rule( $jurisdiction, $version, array $rules, $status = 'draft', $effective_from = '', $effective_until = '' ) {
+        if ( ! GDO_Operations::mutation_allowed() ) {
+            return new WP_Error( 'gdo_jurisdiction_runtime_not_ready', __( 'Jurisdiction-rule changes are temporarily unavailable.', 'global-doctor-onboarding' ) );
+        }
         if ( ! self::can_manage() ) {
             return new WP_Error( 'gdo_trust_forbidden', __( 'Jurisdiction rules require privileged step-up.', 'global-doctor-onboarding' ) );
         }
@@ -266,13 +269,19 @@ final class GDO_Advanced_Trust_Hardening {
         if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
             return new WP_Error( 'gdo_passport_transaction', __( 'A professional passport transaction could not be started safely.', 'global-doctor-onboarding' ) );
         }
+        $wpdb->last_error = '';
         $app = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$apps} WHERE id=%d FOR UPDATE", $application_id ) );
+        if ( null === $app && ! empty( $wpdb->last_error ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'gdo_passport_application_query', __( 'Professional application state could not be locked safely for passport issuance.', 'global-doctor-onboarding' ) );
+        }
         $verified_expiry = GDO_Advanced_Trust::current_verification_expiry( $app );
         $approved_snapshot = $app ? GDO_Application::stored_approved_snapshot( $app ) : array();
         if ( ! $app || ! $approved_snapshot || empty( $approved_snapshot['captured_at'] ) || ! GDO_State::public_verified( $app->state ) || ! GDO_Membership_Adapter::identity_assurance_current( $app->user_id ) || ! $verified_expiry ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'gdo_passport_not_eligible', __( 'A current verified application, intact approved snapshot, explicit future validity date, and current identity assurance are required for a professional passport.', 'global-doctor-onboarding' ) );
         }
+        $wpdb->last_error = '';
         $raw_version = $wpdb->get_var( $wpdb->prepare( "SELECT MAX(version) FROM {$table} WHERE user_id=%d FOR UPDATE", $app->user_id ) );
         if ( ! empty( $wpdb->last_error ) ) {
             $wpdb->query( 'ROLLBACK' );
@@ -283,7 +292,7 @@ final class GDO_Advanced_Trust_Hardening {
         $issued = time();
         $exp = min( $issued + GDO_Advanced_Trust::PASSPORT_TTL, $verified_expiry );
         $scope = GDO_Advanced_Trust::verification_matrix( $app->user_id );
-        $payload = array( 'passport_uuid'=>$uuid, 'user_id'=>absint( $app->user_id ), 'application_id'=>absint( $app->id ), 'version'=>$version, 'scope'=>$scope, 'iat'=>$issued, 'exp'=>$exp );
+        $payload = array( 'passport_uuid'=>$uuid, 'version'=>$version, 'scope'=>$scope, 'iat'=>$issued, 'exp'=>$exp );
         $body = rtrim( strtr( base64_encode( wp_json_encode( $payload ) ), '+/', '-_' ), '=' );
         $token = $body . '.' . hash_hmac( 'sha256', $body, $key );
         $now = current_time( 'mysql', true );
@@ -297,11 +306,16 @@ final class GDO_Advanced_Trust_Hardening {
             'scope_json'=>wp_json_encode( $scope ), 'token_hash'=>hash( 'sha256', $token ),
             'issued_at'=>gmdate( 'Y-m-d H:i:s', $issued ), 'expires_at'=>gmdate( 'Y-m-d H:i:s', $exp ),
         ) );
-        if ( 1 !== $inserted || false === $wpdb->query( 'COMMIT' ) ) {
+        if ( 1 !== $inserted ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'gdo_passport_store', __( 'The professional verification passport could not be issued.', 'global-doctor-onboarding' ) );
         }
-        self::history_once( $app, 'verification_passport_issued', array( 'version'=>$version, 'expires_at'=>gmdate( 'c', $exp ) ), true );
+        $history = self::history_once( $app, 'verification_passport_issued', array( 'version'=>$version, 'expires_at'=>gmdate( 'c', $exp ) ), true );
+        if ( is_wp_error( $history ) ) { $wpdb->query( 'ROLLBACK' ); return $history; }
+        if ( false === $wpdb->query( 'COMMIT' ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'gdo_passport_store', __( 'The professional verification passport could not be committed.', 'global-doctor-onboarding' ) );
+        }
         GDO_Membership_Adapter::audit( 'doctor_verification_passport_issued', array( 'application_id'=>$app->id, 'passport_uuid'=>$uuid, 'version'=>$version ) );
         return array( 'token'=>$token, 'passport_uuid'=>$uuid, 'verification_url'=>rest_url( GDO_Advanced_Trust::REST_NAMESPACE . '/public/passport/' . $uuid ), 'qr_payload'=>rest_url( GDO_Advanced_Trust::REST_NAMESPACE . '/public/passport/' . $uuid ) );
     }

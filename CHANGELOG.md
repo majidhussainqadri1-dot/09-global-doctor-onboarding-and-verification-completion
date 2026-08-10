@@ -130,3 +130,8 @@
 - Strengthened private-storage health with explicit directory/file permission and final hash verification.
 - Added `REVIEW-80-ROUNDS-RC6-R6.md`, `tests/eighty-round-audit-r6.py`, sixth-cycle release-lock evidence and a 57-entry deterministic release allowlist.
 - Staging, live deployment and operational acceptance remain false pending external evidence.
+
+### RC6 — seventh fresh 80-round corrective assurance (R7)
+- Corrected 22 defect-bearing controls from frozen baseline 9103310fc93d978b6e70661f024a079fc0971003; 58 controls were clean.
+- Hardened issuer lifecycle, mutation readiness, DB uncertainty, passport atomicity/privacy, public transparency, and nonce-protected application start.
+- Added `REVIEW-80-ROUNDS-RC6-R7.md` and `tests/eighty-round-audit-r7.py`; staging/live/operational claims remain false.

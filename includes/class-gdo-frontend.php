@@ -5,6 +5,7 @@ final class GDO_Frontend {
 	private $form_required_fields = array();
 	public function hooks() {
 		add_shortcode( 'gdo_doctor_application', array( $this, 'form' ) );
+		add_action( 'admin_post_gdo_start_application', array( $this, 'start' ) );
 		add_action( 'admin_post_gdo_save_application', array( $this, 'save' ) );
 		add_action( 'admin_post_gdo_submit_application', array( $this, 'submit' ) );
 		add_action( 'admin_post_gdo_file_appeal', array( $this, 'appeal' ) );
@@ -37,6 +38,14 @@ final class GDO_Frontend {
 		if ( empty( $eligibility['eligible'] ) && ! ( $latest && in_array( $latest->state, array( 'draft','more_information','expired','renewal_due' ), true ) ) ) {
 			return $this->status_panel( $latest, new WP_Error( 'gdo_eligibility_' . sanitize_key( $eligibility['reason_code'] ), __( 'This account is not currently eligible to start a new doctor application.', 'global-doctor-onboarding' ) ) );
 		}
+		if ( ! $latest || in_array( $latest->state, array( 'expired','renewal_due' ), true ) ) {
+			if ( ! GDO_Operations::mutation_allowed() ) {
+				return $this->status_panel( $latest, new WP_Error( 'gdo_safe_mode', __( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ) ) );
+			}
+			ob_start(); ?>
+			<main class="gdo-application" aria-labelledby="gdo-title"><header class="gdo-head"><h1 id="gdo-title"><?php esc_html_e( 'Doctor Application and Verification', 'global-doctor-onboarding' ); ?></h1></header><form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post"><input type="hidden" name="action" value="gdo_start_application"><?php wp_nonce_field( 'gdo_start_application' ); ?><button class="gdo-button" type="submit"><?php echo esc_html( $latest ? __( 'Start renewal application', 'global-doctor-onboarding' ) : __( 'Start professional verification', 'global-doctor-onboarding' ) ); ?></button></form></main><?php
+			return ob_get_clean();
+		}
 		$app = GDO_Application::ensure_draft( $user );
 		if ( is_wp_error( $app ) ) {
 			return $this->status_panel( $latest, $app );
@@ -64,6 +73,15 @@ final class GDO_Frontend {
 	private function input( $key, $label, array $profile, $type = 'text' ) {
 		$required = isset( $this->form_required_fields[ sanitize_key( $key ) ] );
 		?><label><?php echo esc_html( $label ); ?><input data-gdo-profile type="<?php echo esc_attr( $type ); ?>" name="<?php echo esc_attr( $key ); ?>"<?php echo $required ? ' required' : ''; ?> maxlength="<?php echo 'number' === $type ? '2' : '500'; ?>" value="<?php echo esc_attr( isset( $profile[ $key ] ) ? $profile[ $key ] : '' ); ?>"></label><?php
+	}
+
+	public function start() {
+		if ( ! is_user_logged_in() ) { wp_die( esc_html__( 'Log in.', 'global-doctor-onboarding' ), '', array( 'response'=>403 ) ); }
+		check_admin_referer( 'gdo_start_application' );
+		if ( ! GDO_Operations::mutation_allowed() ) { wp_die( esc_html__( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
+		$app = GDO_Application::ensure_draft( get_current_user_id() );
+		if ( is_wp_error( $app ) ) { wp_die( esc_html( $app->get_error_message() ), '', array( 'response'=>409, 'back_link'=>true ) ); }
+		wp_safe_redirect( GDO_Plugin::application_url( array( 'started'=>'1' ) ) ); exit;
 	}
 
 	public function save() {

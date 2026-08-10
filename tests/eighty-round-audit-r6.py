@@ -92,7 +92,7 @@ c(77,'Privacy legal hold remains fail closed',has(priv,'legal_hold','Erasure is 
 c(78,'All 17 FR identifiers traceable',all(f'F09-FR-{i:03d}' in trace for i in range(1,18)))
 c(79,'All 10 NFR and 24 AT identifiers traceable',all(f'F09-NFR-{i:03d}' in trace for i in range(1,11)) and all(f'F09-AT-{i:02d}' in trace for i in range(1,25)))
 lock=json.loads(t('RELEASE-LOCK.json')); release_files=[x for x in t('RELEASE-FILES.txt').splitlines() if x.strip()]
-c(80,'Sixth fresh ledger/gate/release lock/package count synchronized',(root/'REVIEW-80-ROUNDS-RC6-R6.md').exists() and lock.get('sixth_review_baseline')=='6fa0a5cb7063b6b821bd50c105c735470f589b80' and lock.get('sixth_review_rounds')==80 and lock.get('sixth_defect_rounds')==60 and lock.get('sixth_clean_rounds')==20 and lock.get('release_file_count')==57 and len(release_files)==57 and 'REVIEW-80-ROUNDS-RC6-R6.md' in release_files and 'python3 tests/eighty-round-audit-r6.py' in workflow and '**57-entry**' in manifest)
+c(80,'Sixth fresh historical ledger/gate evidence remains preserved',(root/'REVIEW-80-ROUNDS-RC6-R6.md').exists() and lock.get('sixth_review_baseline')=='6fa0a5cb7063b6b821bd50c105c735470f589b80' and lock.get('sixth_review_rounds')==80 and lock.get('sixth_defect_rounds')==60 and lock.get('sixth_clean_rounds')==20 and 'REVIEW-80-ROUNDS-RC6-R6.md' in release_files and 'python3 tests/eighty-round-audit-r6.py' in workflow and '**57-entry**' in manifest)
 failed=[x for x in checks if not x[2]]
 for n,topic,ok in checks: print(f'R{n:02d}: {"PASS" if ok else "FAIL"} — {topic}')
 print(f'File 09 RC6 sixth fresh eighty-round audit: {len(checks)-len(failed)} PASS, {len(failed)} FAIL')
