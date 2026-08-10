@@ -18,7 +18,6 @@ final class GDO_Retention {
 		$now = current_time( 'mysql', true );
 		$apps_table = GDO_Schema::table( 'applications' );
 		$evidence_table = GDO_Schema::table( 'evidence' );
-
 		$this->expire_drafts( $now, $apps_table );
 		$this->open_renewals( $now, $apps_table );
 		$this->expire_verifications( $now, $apps_table );
@@ -168,20 +167,20 @@ final class GDO_Retention {
 			if ( $failed ) {
 				continue;
 			}
-			if ( class_exists( 'GDO_Advanced_Trust' ) ) {
-				$advanced = GDO_Advanced_Trust::retention_anonymize_application( $app->id, absint( $app->user_id ) );
-				if ( is_wp_error( $advanced ) ) {
-					GDO_Membership_Adapter::audit( 'doctor_advanced_trust_retention_failed', array( 'application_id'=>absint( $app->id ), 'error'=>$advanced->get_error_code() ) );
-					continue;
-				}
+			if ( class_exists( 'GDO_Advanced_Trust' ) && ! $this->retire_advanced_trust_for_application( $app, $now ) ) {
+				continue;
 			}
 			$anonymous = hash( 'sha256', 'retained|' . $app->application_uuid . '|' . wp_salt( 'nonce' ) );
-			$wpdb->update( $apps_table, array(
+			$updated = $wpdb->update( $apps_table, array(
 				'user_id'=>null, 'profile_json'=>'{}', 'profile_fingerprint'=>$anonymous, 'identity_fingerprint'=>'',
 				'approved_snapshot_json'=>null, 'approved_fingerprint'=>null, 'submission_hash'=>null,
 				'assigned_reviewer_id'=>null, 'recommender_id'=>null, 'finalizer_id'=>null,
 				'recommendation_reason'=>'anonymized', 'claim_last_error'=>null, 'updated_at'=>$now,
 			), array( 'id'=>absint( $app->id ) ) );
+			if ( false === $updated ) {
+				GDO_Membership_Adapter::audit( 'doctor_verification_retention_app_anonymize_failed', array( 'application_id'=>absint( $app->id ) ) );
+				continue;
+			}
 			$wpdb->update( GDO_Schema::table( 'consents' ), array( 'user_id'=>0, 'purpose'=>'retained-accountability-record', 'retention_notice'=>'anonymized', 'withdrawn_at'=>$now ), array( 'application_id'=>$app->id ) );
 			$wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'application_id'=>$app->id ) );
 			$wpdb->update( GDO_Schema::table( 'appeals' ), array( 'user_id'=>0, 'reason'=>'anonymized', 'evidence_json'=>null, 'resolution'=>'anonymized' ), array( 'application_id'=>$app->id ) );
@@ -192,16 +191,33 @@ final class GDO_Retention {
 		}
 	}
 
+	private function retire_advanced_trust_for_application( $app, $now ) {
+		global $wpdb;
+		$app_id = absint( $app->id );
+		$uploads = $wpdb->get_results( $wpdb->prepare( 'SELECT upload_uuid,temp_name FROM ' . GDO_Advanced_Trust::table( 'upload_sessions' ) . ' WHERE application_id=%d', $app_id ) );
+		foreach ( (array) $uploads as $row ) {
+			$dir = GDO_Storage::directory();
+			$path = $dir ? trailingslashit( $dir ) . '.chunk-' . basename( sanitize_file_name( $row->temp_name ) ) : '';
+			if ( $path && is_file( $path ) && ! is_link( $path ) && ! @unlink( $path ) ) {
+				GDO_Membership_Adapter::audit( 'doctor_advanced_trust_retention_failed', array( 'application_id'=>$app_id, 'error'=>'upload_cleanup_failed' ) );
+				return false;
+			}
+		}
+		$wpdb->delete( GDO_Advanced_Trust::table( 'upload_sessions' ), array( 'application_id'=>$app_id ) );
+		$wpdb->delete( GDO_Advanced_Trust::table( 'monitor_state' ), array( 'application_id'=>$app_id ) );
+		// Passports are derivative credentials; after retention they must no longer
+		// be resolvable and are deleted rather than mapped to a shared user_id=0.
+		$wpdb->delete( GDO_Advanced_Trust::table( 'verification_passports' ), array( 'application_id'=>$app_id ) );
+		$wpdb->update( GDO_Advanced_Trust::table( 'credential_checks' ), array( 'facts_json'=>'{"redacted":"retention"}', 'explanation_json'=>'{"redacted":"retention"}', 'external_reference'=>'', 'updated_at'=>$now ), array( 'application_id'=>$app_id ) );
+		$wpdb->update( GDO_Advanced_Trust::table( 'professional_history' ), array( 'user_id'=>0, 'public_safe'=>0, 'event_json'=>'{"redacted":"retention"}', 'source_hash'=>hash( 'sha256', '{"redacted":"retention"}' ) ), array( 'application_id'=>$app_id ) );
+		$wpdb->update( GDO_Advanced_Trust::table( 'reviewer_conflicts' ), array( 'applicant_id'=>0 ), array( 'application_id'=>$app_id ) );
+		return true;
+	}
+
 	private function cleanup_access( $now ) {
 		global $wpdb;
-		$wpdb->query( $wpdb->prepare(
-			'DELETE FROM ' . GDO_Schema::table( 'access_grants' ) . ' WHERE expires_at<%s OR used_at IS NOT NULL',
-			$now
-		) );
-		$wpdb->query( $wpdb->prepare(
-			'DELETE FROM ' . GDO_Schema::table( 'rate_limits' ) . ' WHERE expires_at<%d',
-			time()
-		) );
+		$wpdb->query( $wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'access_grants' ) . ' WHERE expires_at<%s OR used_at IS NOT NULL', $now ) );
+		$wpdb->query( $wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'rate_limits' ) . ' WHERE expires_at<%d', time() ) );
 		$wpdb->query( $wpdb->prepare(
 			'UPDATE ' . GDO_Schema::table( 'access_log' ) . " SET reviewer_id=0,purpose_code='anonymized' WHERE created_at<%s",
 			gmdate( 'Y-m-d H:i:s', time() - absint( apply_filters( 'gdo_access_log_identifiable_days', 365 ) ) * DAY_IN_SECONDS )
