@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Global Doctor Onboarding and Verification
  * Plugin URI: https://www.sabrihomeopathy.com/
- * Description: Canonical doctor application, private credential evidence, independent review, verification, suspension, renewal, appeal, privacy, and audit workflow.
- * Version: 1.2.0
+ * Description: Canonical doctor application, private credential evidence, independent review, primary-source professional trust, continuous reverification, verification passports, suspension, renewal, appeal, privacy, and audit workflow.
+ * Version: 1.3.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: Dr. Allamah Majid Hussain Sabri Muhaddith Mursheed
@@ -12,7 +12,7 @@
  */
 defined( 'ABSPATH' ) || exit;
 
-define( 'GDO_VERSION', '1.2.0' );
+define( 'GDO_VERSION', '1.3.0' );
 define( 'GDO_SCHEMA_VERSION', 6 );
 define( 'GDO_CF01_PRACTITIONER_CONTRACT_VERSION', '1.0.0' );
 define( 'GDO_FILE', __FILE__ );
@@ -43,6 +43,7 @@ $gdo_files = array(
 	'class-gdo-api.php',
 	'class-gdo-cf01-practitioner-contract.php',
 	'class-gdo-integration-contracts.php',
+	'class-gdo-advanced-trust.php',
 	'class-gdo-rest.php',
 	'class-gdo-activator.php',
 	'class-gdo-plugin.php',
