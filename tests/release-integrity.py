@@ -1,0 +1,38 @@
+from pathlib import Path
+import json, sys
+root=Path(__file__).resolve().parents[1]
+def fail(m): print('FAIL:',m,file=sys.stderr); raise SystemExit(1)
+main=(root/'global-doctor-onboarding.php').read_text(encoding='utf-8'); readme=(root/'readme.txt').read_text(encoding='utf-8')
+if 'Plugin Name: Global Doctor Onboarding and Verification\n' not in main: fail('canonical plugin title mismatch')
+if 'Version: 1.2.0' not in main or "define( 'GDO_SCHEMA_VERSION', 6 )" not in main: fail('runtime version/schema mismatch')
+if 'Stable tag: 1.2.0' not in readme: fail('stable tag mismatch')
+for p in ['TRACEABILITY.md','RELEASE-MANIFEST-1.2.0.md','SBOM.spdx.json','REVIEW-ROUND-1.md','REVIEW-ROUND-2.md','REVIEW-40-ROUNDS-RC3.md','STAGING-ACCEPTANCE.md','MIGRATION-ROLLBACK-1.2.0.md','SECURITY-PRIVACY.md','OPERATIONS.md']:
+    if not (root/p).is_file(): fail('missing release evidence '+p)
+sbom=json.loads((root/'SBOM.spdx.json').read_text(encoding='utf-8'))
+if sbom.get('spdxVersion')!='SPDX-2.3': fail('invalid SBOM template')
+package=(sbom.get('packages') or [{}])[0]
+if package.get('versionInfo')!='1.2.0-RC4' or package.get('filesAnalyzed') is not False: fail('SBOM repository template identity mismatch')
+if sbom.get('files') not in ([], None): fail('repository SBOM template must not pretend to contain exact-head checksums')
+release_files=[x for x in (root/'RELEASE-FILES.txt').read_text(encoding='utf-8').splitlines() if x.strip()]
+manifest=(root/'RELEASE-MANIFEST-1.2.0.md').read_text(encoding='utf-8')
+if 'global-doctor-onboarding-09/' not in manifest or 'global-doctor-onboarding-09-1.2.0-RC4.zip' not in manifest: fail('canonical package identity mismatch')
+lock=json.loads((root/'RELEASE-LOCK.json').read_text(encoding='utf-8'))
+if lock.get('runtime')!='1.2.0' or lock.get('schema')!=6 or lock.get('release_candidate')!='RC4' or lock.get('release_file_count')!=len(release_files): fail('release lock mismatch')
+builder=(root/'tools/build-release.py').read_text(encoding='utf-8'); verifier=(root/'tools/verify-release.py').read_text(encoding='utf-8')
+for token in ['generate_sbom',"release_candidate = 'RC4'",'sabri:source-head','SBOM.spdx.json']:
+    if token not in builder: fail('deterministic generated-SBOM builder missing '+token)
+for token in ['generated SBOM','1.2.0-RC4','sabri:source-head','source/package parity mismatch']:
+    if token not in verifier: fail('generated-SBOM verifier missing '+token)
+trace=(root/'TRACEABILITY.md').read_text(encoding='utf-8')
+for i in range(1,18):
+    if f'F09-FR-{i:03d}' not in trace: fail(f'missing FR {i}')
+for i in range(1,11):
+    if f'F09-NFR-{i:03d}' not in trace: fail(f'missing NFR {i}')
+for i in range(1,14):
+    if f'DoD-{i:02d}' not in trace: fail(f'missing DoD {i}')
+for tok in ['F09-CEN-01','F09-CEN-02','CEN-SEARCH-001','AJ-03','AJ-40']:
+    if tok not in trace: fail('latest-plan traceability missing '+tok)
+for p in root.rglob('*'):
+    if not p.is_file() or '.git' in p.parts or 'dist' in p.parts: continue
+    if p.suffix.lower() in {'.zip','.sql','.sqlite','.pem','.key','.p12','.pfx'} or p.name in {'.env','wp-config.php'}: fail('forbidden repository artifact '+str(p))
+print('File 09 RC4 release-integrity checks passed.')
