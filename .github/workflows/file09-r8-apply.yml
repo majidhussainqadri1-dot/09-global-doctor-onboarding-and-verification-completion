@@ -70,6 +70,7 @@ jobs:
           sed -i "s/ and 'tests\/eighty-round-audit-r8.py' in workflow//" tests/eighty-round-audit-r8.py
           python3 tests/eighty-round-audit-r8.py
           cp /tmp/eighty-round-audit-r8.py tests/eighty-round-audit-r8.py
+          sed -i 's/[[:space:]]\+$//' STATUS.md
           git diff --check
       - name: Commit R8 corrective tree
         run: |
