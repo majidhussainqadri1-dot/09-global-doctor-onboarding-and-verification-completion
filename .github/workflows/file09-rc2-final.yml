@@ -1,10 +1,10 @@
-name: File 09 RC5 Advanced-Trust Exact-Head Assurance
+name: File 09 RC6 Eighty-Round Exact-Head Assurance
 
 on:
   pull_request:
   push:
     branches:
-      - codex/file09-1.3.0-advanced-trust-24
+      - codex/file09-1.3.0-rc6-80-round-review
       - main
   workflow_dispatch:
 
@@ -13,9 +13,9 @@ permissions:
 
 jobs:
   verify:
-    name: PHP ${{ matrix.php }} source, legacy, latest-plan and advanced-trust assurance
+    name: PHP ${{ matrix.php }} source, legacy, plan, trust and 80-round assurance
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     strategy:
@@ -59,6 +59,7 @@ jobs:
           python3 tests/review40-adversarial.py
           python3 tests/latest-plan-parity.py
           python3 tests/advanced-trust-24.py
+          python3 tests/eighty-round-audit.py
       - name: Exact-head source evidence
         run: |
           git rev-parse HEAD | tee exact-head.txt
@@ -67,7 +68,7 @@ jobs:
           wc -l exact-source-checksums.sha256
 
   package:
-    name: Deterministic 1.3.0 RC5 package
+    name: Deterministic 1.3.0 RC6 package
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -89,8 +90,8 @@ jobs:
           set -euo pipefail
           python3 tools/build-release.py --output dist-a
           python3 tools/build-release.py --output dist-b
-          cmp dist-a/global-doctor-onboarding-09-1.3.0-RC5.zip dist-b/global-doctor-onboarding-09-1.3.0-RC5.zip
-          python3 tools/verify-release.py dist-a/global-doctor-onboarding-09-1.3.0-RC5.zip RELEASE-FILES.txt
+          cmp dist-a/global-doctor-onboarding-09-1.3.0-RC6.zip dist-b/global-doctor-onboarding-09-1.3.0-RC6.zip
+          python3 tools/verify-release.py dist-a/global-doctor-onboarding-09-1.3.0-RC6.zip RELEASE-FILES.txt
           rm -rf dist && mv dist-a dist && rm -rf dist-b
           git rev-parse HEAD > dist/EXACT-HEAD.txt
           test "$(cat dist/EXACT-HEAD.txt)" = "$EXPECTED_SHA"
@@ -98,7 +99,7 @@ jobs:
       - name: Upload exact-head release artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: file09-1.3.0-rc5-${{ env.EXPECTED_SHA }}
+          name: file09-1.3.0-rc6-${{ env.EXPECTED_SHA }}
           path: dist/
           if-no-files-found: error
           retention-days: 30
