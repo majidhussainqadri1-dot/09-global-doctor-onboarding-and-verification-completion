@@ -30,6 +30,7 @@ jobs:
       - name: Validate corrected R7 tree
         run: |
           set -euo pipefail
+          git rm -f .github/workflows/file09-r7-apply.yml
           git diff --check
           python3 -m py_compile tests/eighty-round-audit-r7.py
           find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l >/dev/null
@@ -63,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf dist-a dist-b
-          git rm -f .github/workflows/file09-r7-apply.yml tools/r7-apply.py
+          git rm -f tools/r7-apply.py
           git add -A
           git config user.name 'File09 Corrective Assurance Bot'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
