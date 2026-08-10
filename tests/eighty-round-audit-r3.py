@@ -40,7 +40,7 @@ def check(n,topic,condition): checks.append((n,topic,bool(condition)))
 check(1,'Exact R3 review ledger and temporary patch transport absent',has(review,'Frozen review baseline: `f1901a2326ddf1189b90a5f34f8bbcc7e6eb0361`','Total review controls: **80**') and not (root/'R3-APPLY-TRIGGER.txt').exists() and not (root/'tools/file09-r3-apply.py').exists())
 check(2,'Canonical File09 ownership remains explicit and typed',has(integrations,"'source_of_truth'          => 'file09'","'direct_table_meta_write'=> false"))
 check(3,'Repository/staging/live/operational truth remains separated',has(status.lower(),'staging accepted: **false**','live deployed: **false**','operationally accepted: **false**'))
-profile_block=member[member.index('function profile'):member.index('function canonical_uuid')]
+profile_block=member[member.index('function profile'):member.index('function status')]
 check(4,'Partial File00 profile outage fails closed',has(profile_block,'$base = self::base_assertion','if ( ! $base )','return array();') and 'return $profile;' not in profile_block.split('if ( ! $base )',1)[1].split('}',1)[0])
 check(5,'File00 hard membership dependency is retained',has(plugin,'File 00 Membership Core is required','GDO_Membership_Adapter::available'))
 check(6,'File02 recent step-up protects sensitive reviewer paths',has(hard,'rest_reviewer_permission','recent_step_up'))
