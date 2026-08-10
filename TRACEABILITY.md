@@ -1,127 +1,133 @@
-# File 09 Requirements Traceability — Latest Central + File 09 Plans
+# File 09 Requirements Traceability — Latest Central + File 09 + Advanced Trust 24
 
-Candidate: `1.2.0 RC4` / schema `6`
+Candidate: `1.3.0 RC5` / core schema `6` / Advanced Trust schema `1`  
 Canonical owner: **File 09 — Global Doctor Onboarding and Verification**
 
-A requirement is never accepted merely because a class/function exists. Repository traceability below proves source/test intent; exact-head automated results and required external staging evidence are separate gates.
+A requirement is not accepted merely because a class/function exists. This document maps repository intent; exact-head automated evidence, Hostinger staging and live evidence remain separate gates.
 
-## Functional requirements
+## Existing functional requirements
 
-| Requirement | Capability | Source owner/implementation | Automated / external evidence |
-|---|---|---|---|
-| F09-FR-001 | Eligibility precheck | `GDO_Policy::eligibility`; `GDO_Membership_Adapter` | `tests/policy-runtime.php`; `tests/membership-adapter.php`; staging negative matrix |
-| F09-FR-002 | Guided wizard | `GDO_Frontend::form`; `assets/js/onboarding.js` | `tests/completion-security.py`; AJ-03 staging UI |
-| F09-FR-003 | Draft save/resume | `GDO_Application::save_draft`; `GDO_REST::autosave` | policy/static tests; staging concurrency/reconnect |
-| F09-FR-004 | Evidence upload | `GDO_Evidence::stage_upload`; `GDO_Crypto`; `GDO_Storage` | security tests; malicious/polyglot/private-storage staging |
-| F09-FR-005 | Completeness gate | `GDO_Application::completeness` | policy runtime; 100% conditional-field staging |
-| F09-FR-006 | Submission | `GDO_Application::submit`; immutable submission hash/outbox | completion-security; idempotency staging |
-| F09-FR-007 | Reviewer assignment | `GDO_Admin::assign`; reviewer profiles | completion-security; role/workload/race staging |
-| F09-FR-008 | Evidence review | `GDO_Evidence` grants/render/review; `GDO_Admin` | security unit; staging IDOR/step-up |
-| F09-FR-009 | More information | `GDO_Admin::request_more_info`; replacement versions | completion-security; AJ-03 journey |
-| F09-FR-010 | Decision | recommend/finalize; `GDO_State`; approved snapshot | completion-security; separation-of-duties staging |
-| F09-FR-011 | Claim issuance | `GDO_Claims`; File 00 acknowledged delivery | policy/completion-security; real File 00 contract |
-| F09-FR-012 | Renewal | `GDO_Retention::open_renewals`; predecessor projection continuity | hardening/review40; staging time travel |
-| F09-FR-013 | Suspension/revocation | `GDO_Admin::change_state`; `GDO_Claims` | completion-security; lifecycle propagation |
-| F09-FR-014 | Appeal | frontend appeal; independent admin assign/resolve | adversarial tests; staging independence |
-| F09-FR-015 | Duplicate/fraud detection | `GDO_Risk` | policy/review40; false-positive staging |
-| F09-FR-016 | Applicant data rights | `GDO_Privacy`; withdrawal/erasure/legal hold | completion-security; AJ-35 staging |
-| F09-FR-017 | Reviewer quality | `GDO_Quality`; access logs/metrics | policy/review40; staging sampling |
-
-## Non-functional requirements
-
-| Requirement | Gate | Implementation | Evidence |
-|---|---|---|---|
-| F09-NFR-001 | Object/field authorization | File 00 claims + native ownership/state/version/purpose checks | membership/completion-security; staging IDOR |
-| F09-NFR-002 | Privacy lifecycle | consent/export/erasure/legal hold/retention | completion-security; AJ-35 |
-| F09-NFR-003 | Reliability | transactional outbox/retry/dead-letter/reconciliation/Safe Mode | policy/review40; AJ-36 |
-| F09-NFR-004 | Performance | bounded queries/indexes/background work | completion-security; staging p75/p95/load |
-| F09-NFR-005 | Accessibility | semantic wizard/focus/reflow/RTL/reduced motion | static; AJ-31/32 manual matrix |
-| F09-NFR-006 | Observability | audit hash chain/trace/access/quality/health | policy/review40; staging alerts |
-| F09-NFR-007 | Migration/rollback | lock/idempotent schema/quarantine/rollback runbook | completion-security; staging migration/rollback |
-| F09-NFR-008 | Operability | health/Safe Mode/repair/queue/reconciliation | policy; staging operations |
-| F09-NFR-009 | Compatibility | WP 7.0.1/PHP 8.3 target; PHP 7.4 floor; versioned contracts | CI matrix; actual staging |
-| F09-NFR-010 | Localization | en-US base; Urdu/Arabic/RTL; date/time correctness | static; locale staging |
-
-## Latest central/File-specific requirements
-
-| Governing ID | File 09 implementation | Regression / acceptance |
+| Requirement | Capability | Source / evidence |
 |---|---|---|
-| F09-CEN-01 | `GDO_Integration_Contracts` publishes canonical owner contract, free/donor-neutral/privacy/safety metadata, Files 21/23 projections and File 26 verification/search projection; private evidence remains C3 and non-indexed. | `tests/cross-file-contracts.php`; `tests/latest-plan-parity.py`; AJ-04/05/24/25 + File26 staging |
-| F09-CEN-02 | Mutations remain native File 09 commands/state machine; reads/projections use versioned contracts with action-time File 00/File 09 recheck; notification event is `sun.event.v1`; File 20 page registration is versioned. | architecture/completion tests; cross-file tests; AJ-03/34/36 |
-| CEN-SEARCH-001 | `gdo.file26.doctor-verification-projection` supplies only current public verification truth. File 26 owns search/ranking; File 09 connector is `contract_tested`, not silently active; verification loss fails closed. | cross-file tests + staging search corpus/deletion/rights/rank-explanation verification |
+| F09-FR-001 | Eligibility precheck | `GDO_Policy`, File 00 assertions; policy/membership tests |
+| F09-FR-002 | Guided wizard | `GDO_Frontend`, onboarding JS; completion/security tests |
+| F09-FR-003 | Draft save/resume | `GDO_Application`, REST autosave; concurrency staging |
+| F09-FR-004 | Evidence upload | `GDO_Evidence`, crypto/storage; security tests |
+| F09-FR-005 | Completeness gate | `GDO_Application::completeness`; policy tests |
+| F09-FR-006 | Submission | owner state machine/outbox; idempotency tests |
+| F09-FR-007 | Reviewer assignment | `GDO_Admin`, reviewer profiles; scope tests |
+| F09-FR-008 | Evidence review | evidence grants/admin review; IDOR/step-up tests |
+| F09-FR-009 | More information | replacement/versioned evidence; state tests |
+| F09-FR-010 | Decision | recommendation/finalization/separation of duties |
+| F09-FR-011 | Claim issuance | `GDO_Claims`, File 00 acknowledgment |
+| F09-FR-012 | Renewal | `GDO_Retention`; predecessor continuity |
+| F09-FR-013 | Suspension/revocation | File 09 state/claims lifecycle |
+| F09-FR-014 | Appeal | independent appeal assignment/resolution |
+| F09-FR-015 | Duplicate/fraud detection | `GDO_Risk` + Advanced Trust fraud-network clues |
+| F09-FR-016 | Applicant data rights | `GDO_Privacy`, withdrawal/erasure/legal hold |
+| F09-FR-017 | Reviewer quality | `GDO_Quality` + calibration summary |
+
+## Existing non-functional requirements
+
+| Requirement | Gate | Source / evidence |
+|---|---|---|
+| F09-NFR-001 | Object/field authorization | File 00 + native owner/state/version/purpose checks |
+| F09-NFR-002 | Privacy lifecycle | consent/export/erasure/legal hold/retention |
+| F09-NFR-003 | Reliability | outbox/retry/dead-letter/reconciliation/Safe Mode |
+| F09-NFR-004 | Performance | bounded queries/indexes/background work |
+| F09-NFR-005 | Accessibility | semantic wizard/focus/reflow/RTL/reduced motion |
+| F09-NFR-006 | Observability | audit chain/trace/access/quality/health |
+| F09-NFR-007 | Migration/rollback | idempotent schema/quarantine/runbooks |
+| F09-NFR-008 | Operability | health/Safe Mode/repair/queues/reconciliation |
+| F09-NFR-009 | Compatibility | WordPress/PHP versioned contracts, PHP 7.4/8.3 CI |
+| F09-NFR-010 | Localization | en-US base, Urdu/Arabic/RTL, locale-safe dates |
+
+## Central and File-specific requirements
+
+| Governing ID | File 09 implementation |
+|---|---|
+| F09-CEN-01 | Canonical owner contract, free/donor-neutral/privacy/safety metadata, Files 21/23 and File 26 public-safe projections; private evidence remains non-indexed. |
+| F09-CEN-02 | Owner-only mutations, versioned read/projection/event contracts, action-time authorization recheck, File 19 event and File 20 page contract. |
+| CEN-SEARCH-001 | File 26 consumes public-safe current verification only; File 26 owns search/ranking and File 09 connector never silently indexes private evidence. |
+
+## Advanced Professional Trust requirements — 24 approved enhancements
+
+| ID | Approved enhancement | Repository implementation | Permanent gate / external acceptance |
+|---|---|---|---|
+| F09-AT-01 | Primary-Source Verification Hub | `GDO_Advanced_Trust::primary_source_verify`, `gdo_primary_source_verification` | `tests/advanced-trust-24.py`; real issuer staging |
+| F09-AT-02 | Trusted Issuer Registry | `gdo_trusted_issuers`, `register_issuer`, `trusted_issuer` | privileged step-up; issuer governance staging |
+| F09-AT-03 | Credential Authenticity Engine | `authenticity_assessment`, hash reuse/technical facts | manual-review invariant; malicious evidence staging |
+| F09-AT-04 | Jurisdiction Rules Engine | `gdo_jurisdiction_rules`, save/read approved rule | version/effective-date tests; jurisdiction staging |
+| F09-AT-05 | Cross-Border Credential Equivalency Map | `equivalency_assessment`, adapter filter | never legal license grant; cross-border staging |
+| F09-AT-06 | Continuous License Monitoring | `gdo_monitor_state`, daily monitor | revoked/expired/provider-outage staging |
+| F09-AT-07 | Event-Driven Reverification | `GDO_Advanced_Trust_Events`, `schedule_reverification` | no derivative auto-command; lifecycle staging |
+| F09-AT-08 | Professional Verification Passport | signed/revocable `gdo_verification_passports` | expiry/revocation/signature staging |
+| F09-AT-09 | Public Verification QR Card | public-safe `verification_url`/`qr_payload` | presentation QR renderer + no-tracking staging |
+| F09-AT-10 | Verification Scope Badge | `verification_matrix`, public card shortcode/filter | File 03/25 presentation acceptance |
+| F09-AT-11 | Institutional Affiliation Verification | `verify_affiliation`, adapter facts | institution adapter/manual-review staging |
+| F09-AT-12 | Professional History Timeline | `gdo_professional_history`, `public_safe` projection | append-only/public-private staging |
+| F09-AT-13 | Credential Translation Workspace | `translation_assistance` | original remains authoritative; locale staging |
+| F09-AT-14 | AI-Assisted Evidence Review | `ai_assistance`; decision keys discarded | human-final-decision assertion; provider staging |
+| F09-AT-15 | Explainable Risk Intelligence | `risk_explanation` | no opaque auto-rejection; reviewer UI staging |
+| F09-AT-16 | Fraud-Ring & Collusion Detection | `fraud_ring_scan`, credential-reuse risk links | false-positive/manual-resolution staging |
+| F09-AT-17 | Reviewer Conflict-of-Interest Engine | `reviewer_conflicts`, narrowing authorization filter | conflict/recusal negative matrix |
+| F09-AT-18 | Adaptive Dual Review | `requires_dual_review` | high-risk/cross-border/appeal dual-review staging |
+| F09-AT-19 | Smart Reviewer Routing | `smart_reviewer_candidates` | jurisdiction/language/load/conflict staging |
+| F09-AT-20 | Reviewer Calibration Laboratory | `reviewer_calibration` over quality samples | anonymized calibration acceptance |
+| F09-AT-21 | Applicant Verification Command Center | shortcode + `GET /trust/command-center` | owner-only/mobile/RTL staging |
+| F09-AT-22 | Resumable Secure Evidence Upload | upload sessions/chunks/finalize through `GDO_Evidence::stage_upload` | interruption/order/hash/malware/encryption staging |
+| F09-AT-23 | Secure Evidence Viewing Room | step-up access grant, watermark, `download_allowed=false` | IDOR/session-expiry/download-negative tests |
+| F09-AT-24 | Professional Trust Transparency Dashboard | `transparency_snapshot`, public aggregate REST | minimum aggregation/privacy staging |
+
+## Advanced Trust data and API boundary
+
+File 09 owns only professional-trust records: `gdo_trusted_issuers`, `gdo_jurisdiction_rules`, `gdo_credential_checks`, `gdo_professional_history`, `gdo_reviewer_conflicts`, `gdo_verification_passports`, `gdo_monitor_state`, `gdo_upload_sessions`.
+
+External providers are adapters only: `gdo_primary_source_verification`, `gdo_credential_equivalency_assessment`, `gdo_institutional_affiliation_verification`, `gdo_credential_translation_assistance`, `gdo_ai_evidence_assistance`. Their response is a fact/hint requiring authorized human review. Provider secrets are deployment secrets and never repository/table metadata.
+
+Public REST surfaces contain only public-safe professional scope or aggregate metrics. Private evidence and application payloads are not search documents and are never exposed in QR/passport/transparency responses.
 
 ## Current companion boundaries
 
 | File | Contract / rule |
 |---|---|
-| File 00 | Identity, membership, guardian/contact/2FA/sanction and general authorization truth; File 09 emits signed professional decision and rechecks current assurance. |
+| File 00 | Identity, membership, guardian/contact/MFA/sanction and general authorization truth. |
 | File 02 | Professional reauthentication / step-up owner. |
-| File 03 | `gdo.file03.doctor-profile-eligibility` public-safe current professional projection. |
-| File 07 | `gdo.file07.directory-eligibility`; directory/search ranking truth is not owned by File 09. |
-| File 08 | `gdo.file08.clinic-eligibility`; no appointment/clinical truth duplicated. |
-| File 19 | `sun.event.v1` with producer `file09-doctor-verification`; minimized facts only; legacy adapters fallback-only. |
-| File 20 | sole application shell; `sabri_shell_page_contracts` maps `gdo_page_map/apply`; no second shell. |
-| File 21 | `gdo.file21.publishing-eligibility`; publication truth remains File 21. |
-| File 23 | `gdo.file23.publishing-dashboard-eligibility`; dashboard only consumes eligibility. |
-| File 24 | security/privacy assurance; native File 09 enforcement remains native. |
-| File 26 | `gdo.file26.doctor-verification-projection`; File 26 owns search/discovery/ranking and may only consume public-safe current truth. |
+| File 03 | Public profile consumes public-safe current verification/scoped badges. |
+| File 07 | Directory eligibility/ranking remains native; no File 09 rank score. |
+| File 08 | Clinic/appointment/clinical truth remains native. |
+| File 19 | Notification projection/delivery remains native; File 09 emits facts/outbox only. |
+| File 20 | Sole application shell. |
+| File 21/23 | Publishing truth/dashboard consume eligibility only. |
+| File 24 | Security/privacy/compliance assurance; File 09 native enforcement remains native. |
+| File 26 | Search/discovery/ranking; consumes public-safe verification only. |
 
 ## Acceptance Journey mapping
 
-| AJ | File 09 relevance / proof |
-|---|---|
-| AJ-03 | Full doctor onboarding/verification/more-info/approval/renewal/appeal journey — external staging mandatory. |
-| AJ-04 | Public verified doctor identity consumes current File 09 status through File 03 — external cross-file staging. |
-| AJ-05 | Directory/search uses current verification and no paid/donor bias — File 07/File 26 staging. |
-| AJ-24 | Donation prompt remains outside File 09 verification authority; no verification mutation or benefit tied to donation. |
-| AJ-25 | Donor/non-donor equality encoded by `donor_rank_advantage=false` and no fee/rank branch; cross-platform staging required. |
-| AJ-31 | Keyboard/screen-reader/zoom/reduced-motion — manual staging. |
-| AJ-32 | RTL/LTR/mixed-language fields — CSS/static + manual staging. |
-| AJ-33 | slow 3G/offline/reconnect/autosave — staging/browser evidence. |
-| AJ-34 | current authorization/step-up/recovery/security state — File 00/02 integration staging. |
-| AJ-35 | export/delete/retention/legal hold — privacy staging. |
-| AJ-36 | File 19/scanner/key/storage/provider outages — no false success; outbox/reconciliation staging. |
-| AJ-37 | backup restore/RPO/RTO and rights/deletion consistency — isolated restore drill. |
-| AJ-38 | critical defect blocks release absent documented Founder exception. |
-| AJ-39 | final multi-device/role/state screenshot/evidence corpus — staging. |
-| AJ-40 | two fresh review→fix→retest rounds on exact release candidate before rollout. |
+AJ-03 full onboarding/more-info/approval/renewal/appeal; AJ-04 public verified identity; AJ-05 directory/search; AJ-24/AJ-25 donor neutrality; AJ-31 accessibility; AJ-32 RTL/LTR; AJ-33 weak-network/reconnect; AJ-34 authorization/step-up; AJ-35 privacy rights; AJ-36 provider/scanner/key/storage outages; AJ-37 backup/restore; AJ-38 blocker law; AJ-39 final evidence corpus; AJ-40 two fresh review→fix→retest cycles.
+
+RC5 additionally extends AJ-03/AJ-33/AJ-34/AJ-36/AJ-37/AJ-40 with primary-source adapters, continuous monitoring, conflict/dual review, resumable upload, viewing-room, passport and Advanced Trust schema restore evidence.
 
 ## Definition of Done mapping
 
-| DoD | Evidence |
+| DoD | RC5 evidence |
 |---|---|
-| DoD-01 | This traceability map, canonical ownership and latest plan IDs. |
-| DoD-02 | RC4 release manifest, deterministic exact-head generated SBOM/package and SHA-256 artifact. |
-| DoD-03 | Migration code plus external fresh/upgrade/deactivate/reactivate/uninstall staging evidence. |
-| DoD-04 | Architecture, completion-security and latest-plan parity tests. |
-| DoD-05 | Membership/CF-01/cross-file authorization tests plus staging IDOR matrix. |
-| DoD-06 | Privacy/security static tests plus external export/erase/retention/provider-deletion evidence. |
-| DoD-07 | Security unit/static tests plus real provider and File 24 assurance review. |
-| DoD-08 | CSS/static checks plus manual 320–1920px, 400% zoom, keyboard, screen reader and RTL acceptance. |
-| DoD-09 | Queue/outbox logic plus File 19 `sun.event.v1`, staging load/outage/SLO evidence. |
-| DoD-10 | Migration/rollback runbook plus isolated backup-restore/decrypt drill. |
-| DoD-11 | RC3 forty-round evidence plus RC4 latest-plan corrective review; release still requires two fresh staging review cycles. |
-| DoD-12 | `STAGING-ACCEPTANCE.md` with explicit Founder acceptance; external execution pending. |
-| DoD-13 | Exact-head CI zero blockers; residual external gates explicit, never hidden. |
-
-## RC4 latest-plan correction ledger — 10 Aug 2026
-
-| Finding | Correction | Permanent gate |
-|---|---|---|
-| Missing latest File 21/File 23 consumers | Added fail-closed versioned eligibility projections | `tests/cross-file-contracts.php` |
-| Missing File 26 verification/search projection boundary | Added `gdo.file26.doctor-verification-projection`, contract-tested connector manifest and fail-closed use-time projection | cross-file + latest-plan tests |
-| Legacy-only File 19 delivery | Added producer registration and minimized `sun.event.v1` ingestion; legacy fallback retained only for compatibility | `tests/latest-plan-parity.py`; existing outbox gates |
-| File 20 page registry not declared | Added `sabri_shell_page_contracts` mapping to `gdo_page_map/apply` | cross-file test |
-| Obsolete plugin title suffix | Canonical plugin header now exactly `Global Doctor Onboarding and Verification` | latest-plan/release-integrity |
-| Static SBOM reopened by every source change | RC4 builder generates SPDX 2.3 from exact checked-out allowlist and binds it to source HEAD; verifier checks every declared SHA-256 | release-integrity + deterministic double build |
-| Latest plan IDs not explicit in repository evidence | Added F09-CEN/CEN-SEARCH/AJ mappings | release-integrity + latest-plan parity |
-
-## Prior RC3 assurance
-
-RC3 completed **40** independent corrected-tree review/fix rounds: **13 defect-bearing rounds + 27 clean rounds**. That evidence remains historical support; the RC4 exact head must independently pass the complete workflow.
+| DoD-01 | This traceability map + canonical ownership + F09-AT-01…24. |
+| DoD-02 | `RELEASE-MANIFEST-1.3.0.md`, deterministic exact-head package/SBOM after CI. |
+| DoD-03 | Core migration + `MIGRATION-ROLLBACK-1.3.0.md`; staging migration pending. |
+| DoD-04 | Existing architecture/security suites + `tests/advanced-trust-24.py`. |
+| DoD-05 | File 00/File 02/cross-file authorization + reviewer conflict/step-up matrix. |
+| DoD-06 | Privacy/security + public passport/transparency minimization + staging data rights. |
+| DoD-07 | Existing security tests + provider failure/private storage/viewing-room acceptance. |
+| DoD-08 | CSS/static + manual responsive/zoom/keyboard/screen-reader/RTL acceptance. |
+| DoD-09 | Outbox + continuous monitor + provider/SLO/outage staging. |
+| DoD-10 | Backup/restore/decrypt + Advanced Trust schema/passport/upload-session restore drill. |
+| DoD-11 | Historical RC3/RC4 reviews + RC5 fresh corrective reviews required. |
+| DoD-12 | `STAGING-ACCEPTANCE.md` + explicit Founder staging acceptance. |
+| DoD-13 | Exact-head CI zero blockers; staging/live/operational status never inferred from repository success. |
 
 ## Trace-chain law
 
-`Central CV/CEN/AJ ID → File 09 requirement → design/data/API/event → test ID → defect/fix/commit → package/checksum → staging evidence → Founder approval → rollout/monitoring`.
+`Central CV/CEN/AJ or F09-AT ID → File 09 requirement → design/data/API/event → test ID → defect/fix/commit → package/checksum → staging evidence → Founder approval → rollout/monitoring`.
 
-Repository source can satisfy only the early links. Staging/live/operational links remain false until separately observed and recorded.
+Repository source can prove only the early links. Staging/live/operational links remain false until separately observed and recorded.
