@@ -65,12 +65,17 @@ final class GDO_Retention {
 			$now, $window
 		) );
 		foreach ( $rows as $app ) {
-			$wpdb->query( 'START TRANSACTION' );
+			if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+				continue;
+			}
 			$result = GDO_State::transition( $app->id, 'renewal_due', 0, 'verification_lifecycle', 'Verification entered the configured renewal window.', $app->row_version, false );
 			$event = is_wp_error( $result ) ? $result : GDO_Notifications::queue( 'doctor_verification_renewal_due', $app->user_id, array( 'application_id'=>absint( $app->id ), 'verified_until'=>$app->verified_until ), false );
 			$claim = is_wp_error( $event ) ? $event : GDO_Claims::issue( $app->id, 'renewal_due', array(), false );
 			if ( is_wp_error( $result ) || is_wp_error( $event ) || is_wp_error( $claim ) || false === $wpdb->query( 'COMMIT' ) ) {
 				$wpdb->query( 'ROLLBACK' );
+			} else {
+				GDO_Audit::publish_transition( $result );
+				GDO_Claims::publish( $claim );
 			}
 		}
 	}
@@ -82,7 +87,9 @@ final class GDO_Retention {
 			$now
 		) );
 		foreach ( $rows as $app ) {
-			$wpdb->query( 'START TRANSACTION' );
+			if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+				continue;
+			}
 			$result = GDO_State::transition( $app->id, 'expired', 0, 'verification_expired', 'Verification validity period ended.', $app->row_version, false );
 			$event = is_wp_error( $result ) ? $result : GDO_Notifications::queue( 'doctor_verification_expired', $app->user_id, array( 'application_id'=>absint( $app->id ) ), false );
 			$claim = is_wp_error( $event ) ? $event : GDO_Claims::issue( $app->id, 'expired', array(), false );
@@ -90,6 +97,8 @@ final class GDO_Retention {
 				$wpdb->query( 'ROLLBACK' );
 				continue;
 			}
+			GDO_Audit::publish_transition( $result );
+			GDO_Claims::publish( $claim );
 			do_action( 'gdo_verification_decision_changed', $app->user_id, 'expired', $app->id, array() );
 		}
 	}
@@ -181,12 +190,17 @@ final class GDO_Retention {
 				GDO_Membership_Adapter::audit( 'doctor_verification_retention_app_anonymize_failed', array( 'application_id'=>absint( $app->id ) ) );
 				continue;
 			}
-			$wpdb->update( GDO_Schema::table( 'consents' ), array( 'user_id'=>0, 'purpose'=>'retained-accountability-record', 'retention_notice'=>'anonymized', 'withdrawn_at'=>$now ), array( 'application_id'=>$app->id ) );
-			$wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'application_id'=>$app->id ) );
-			$wpdb->update( GDO_Schema::table( 'appeals' ), array( 'user_id'=>0, 'reason'=>'anonymized', 'evidence_json'=>null, 'resolution'=>'anonymized' ), array( 'application_id'=>$app->id ) );
-			$wpdb->update( GDO_Schema::table( 'risk_signals' ), array( 'related_digest'=>null, 'resolution_reason'=>'anonymized' ), array( 'application_id'=>$app->id ) );
-			$wpdb->update( GDO_Schema::table( 'quality_samples' ), array( 'reason'=>'anonymized' ), array( 'application_id'=>$app->id ) );
-			$wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'application_id'=>$app->id ) );
+			$native_ok = true;
+			$native_ok = $native_ok && false !== $wpdb->update( GDO_Schema::table( 'consents' ), array( 'user_id'=>0, 'purpose'=>'retained-accountability-record', 'retention_notice'=>'anonymized', 'withdrawn_at'=>$now ), array( 'application_id'=>$app->id ) );
+			$native_ok = $native_ok && false !== $wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'application_id'=>$app->id ) );
+			$native_ok = $native_ok && false !== $wpdb->update( GDO_Schema::table( 'appeals' ), array( 'user_id'=>0, 'reason'=>'anonymized', 'evidence_json'=>null, 'resolution'=>'anonymized' ), array( 'application_id'=>$app->id ) );
+			$native_ok = $native_ok && false !== $wpdb->update( GDO_Schema::table( 'risk_signals' ), array( 'related_digest'=>null, 'resolution_reason'=>'anonymized' ), array( 'application_id'=>$app->id ) );
+			$native_ok = $native_ok && false !== $wpdb->update( GDO_Schema::table( 'quality_samples' ), array( 'reason'=>'anonymized' ), array( 'application_id'=>$app->id ) );
+			$native_ok = $native_ok && false !== $wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'application_id'=>$app->id ) );
+			if ( ! $native_ok ) {
+				GDO_Membership_Adapter::audit( 'doctor_verification_retention_native_anonymize_failed', array( 'application_id'=>absint( $app->id ) ) );
+				continue;
+			}
 			GDO_Membership_Adapter::audit( 'doctor_verification_retention_anonymized', array( 'application_id'=>absint( $app->id ) ) );
 		}
 	}
@@ -195,6 +209,10 @@ final class GDO_Retention {
 		global $wpdb;
 		$app_id = absint( $app->id );
 		$uploads = $wpdb->get_results( $wpdb->prepare( 'SELECT upload_uuid,temp_name FROM ' . GDO_Advanced_Trust::table( 'upload_sessions' ) . ' WHERE application_id=%d', $app_id ) );
+		if ( null === $uploads || ! empty( $wpdb->last_error ) ) {
+			GDO_Membership_Adapter::audit( 'doctor_advanced_trust_retention_failed', array( 'application_id'=>$app_id, 'error'=>'upload_inventory_failed' ) );
+			return false;
+		}
 		foreach ( (array) $uploads as $row ) {
 			$dir = GDO_Storage::directory();
 			$path = $dir ? trailingslashit( $dir ) . '.chunk-' . basename( sanitize_file_name( $row->temp_name ) ) : '';
@@ -203,15 +221,19 @@ final class GDO_Retention {
 				return false;
 			}
 		}
-		$wpdb->delete( GDO_Advanced_Trust::table( 'upload_sessions' ), array( 'application_id'=>$app_id ) );
-		$wpdb->delete( GDO_Advanced_Trust::table( 'monitor_state' ), array( 'application_id'=>$app_id ) );
+		$ok = true;
+		$ok = $ok && false !== $wpdb->delete( GDO_Advanced_Trust::table( 'upload_sessions' ), array( 'application_id'=>$app_id ) );
+		$ok = $ok && false !== $wpdb->delete( GDO_Advanced_Trust::table( 'monitor_state' ), array( 'application_id'=>$app_id ) );
 		// Passports are derivative credentials; after retention they must no longer
 		// be resolvable and are deleted rather than mapped to a shared user_id=0.
-		$wpdb->delete( GDO_Advanced_Trust::table( 'verification_passports' ), array( 'application_id'=>$app_id ) );
-		$wpdb->update( GDO_Advanced_Trust::table( 'credential_checks' ), array( 'facts_json'=>'{"redacted":"retention"}', 'explanation_json'=>'{"redacted":"retention"}', 'external_reference'=>'', 'updated_at'=>$now ), array( 'application_id'=>$app_id ) );
-		$wpdb->update( GDO_Advanced_Trust::table( 'professional_history' ), array( 'user_id'=>0, 'public_safe'=>0, 'event_json'=>'{"redacted":"retention"}', 'source_hash'=>hash( 'sha256', '{"redacted":"retention"}' ) ), array( 'application_id'=>$app_id ) );
-		$wpdb->update( GDO_Advanced_Trust::table( 'reviewer_conflicts' ), array( 'applicant_id'=>0 ), array( 'application_id'=>$app_id ) );
-		return true;
+		$ok = $ok && false !== $wpdb->delete( GDO_Advanced_Trust::table( 'verification_passports' ), array( 'application_id'=>$app_id ) );
+		$ok = $ok && false !== $wpdb->update( GDO_Advanced_Trust::table( 'credential_checks' ), array( 'facts_json'=>'{"redacted":"retention"}', 'explanation_json'=>'{"redacted":"retention"}', 'external_reference'=>'', 'updated_at'=>$now ), array( 'application_id'=>$app_id ) );
+		$ok = $ok && false !== $wpdb->update( GDO_Advanced_Trust::table( 'professional_history' ), array( 'user_id'=>0, 'public_safe'=>0, 'event_json'=>'{"redacted":"retention"}', 'source_hash'=>hash( 'sha256', '{"redacted":"retention"}' ) ), array( 'application_id'=>$app_id ) );
+		$ok = $ok && false !== $wpdb->update( GDO_Advanced_Trust::table( 'reviewer_conflicts' ), array( 'applicant_id'=>0 ), array( 'application_id'=>$app_id ) );
+		if ( ! $ok ) {
+			GDO_Membership_Adapter::audit( 'doctor_advanced_trust_retention_failed', array( 'application_id'=>$app_id, 'error'=>'database_anonymization_failed' ) );
+		}
+		return $ok;
 	}
 
 	private function cleanup_access( $now ) {

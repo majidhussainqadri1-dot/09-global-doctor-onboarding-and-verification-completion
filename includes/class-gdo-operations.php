@@ -64,7 +64,9 @@ final class GDO_Operations {
 		) );
 		$count = 0;
 		foreach ( $expired as $app ) {
-			$wpdb->query( 'START TRANSACTION' );
+			if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+				continue;
+			}
 			$result = GDO_State::transition( $app->id, 'expired', 0, 'verification_expired', 'Verification validity period ended.', $app->row_version, false );
 			$claim = is_wp_error( $result ) ? $result : GDO_Claims::issue( $app->id, 'expired', array(), false );
 			$notice = is_wp_error( $claim ) ? $claim : GDO_Notifications::queue( 'doctor_verification_expired', $app->user_id, array( 'application_id'=>$app->id ), false );
@@ -72,6 +74,8 @@ final class GDO_Operations {
 				$wpdb->query( 'ROLLBACK' );
 				continue;
 			}
+			GDO_Audit::publish_transition( $result );
+			GDO_Claims::publish( $claim );
 			++$count;
 		}
 		GDO_Notifications::process( $limit );

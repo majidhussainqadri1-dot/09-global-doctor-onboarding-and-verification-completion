@@ -79,7 +79,9 @@ final class GDO_Frontend {
 		$valid = GDO_Application::validate_profile( $profile, false, $app->jurisdiction, $app->application_type );
 		if ( is_wp_error( $valid ) ) { wp_die( esc_html( $valid->get_error_message() ), '', array( 'response'=>400 ) ); }
 		global $wpdb;
-		$wpdb->query( 'START TRANSACTION' );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			wp_die( esc_html__( 'The application save could not start a safe database transaction.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
+		}
 		$new_files = array();
 		try {
 			$saved = GDO_Application::save_draft( $id, $user, $profile, absint( isset( $_POST['row_version'] ) ? $_POST['row_version'] : 0 ) );
@@ -93,9 +95,15 @@ final class GDO_Frontend {
 					$new_files[] = $record;
 				}
 			}
-			$consent = GDO_Application::record_consent( $id, $user, ! empty( $_POST['consent'] ) );
+			$consent = GDO_Application::record_consent( $id, $user, ! empty( $_POST['consent'] ), false );
 			if ( is_wp_error( $consent ) ) { throw new RuntimeException( $consent->get_error_message() ); }
 			if ( false === $wpdb->query( 'COMMIT' ) ) { throw new RuntimeException( __( 'The application could not be committed.', 'global-doctor-onboarding' ) ); }
+			foreach ( $new_files as $record ) {
+				GDO_Membership_Adapter::audit( 'doctor_evidence_uploaded', array(
+					'application_id'=>absint( $record['application_id'] ), 'evidence_id'=>absint( $record['id'] ),
+					'document_type'=>$record['document_type'], 'version'=>absint( $record['version'] ), 'source_digest'=>$record['source_digest'],
+				) );
+			}
 		} catch ( Throwable $e ) {
 			$wpdb->query( 'ROLLBACK' );
 			foreach ( $new_files as $record ) { GDO_Storage::delete_verified( $record['storage_name'], $record['ciphertext_sha256'] ); }
@@ -118,16 +126,32 @@ final class GDO_Frontend {
 		global $wpdb;
 		$id = absint( isset( $_POST['application_id'] ) ? $_POST['application_id'] : 0 );
 		check_admin_referer( 'gdo_file_appeal_' . $id );
-		$app = GDO_Application::get( $id );
 		$reason = sanitize_textarea_field( isset( $_POST['reason'] ) ? $_POST['reason'] : '' );
+		$evidence_summary = sanitize_textarea_field( isset( $_POST['evidence_summary'] ) ? $_POST['evidence_summary'] : '' );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			wp_die( esc_html__( 'The appeal could not start a safe database transaction.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
+		}
+		$app = $wpdb->get_row( $wpdb->prepare(
+			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE',
+			$id
+		) );
 		if ( ! $app || absint( $app->user_id ) !== get_current_user_id() || ! in_array( $app->state, array( 'rejected','suspended','revoked' ), true ) || strlen( $reason ) < 20 || ! GDO_State::can_transition( $app->state, 'appeal_pending' ) ) {
+			$wpdb->query( 'ROLLBACK' );
 			wp_die( esc_html__( 'This appeal is not valid.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );
 		}
-		$existing = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE application_id=%d AND status='open' LIMIT 1", $id ) );
-		if ( $existing ) { wp_die( esc_html__( 'An appeal is already open.', 'global-doctor-onboarding' ), '', array( 'response'=>409 ) ); }
-		$evidence_summary = sanitize_textarea_field( isset( $_POST['evidence_summary'] ) ? $_POST['evidence_summary'] : '' );
+		$existing = $wpdb->get_var( $wpdb->prepare(
+			'SELECT id FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE application_id=%d AND status='open' LIMIT 1 FOR UPDATE",
+			$id
+		) );
+		if ( $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			wp_die( esc_html__( 'Appeal status could not be verified safely.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
+		}
+		if ( $existing ) {
+			$wpdb->query( 'ROLLBACK' );
+			wp_die( esc_html__( 'An appeal is already open.', 'global-doctor-onboarding' ), '', array( 'response'=>409 ) );
+		}
 		$appeal_uuid = wp_generate_uuid4();
-		$wpdb->query( 'START TRANSACTION' );
 		$result = GDO_State::transition( $id, 'appeal_pending', get_current_user_id(), 'appeal_filed', $reason, $app->row_version, false );
 		$inserted = is_wp_error( $result ) ? false : $wpdb->insert( GDO_Schema::table( 'appeals' ), array(
 			'appeal_uuid'=>$appeal_uuid, 'application_id'=>$id, 'user_id'=>get_current_user_id(),
@@ -143,6 +167,7 @@ final class GDO_Frontend {
 			$error = is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : new WP_Error( 'gdo_appeal_commit', __( 'Appeal could not be filed.', 'global-doctor-onboarding' ) ) );
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
 		}
+		GDO_Audit::publish_transition( $result );
 		GDO_Notifications::process( 1, $event );
 		wp_safe_redirect( GDO_Plugin::application_url( array( 'appealed'=>'1' ) ) ); exit;
 	}
@@ -155,7 +180,9 @@ final class GDO_Frontend {
 		$reason = sanitize_textarea_field( isset( $_POST['reason'] ) ? $_POST['reason'] : '' );
 		if ( ! $app || absint( $app->user_id ) !== get_current_user_id() || strlen( $reason ) < 20 ) { wp_die( esc_html__( 'Invalid withdrawal.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) ); }
 		global $wpdb;
-		$wpdb->query( 'START TRANSACTION' );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			wp_die( esc_html__( 'The withdrawal could not start a safe database transaction.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
+		}
 		$result = GDO_State::transition( $id, 'withdrawn', get_current_user_id(), 'application_withdrawn', $reason, absint( isset( $_POST['row_version'] ) ? $_POST['row_version'] : 0 ), false );
 		$event = is_wp_error( $result ) ? $result : GDO_Notifications::queue( 'doctor_application_withdrawn', $app->user_id, array( 'application_id'=>$id ), false );
 		if ( is_wp_error( $result ) || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
@@ -163,6 +190,7 @@ final class GDO_Frontend {
 			$error = is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : new WP_Error( 'gdo_withdraw_commit', __( 'The application withdrawal could not be committed.', 'global-doctor-onboarding' ) ) );
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
 		}
+		GDO_Audit::publish_transition( $result );
 		GDO_Notifications::process( 1, $event );
 		wp_safe_redirect( GDO_Plugin::application_url( array( 'withdrawn'=>'1' ) ) ); exit;
 	}

@@ -2,6 +2,8 @@
 
 ## 1.3.0-RC6 — Eighty-Round Corrective Assurance — 2026-08-10
 
+- Fresh-second independent 80-control re-review against `c3fbbadbee06d2be13b23822f5f17fce07cdab4e`: **47 defect-bearing rounds corrected; 33 clean rounds**; added `tests/eighty-round-audit-r2.py` and `REVIEW-80-ROUNDS-RC6-R2.md`.
+
 - Performed 80 independent review→fix→re-review controls against frozen RC5 baseline `6d5c2850dbf86ce954e0c2fdef8adf36d2dbf1f1`: **49 defect-bearing rounds corrected; 31 clean rounds**.
 - Preserved all 24 Founder-approved Advanced Professional Trust capabilities and retained File 09 as the only professional-verification owner.
 - Corrected trusted issuer governance to proposed-first + independent initial verification; hardened provider-domain/metadata normalization and duplicate issuer prevention.
@@ -16,7 +18,7 @@
 - Removed active duplicate evidence-grant semantics by routing the Secure Evidence Viewing Room through canonical `GDO_Evidence::issue_view_grant()` one-time/session/step-up authorization.
 - Added Advanced Trust REST object-scope reauthorization, structured per-check failure responses and fixed-window minimum-cohort public transparency.
 - Extended WordPress privacy export/erasure and application-scoped retention across Advanced Trust; derivative passports are deleted on erasure/retention rather than collision-prone shared-user anonymization; `.chunk-*` private orphans are covered.
-- Advanced Advanced Trust schema to `2`, contract to `1.1.0`, release identity to `1.3.0-RC6`, 52-entry deterministic package and new `tests/eighty-round-audit.py`/`REVIEW-80-ROUNDS-RC6.md` gates.
+- Advanced Advanced Trust schema to `2`, contract to `1.1.0`, release identity to `1.3.0-RC6`, 53-entry deterministic package and new `tests/eighty-round-audit.py`/`REVIEW-80-ROUNDS-RC6.md` gates.
 - Staging Accepted, Live Deployed and Operational remain false until the new exact-head RC6 workflow and external Hostinger acceptance are separately evidenced.
 
 ## 1.3.0-RC5 — Advanced Professional Trust & Verification — 2026-08-10

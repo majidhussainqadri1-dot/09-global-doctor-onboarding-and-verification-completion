@@ -5,7 +5,11 @@ final class GDO_Audit {
 	public static function transition( $application_id, $actor_id, $from, $to, $reason_code, $reason_text, $trace_id = '' ) {
 		global $wpdb;
 		$table = GDO_Schema::table( 'transitions' );
-		$previous = (string) $wpdb->get_var( $wpdb->prepare( "SELECT event_hash FROM {$table} WHERE application_id=%d ORDER BY id DESC LIMIT 1 FOR UPDATE", absint( $application_id ) ) );
+		$previous_raw = $wpdb->get_var( $wpdb->prepare( "SELECT event_hash FROM {$table} WHERE application_id=%d ORDER BY id DESC LIMIT 1 FOR UPDATE", absint( $application_id ) ) );
+		if ( ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_audit_chain_read_failed', __( 'The verification audit chain could not be verified before writing.', 'global-doctor-onboarding' ) );
+		}
+		$previous = is_string( $previous_raw ) ? $previous_raw : '';
 		$created = current_time( 'mysql', true );
 		$reason_code = sanitize_key( $reason_code );
 		$reason_text = sanitize_textarea_field( $reason_text );
@@ -29,7 +33,15 @@ final class GDO_Audit {
 		if ( 1 !== $inserted ) {
 			return new WP_Error( 'gdo_audit_write_failed', __( 'The verification audit record could not be committed.', 'global-doctor-onboarding' ) );
 		}
-		GDO_Membership_Adapter::audit( 'doctor_verification_transition', $data );
+		return $data;
+	}
+
+
+	public static function publish_transition( $audit ) {
+		if ( ! is_array( $audit ) || empty( $audit['application_id'] ) || empty( $audit['event_hash'] ) || empty( $audit['trace_id'] ) ) {
+			return false;
+		}
+		GDO_Membership_Adapter::audit( 'doctor_verification_transition', $audit );
 		return true;
 	}
 

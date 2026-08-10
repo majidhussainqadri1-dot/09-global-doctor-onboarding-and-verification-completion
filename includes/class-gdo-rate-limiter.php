@@ -19,8 +19,12 @@ final class GDO_Rate_Limiter {
         if ( false === $ok ) {
             return false;
         }
-        $hits = absint( $wpdb->get_var( $wpdb->prepare( "SELECT hits FROM {$table} WHERE bucket_hash=%s", $hash ) ) );
-        return $hits <= $limit;
+        $raw_hits = $wpdb->get_var( $wpdb->prepare( "SELECT hits FROM {$table} WHERE bucket_hash=%s", $hash ) );
+        if ( null === $raw_hits || ! empty( $wpdb->last_error ) ) {
+            return false;
+        }
+        $hits = absint( $raw_hits );
+        return $hits > 0 && $hits <= $limit;
     }
 
     public static function cleanup() {

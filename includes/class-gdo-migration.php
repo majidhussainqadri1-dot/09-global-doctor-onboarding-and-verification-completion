@@ -158,7 +158,9 @@ final class GDO_Migration {
 					if ( ! $app ) {
 						throw new RuntimeException( 'Legacy File 09 quarantine application could not be reloaded.' );
 					}
-					GDO_Audit::transition( $app->id, 0, 'legacy', 'legacy_review_required', 'legacy_quarantine', 'Legacy File 09 data requires independent re-review and credential migration.' );
+					$audit = GDO_Audit::transition( $app->id, 0, 'legacy', 'legacy_review_required', 'legacy_quarantine', 'Legacy File 09 data requires independent re-review and credential migration.' );
+					if ( is_wp_error( $audit ) ) { throw new RuntimeException( $audit->get_error_message() ); }
+					GDO_Audit::publish_transition( $audit );
 				}
 				$last_document_id = 0;
 				do {
@@ -231,7 +233,10 @@ final class GDO_Migration {
 			'retention_state'=>'active', 'created_at'=>$now, 'updated_at'=>$now,
 		);
 		$formats = array( '%d','%d','%s','%s','%d','%s','%s','%s','%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' );
-		$wpdb->query( 'START TRANSACTION' );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			GDO_Storage::delete_verified( $storage, $stored['sha256'] );
+			return;
+		}
 		$inserted = $wpdb->insert( GDO_Schema::table( 'evidence' ), $data, $formats );
 		if ( 1 !== $inserted || ! hash_equals( $stored['sha256'], hash_file( 'sha256', GDO_Storage::path( $storage ) ) ) ) {
 			$wpdb->query( 'ROLLBACK' );

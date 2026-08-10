@@ -114,11 +114,13 @@ final class GDO_Application {
 		$missing_evidence = array();
 		foreach ( array_keys( GDO_Policy::evidence_types( $application->jurisdiction, $application->application_type ) ) as $type ) {
 			$record = GDO_Evidence::current( $application->id, $type );
-			if ( ! $record || ! in_array( $record->status, array( 'pending_review','accepted' ), true ) ) {
+			if ( ! $record
+				|| ! in_array( $record->status, array( 'pending_review','accepted' ), true )
+				|| ( ! empty( $record->expires_at ) && strtotime( $record->expires_at . ' UTC' ) <= time() ) ) {
 				$missing_evidence[] = $type;
 			}
 		}
-		$consent = ! empty( $application->consent_version ) && hash_equals( GDO_Policy::TERMS_VERSION, (string) $application->terms_version );
+		$consent = self::active_consent( $application );
 		return array(
 			'complete'=>! $missing_fields && ! $missing_evidence && $consent,
 			'missing_fields'=>$missing_fields,
@@ -149,7 +151,9 @@ final class GDO_Application {
 			'created_at'=>$now, 'updated_at'=>$now,
 		);
 		$formats = array( '%s','%d','%d','%s','%s','%s','%s','%d','%s','%s','%s','%s','%s','%s','%d','%s','%s' );
-		$wpdb->query( 'START TRANSACTION' );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'gdo_application_transaction', __( 'The private application transaction could not be started safely.', 'global-doctor-onboarding' ) );
+		}
 		$inserted = $wpdb->insert( GDO_Schema::table( 'applications' ), $data, $formats );
 		if ( 1 !== $inserted ) {
 			$wpdb->query( 'ROLLBACK' );
@@ -162,6 +166,7 @@ final class GDO_Application {
 			$wpdb->query( 'ROLLBACK' );
 			return is_wp_error( $audit ) ? $audit : new WP_Error( 'gdo_application_commit', __( 'The private application could not be committed.', 'global-doctor-onboarding' ) );
 		}
+		GDO_Audit::publish_transition( $audit );
 		return $app;
 	}
 
@@ -209,6 +214,29 @@ final class GDO_Application {
 		return 1 === $updated ? true : new WP_Error( 'gdo_concurrent_change', __( 'The application changed. Reload and try again.', 'global-doctor-onboarding' ) );
 	}
 
+	public static function active_consent( $application_or_id ) {
+		global $wpdb;
+		$app = is_object( $application_or_id ) ? $application_or_id : self::get( $application_or_id );
+		if ( ! $app || empty( $app->consent_version ) || ! hash_equals( GDO_Policy::TERMS_VERSION, (string) $app->terms_version ) ) {
+			return false;
+		}
+		$text = self::consent_text();
+		if ( ! hash_equals( (string) $text['version'], (string) $app->consent_version ) ) {
+			return false;
+		}
+		$row = $wpdb->get_row( $wpdb->prepare(
+			'SELECT consent_version,wording_hash,accepted_at,withdrawn_at FROM ' . GDO_Schema::table( 'consents' ) . ' WHERE application_id=%d AND user_id=%d AND consent_version=%s LIMIT 1',
+			absint( $app->id ),
+			absint( $app->user_id ),
+			$text['version']
+		) );
+		return $row
+			&& ! empty( $row->accepted_at )
+			&& empty( $row->withdrawn_at )
+			&& 1 === preg_match( '/^[a-f0-9]{64}$/i', (string) $row->wording_hash )
+			&& hash_equals( hash( 'sha256', $text['wording'] ), (string) $row->wording_hash );
+	}
+
 	public static function consent_text() {
 		return array(
 			'version'=>GDO_Policy::TERMS_VERSION,
@@ -218,82 +246,187 @@ final class GDO_Application {
 		);
 	}
 
-	public static function record_consent( $application_id, $user_id, $accepted ) {
+	public static function record_consent( $application_id, $user_id, $accepted, $manage_transaction = true ) {
 		global $wpdb;
-		$app = self::get( $application_id );
-		if ( ! $app || absint( $app->user_id ) !== absint( $user_id ) || ! in_array( $app->state, array( 'draft','more_information' ), true ) ) {
-			return new WP_Error( 'gdo_consent_access', __( 'Consent cannot be recorded for this application.', 'global-doctor-onboarding' ) );
-		}
+		$application_id = absint( $application_id );
+		$user_id = absint( $user_id );
 		if ( ! $accepted ) {
 			return new WP_Error( 'gdo_consent_required', __( 'Credential-processing consent is required.', 'global-doctor-onboarding' ) );
 		}
-		$text = self::consent_text();
-		$accepted_at = current_time( 'mysql', true );
-		$wording_hash = hash( 'sha256', $text['wording'] );
-		$evidence_hash = hash( 'sha256', absint( $application_id ) . '|' . absint( $user_id ) . '|' . $text['version'] . '|' . $accepted_at . '|' . $wording_hash );
-		$data = array(
-			'application_id'=>absint( $application_id ), 'user_id'=>absint( $user_id ), 'consent_version'=>$text['version'],
-			'wording_hash'=>$wording_hash, 'purpose'=>$text['purpose'], 'retention_notice'=>$text['retention'],
-			'lawful_basis'=>'consent_and_professional_verification', 'accepted_at'=>$accepted_at, 'withdrawn_at'=>null, 'evidence_hash'=>$evidence_hash,
-		);
-		$ok = $wpdb->replace( GDO_Schema::table( 'consents' ), $data, array( '%d','%d','%s','%s','%s','%s','%s','%s','%s','%s' ) );
-		if ( ! $ok ) {
-			return new WP_Error( 'gdo_consent_store', __( 'Consent evidence could not be stored.', 'global-doctor-onboarding' ) );
+		if ( $manage_transaction && false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'gdo_consent_transaction', __( 'The consent transaction could not be started safely.', 'global-doctor-onboarding' ) );
 		}
-		$updated = $wpdb->update( GDO_Schema::table( 'applications' ), array( 'consent_version'=>$text['version'], 'terms_version'=>GDO_Policy::TERMS_VERSION, 'updated_at'=>current_time( 'mysql', true ) ), array( 'id'=>absint( $application_id ) ), array( '%s','%s','%s' ), array( '%d' ) );
-		return false === $updated ? new WP_Error( 'gdo_consent_link', __( 'Consent could not be linked to the application.', 'global-doctor-onboarding' ) ) : true;
+		$app = $wpdb->get_row( $wpdb->prepare(
+			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d AND user_id=%d FOR UPDATE',
+			$application_id,
+			$user_id
+		) );
+		if ( ! $app || ! in_array( $app->state, array( 'draft','more_information' ), true ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user_id, $app->jurisdiction ) ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_consent_access', __( 'Consent cannot be recorded for this application.', 'global-doctor-onboarding' ) );
+		}
+
+		$text = self::consent_text();
+		$wording_hash = hash( 'sha256', $text['wording'] );
+		$table = GDO_Schema::table( 'consents' );
+		$existing = $wpdb->get_row( $wpdb->prepare(
+			"SELECT * FROM {$table} WHERE application_id=%d AND user_id=%d AND consent_version=%s FOR UPDATE",
+			$application_id,
+			$user_id,
+			$text['version']
+		) );
+		if ( $existing && ( ! empty( $existing->withdrawn_at ) || ! hash_equals( $wording_hash, (string) $existing->wording_hash ) ) ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_consent_history_conflict', __( 'Existing consent evidence cannot be overwritten. Reload or begin a new application if consent terms changed.', 'global-doctor-onboarding' ) );
+		}
+
+		if ( ! $existing ) {
+			$accepted_at = current_time( 'mysql', true );
+			$evidence_hash = hash( 'sha256', $application_id . '|' . $user_id . '|' . $text['version'] . '|' . $accepted_at . '|' . $wording_hash );
+			$inserted = $wpdb->insert( $table, array(
+				'application_id'=>$application_id, 'user_id'=>$user_id, 'consent_version'=>$text['version'],
+				'wording_hash'=>$wording_hash, 'purpose'=>$text['purpose'], 'retention_notice'=>$text['retention'],
+				'lawful_basis'=>'consent_and_professional_verification', 'accepted_at'=>$accepted_at, 'withdrawn_at'=>null, 'evidence_hash'=>$evidence_hash,
+			), array( '%d','%d','%s','%s','%s','%s','%s','%s','%s','%s' ) );
+			if ( 1 !== $inserted ) {
+				if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+				return new WP_Error( 'gdo_consent_store', __( 'Consent evidence could not be stored.', 'global-doctor-onboarding' ) );
+			}
+		}
+
+		$updated = $wpdb->query( $wpdb->prepare(
+			"UPDATE " . GDO_Schema::table( 'applications' ) . " SET consent_version=%s,terms_version=%s,row_version=row_version+1,updated_at=%s WHERE id=%d AND user_id=%d AND state IN ('draft','more_information') AND row_version=%d",
+			$text['version'],
+			GDO_Policy::TERMS_VERSION,
+			current_time( 'mysql', true ),
+			$application_id,
+			$user_id,
+			absint( $app->row_version )
+		) );
+		if ( 1 !== $updated ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_consent_link', __( 'Consent could not be linked to the current application state.', 'global-doctor-onboarding' ) );
+		}
+		if ( $manage_transaction && false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'gdo_consent_commit', __( 'Consent evidence could not be committed.', 'global-doctor-onboarding' ) );
+		}
+		return true;
 	}
 
 	public static function submit( $application_id, $user_id, $expected_row_version ) {
 		global $wpdb;
-		$app = self::get( $application_id );
-		if ( ! GDO_Operations::mutation_allowed() || ! $app || absint( $app->user_id ) !== absint( $user_id ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user_id, $app ? $app->jurisdiction : '' ) ) {
+		$application_id = absint( $application_id );
+		$user_id = absint( $user_id );
+		$expected_row_version = absint( $expected_row_version );
+		if ( ! GDO_Operations::mutation_allowed() || ! $application_id || ! $user_id ) {
 			return new WP_Error( 'gdo_submit_access', __( 'The application cannot be submitted.', 'global-doctor-onboarding' ) );
 		}
+
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'gdo_submit_transaction', __( 'The application submission transaction could not be started safely.', 'global-doctor-onboarding' ) );
+		}
+		$app = $wpdb->get_row( $wpdb->prepare(
+			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d AND user_id=%d FOR UPDATE',
+			$application_id,
+			$user_id
+		) );
+		if ( ! $app || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user_id, $app->jurisdiction ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'gdo_submit_access', __( 'The application cannot be submitted.', 'global-doctor-onboarding' ) );
+		}
+
 		$profile = json_decode( $app->profile_json, true );
 		$profile = is_array( $profile ) ? $profile : array();
 		$valid = self::validate_profile( $profile, false, $app->jurisdiction, $app->application_type );
 		$complete = self::completeness( $app );
 		if ( is_wp_error( $valid ) || empty( $complete['complete'] ) ) {
+			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'gdo_submit_incomplete', __( 'Complete all profile, declaration, consent, and current credential requirements before submission.', 'global-doctor-onboarding' ) );
 		}
+
+		// Evidence is read only after the application row has been locked.
+		// stage_upload() now takes the same row lock before replacing evidence, so
+		// the immutable submission hash and the credential set cannot diverge.
 		$evidence_records = GDO_Evidence::records( $app->id, true );
-		GDO_Risk::evaluate( $app, $profile, $evidence_records );
 		$evidence = array();
 		foreach ( $evidence_records as $record ) {
-			$evidence[ $record->document_type ] = array( 'version'=>absint( $record->version ), 'source_sha256'=>(string) $record->source_sha256, 'content_hmac'=>(string) $record->content_hmac, 'status'=>(string) $record->status );
+			$evidence[ $record->document_type ] = array(
+				'version'=>absint( $record->version ),
+				'source_sha256'=>(string) $record->source_sha256,
+				'content_hmac'=>(string) $record->content_hmac,
+				'status'=>(string) $record->status,
+			);
 		}
 		$submission = array(
-			'application_uuid'=>$app->application_uuid, 'application_version'=>absint( $app->version ),
-			'profile_fingerprint'=>self::fingerprint( $profile ), 'evidence'=>$evidence,
-			'consent_version'=>$app->consent_version, 'terms_version'=>$app->terms_version,
+			'application_uuid'=>$app->application_uuid,
+			'application_version'=>absint( $app->version ),
+			'profile_fingerprint'=>self::fingerprint( $profile ),
+			'evidence'=>$evidence,
+			'consent_version'=>$app->consent_version,
+			'terms_version'=>$app->terms_version,
 			'policy_version'=>GDO_Policy::VERSION,
 		);
 		$submission_hash = hash( 'sha256', GDO_Claims::canonical_json( $submission ) );
-		if ( ! empty( $app->submission_hash ) && hash_equals( (string) $app->submission_hash, $submission_hash ) && in_array( $app->state, array( 'submitted','resubmitted' ), true ) ) {
+
+		// Preserve request idempotency after a successful submit without allowing
+		// a different snapshot to masquerade as the same submission.
+		if ( in_array( $app->state, array( 'submitted','resubmitted' ), true )
+			&& ! empty( $app->submission_hash )
+			&& hash_equals( (string) $app->submission_hash, $submission_hash ) ) {
+			$wpdb->query( 'COMMIT' );
 			return true;
 		}
-		if ( ! in_array( $app->state, array( 'draft','more_information' ), true ) || absint( $app->row_version ) !== absint( $expected_row_version ) ) {
+		if ( ! in_array( $app->state, array( 'draft','more_information' ), true )
+			|| absint( $app->row_version ) !== $expected_row_version ) {
+			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'gdo_submit_state', __( 'The application state changed. Reload and try again.', 'global-doctor-onboarding' ) );
 		}
-		$from = $app->state;
-		$to = 'draft' === $from ? 'submitted' : 'resubmitted';
-		$wpdb->query( 'START TRANSACTION' );
-		$result = GDO_State::transition( $app->id, $to, $user_id, 'application_submitted', 'Applicant submitted a complete immutable application snapshot.', $app->row_version, false );
+
+		// Risk signals are derived from the exact locked snapshot and are part of
+		// the same transaction as the state transition.
+		$risk_result = GDO_Risk::evaluate( $app, $profile, $evidence_records );
+		if ( is_wp_error( $risk_result ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return $risk_result;
+		}
+		$to = 'draft' === $app->state ? 'submitted' : 'resubmitted';
+		$result = GDO_State::transition(
+			$app->id,
+			$to,
+			$user_id,
+			'application_submitted',
+			'Applicant submitted a complete immutable application snapshot.',
+			$app->row_version,
+			false
+		);
 		if ( is_wp_error( $result ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return $result;
 		}
-		$updated = $wpdb->update( GDO_Schema::table( 'applications' ), array(
-			'submitted_at'=>current_time( 'mysql', true ), 'submission_hash'=>$submission_hash,
-			'policy_version'=>GDO_Policy::VERSION, 'terms_version'=>GDO_Policy::TERMS_VERSION,
-			'recommended_decision'=>null, 'recommendation_reason'=>null, 'recommendation_at'=>null,
-		), array( 'id'=>$app->id ), array( '%s','%s','%s','%s','%s','%s','%s' ), array( '%d' ) );
-		$event = false === $updated ? new WP_Error( 'gdo_submit_update', __( 'The application submission could not be stored.', 'global-doctor-onboarding' ) ) : GDO_Notifications::queue( 'doctor_application_submitted', $user_id, array( 'application_id'=>$app->id, 'version'=>$app->version, 'submission_hash'=>$submission_hash ), false );
-		if ( false === $updated || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+		$updated = $wpdb->update(
+			GDO_Schema::table( 'applications' ),
+			array(
+				'submitted_at'=>current_time( 'mysql', true ),
+				'submission_hash'=>$submission_hash,
+				'policy_version'=>GDO_Policy::VERSION,
+				'terms_version'=>GDO_Policy::TERMS_VERSION,
+				'recommended_decision'=>null,
+				'recommendation_reason'=>null,
+				'recommendation_at'=>null,
+			),
+			array( 'id'=>$app->id, 'state'=>$to ),
+			array( '%s','%s','%s','%s','%s','%s','%s' ),
+			array( '%d','%s' )
+		);
+		$event = 1 !== $updated
+			? new WP_Error( 'gdo_submit_update', __( 'The application submission could not be stored.', 'global-doctor-onboarding' ) )
+			: GDO_Notifications::queue( 'doctor_application_submitted', $user_id, array( 'application_id'=>$app->id, 'version'=>$app->version, 'submission_hash'=>$submission_hash ), false );
+		if ( 1 !== $updated || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return is_wp_error( $event ) ? $event : new WP_Error( 'gdo_submit_commit', __( 'The application submission could not be committed.', 'global-doctor-onboarding' ) );
 		}
+		GDO_Audit::publish_transition( $result );
 		GDO_Notifications::process( 1, $event );
 		do_action( 'gdo_application_submitted', $app->id, $user_id );
 		return true;

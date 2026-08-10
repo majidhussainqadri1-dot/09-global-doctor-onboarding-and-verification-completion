@@ -181,7 +181,7 @@ final class GDO_Membership_Adapter {
 			global $wpdb;
 			$app = GDO_Application::get( $application_id );
 			$profile = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'reviewer_profiles' ) . " WHERE user_id=%d AND status='active'", $reviewer_id ) );
-			if ( ! $app || ! $profile ) {
+			if ( ! $app || ! $profile || absint( $app->user_id ) !== $applicant_id ) {
 				$allowed = false;
 			} else {
 				$jurisdictions = json_decode( $profile->jurisdictions_json, true );
@@ -196,6 +196,55 @@ final class GDO_Membership_Adapter {
 		}
 		$filtered = (bool) apply_filters( 'gdo_reviewer_scope_allows', $allowed, $reviewer_id, $applicant_id, absint( $application_id ) );
 		return $allowed && $filtered;
+	}
+
+	public static function reviewer_case_allows( $reviewer_id, $applicant_id, $application_id ) {
+		global $wpdb;
+		$reviewer_id = absint( $reviewer_id );
+		$applicant_id = absint( $applicant_id );
+		$application_id = absint( $application_id );
+		if ( ! $application_id || ! self::reviewer_scope_allows( $reviewer_id, $applicant_id, $application_id ) ) {
+			return false;
+		}
+		$app = GDO_Application::get( $application_id );
+		if ( ! $app || absint( $app->user_id ) !== $applicant_id ) {
+			return false;
+		}
+
+		// Broad reviewer eligibility is a routing predicate, not private-evidence
+		// authorization. Routine access must be tied to an active case relation.
+		if ( absint( $app->assigned_reviewer_id ) === $reviewer_id && in_array( $app->state, array( 'under_review', 'more_information', 'recommended' ), true ) ) {
+			return true;
+		}
+
+		// A recommended case intentionally has no pre-assigned finalizer. A
+		// separately authorized finalizer may inspect it, except the recommender.
+		if ( 'recommended' === $app->state
+			&& absint( $app->recommender_id ) !== $reviewer_id
+			&& self::can( 'sabri_finalize_doctor_verification', $reviewer_id ) ) {
+			return true;
+		}
+
+		// Appeals are independently assigned and never inherit the original case
+		// reviewer/finalizer relationship.
+		if ( 'appeal_pending' === $app->state ) {
+			$appeal_reviewer = absint( $wpdb->get_var( $wpdb->prepare(
+				'SELECT assigned_reviewer_id FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE application_id=%d AND status='open' ORDER BY id DESC LIMIT 1",
+				$application_id
+			) ) );
+			if ( $appeal_reviewer && $appeal_reviewer === $reviewer_id ) {
+				return true;
+			}
+		}
+
+		// Post-decision lifecycle investigation is restricted to the native
+		// management capability and states where that investigation is relevant.
+		if ( in_array( $app->state, array( 'verified', 'reinstated', 'renewal_due', 'suspended', 'revoked' ), true )
+			&& self::can( 'sabri_manage_doctor_verification', $reviewer_id ) ) {
+			return true;
+		}
+
+		return false;
 	}
 
 	public static function recent_step_up( $user_id, $seconds = 900 ) {

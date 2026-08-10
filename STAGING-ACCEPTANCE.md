@@ -11,7 +11,7 @@ Repository and CI evidence cannot set this file to accepted. The exact final RC6
 
 ## Mandatory gates
 
-1. **Exact artifact / restore point** — record RC6 ZIP SHA-256, exact Git commit, 52-entry manifest/SBOM, pre-install database/files backup, isolated restore proof and rollback window.
+1. **Exact artifact / restore point** — record RC6 ZIP SHA-256, exact Git commit, 53-entry manifest/SBOM, pre-install database/files backup, isolated restore proof and rollback window.
 2. **Fresh install / activation** — File 00, File 02, keyring, private storage, claim-signing key and scanner fail closed when absent; successful activation records core schema 6 and Advanced Trust schema 2 only after migrations/index checks/storage health pass.
 3. **RC5/schema-1 → RC6/schema-2 upgrade** — idempotently reconcile the eight Advanced Trust tables plus `application_status` passport and `application_state` upload indexes; interrupted/concurrent upgrade, downgrade warning and rollback preserve all existing professional records.
 4. **AJ-03 doctor journey** — save/resume → evidence upload → submit → reviewer assignment → more-info → replacement evidence → independent decision → acknowledged File 00 claim → passport issue → renewal → suspension/reinstatement/revocation/expiry → independent appeal.

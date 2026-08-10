@@ -14,8 +14,13 @@ final class GDO_Risk {
 				'SELECT id FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id<>%d AND identity_fingerprint=%s AND state NOT IN (\'withdrawn\') LIMIT 1',
 				absint( $application->id ), $identity
 			) );
+			if ( ! empty( $wpdb->last_error ) ) {
+				return new WP_Error( 'gdo_risk_query_failed', __( 'Duplicate-identity risk checks could not be completed safely.', 'global-doctor-onboarding' ) );
+			}
 			if ( $duplicate ) {
-				$signals[] = self::record( $application->id, 'identity_duplicate', 'high', hash( 'sha256', 'application:' . absint( $duplicate ) ) );
+				$signal = self::record( $application->id, 'identity_duplicate', 'high', hash( 'sha256', 'application:' . absint( $duplicate ) ) );
+				if ( is_wp_error( $signal ) ) { return $signal; }
+				$signals[] = $signal;
 			}
 		}
 		foreach ( $evidence as $record ) {
@@ -26,8 +31,13 @@ final class GDO_Risk {
 				'SELECT id FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id<>%d AND source_sha256=%s AND deleted_at IS NULL LIMIT 1',
 				absint( $record->id ), (string) $record->source_sha256
 			) );
+			if ( ! empty( $wpdb->last_error ) ) {
+				return new WP_Error( 'gdo_risk_query_failed', __( 'Duplicate-credential risk checks could not be completed safely.', 'global-doctor-onboarding' ) );
+			}
 			if ( $duplicate ) {
-				$signals[] = self::record( $application->id, 'document_hash_duplicate', 'high', hash( 'sha256', 'evidence:' . absint( $duplicate ) ) );
+				$signal = self::record( $application->id, 'document_hash_duplicate', 'high', hash( 'sha256', 'evidence:' . absint( $duplicate ) ) );
+				if ( is_wp_error( $signal ) ) { return $signal; }
+				$signals[] = $signal;
 			}
 		}
 		return array_values( array_filter( $signals ) );
@@ -67,7 +77,7 @@ final class GDO_Risk {
 			'created_at' => current_time( 'mysql', true ),
 			'updated_at' => current_time( 'mysql', true ),
 		), array( '%d','%s','%s','%s','%s','%s','%s' ) );
-		return 1 === $ok ? absint( $wpdb->insert_id ) : 0;
+		return 1 === $ok ? absint( $wpdb->insert_id ) : new WP_Error( 'gdo_risk_store_failed', __( 'A detected professional-verification risk signal could not be stored safely.', 'global-doctor-onboarding' ) );
 	}
 
 	public static function unresolved( $application_id, $minimum = 'high' ) {
@@ -78,6 +88,11 @@ final class GDO_Risk {
 			'SELECT severity FROM ' . GDO_Schema::table( 'risk_signals' ) . " WHERE application_id=%d AND status IN ('open','reviewing')",
 			absint( $application_id )
 		) );
+		// Risk-state uncertainty must narrow professional verification. A failed
+		// risk query is treated as unresolved rather than silently allowing a final decision.
+		if ( null === $rows || ! empty( $wpdb->last_error ) ) {
+			return true;
+		}
 		foreach ( $rows as $row ) {
 			if ( isset( $levels[ $row->severity ] ) && $levels[ $row->severity ] >= $min ) {
 				return true;

@@ -231,7 +231,10 @@ final class GDO_Advanced_Trust_Hardening {
         $decision = sanitize_key( $decision );
         if ( in_array( $decision, array( 'verified','reinstated' ), true ) ) {
             self::history_once( $app, 'professional_decision', array( 'decision'=>$decision, 'verified_until'=>$app->verified_until ), true );
-            self::ensure_passport( $app->id );
+            $passport = self::ensure_passport( $app->id );
+            if ( is_wp_error( $passport ) ) {
+                GDO_Membership_Adapter::audit( 'doctor_verification_passport_issue_failed', array( 'application_id'=>$app->id, 'decision'=>$decision, 'error'=>$passport->get_error_code() ) );
+            }
             self::schedule_reverification( $app->id, 'verified', time() + 30 * DAY_IN_SECONDS, false );
         } elseif ( 'expired' === $decision ) {
             self::history_once( $app, 'professional_expired', array( 'decision'=>'expired' ), true );
@@ -252,16 +255,25 @@ final class GDO_Advanced_Trust_Hardening {
         $key = hash( 'sha256', 'passport|' . (string) GDO_CLAIM_SIGNING_KEY, true );
         $apps = GDO_Schema::table( 'applications' );
         $table = GDO_Advanced_Trust::table( 'verification_passports' );
-        $wpdb->query( 'START TRANSACTION' );
-        $app = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$apps} WHERE id=%d FOR UPDATE", $application_id ) );
-        if ( ! $app || ! GDO_State::public_verified( $app->state ) || ! GDO_Membership_Adapter::identity_assurance_current( $app->user_id ) || ( $app->verified_until && strtotime( $app->verified_until . ' UTC' ) <= time() ) ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_Error( 'gdo_passport_not_eligible', __( 'A current verified application and identity assurance are required for a professional passport.', 'global-doctor-onboarding' ) );
+        if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+            return new WP_Error( 'gdo_passport_transaction', __( 'A professional passport transaction could not be started safely.', 'global-doctor-onboarding' ) );
         }
-        $version = absint( $wpdb->get_var( $wpdb->prepare( "SELECT MAX(version) FROM {$table} WHERE user_id=%d FOR UPDATE", $app->user_id ) ) ) + 1;
+        $app = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$apps} WHERE id=%d FOR UPDATE", $application_id ) );
+        $verified_expiry = GDO_Advanced_Trust::current_verification_expiry( $app );
+        $approved_snapshot = $app ? GDO_Application::stored_approved_snapshot( $app ) : array();
+        if ( ! $app || ! $approved_snapshot || empty( $approved_snapshot['captured_at'] ) || ! GDO_State::public_verified( $app->state ) || ! GDO_Membership_Adapter::identity_assurance_current( $app->user_id ) || ! $verified_expiry ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'gdo_passport_not_eligible', __( 'A current verified application, intact approved snapshot, explicit future validity date, and current identity assurance are required for a professional passport.', 'global-doctor-onboarding' ) );
+        }
+        $raw_version = $wpdb->get_var( $wpdb->prepare( "SELECT MAX(version) FROM {$table} WHERE user_id=%d FOR UPDATE", $app->user_id ) );
+        if ( ! empty( $wpdb->last_error ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'gdo_passport_version', __( 'Professional passport version state could not be verified safely.', 'global-doctor-onboarding' ) );
+        }
+        $version = absint( $raw_version ) + 1;
         $uuid = wp_generate_uuid4();
         $issued = time();
-        $exp = min( $issued + GDO_Advanced_Trust::PASSPORT_TTL, $app->verified_until ? strtotime( $app->verified_until . ' UTC' ) : $issued + GDO_Advanced_Trust::PASSPORT_TTL );
+        $exp = min( $issued + GDO_Advanced_Trust::PASSPORT_TTL, $verified_expiry );
         $scope = GDO_Advanced_Trust::verification_matrix( $app->user_id );
         $payload = array( 'passport_uuid'=>$uuid, 'user_id'=>absint( $app->user_id ), 'application_id'=>absint( $app->id ), 'version'=>$version, 'scope'=>$scope, 'iat'=>$issued, 'exp'=>$exp );
         $body = rtrim( strtr( base64_encode( wp_json_encode( $payload ) ), '+/', '-_' ), '=' );
@@ -288,7 +300,7 @@ final class GDO_Advanced_Trust_Hardening {
 
     public static function ensure_passport( $application_id ) {
         $existing = GDO_Advanced_Trust::active_passport_for_application( $application_id );
-        if ( $existing ) {
+        if ( $existing && ! is_wp_error( self::verify_passport_uuid( $existing->passport_uuid ) ) ) {
             return array( 'token'=>null, 'passport_uuid'=>$existing->passport_uuid, 'verification_url'=>rest_url( GDO_Advanced_Trust::REST_NAMESPACE . '/public/passport/' . $existing->passport_uuid ), 'qr_payload'=>rest_url( GDO_Advanced_Trust::REST_NAMESPACE . '/public/passport/' . $existing->passport_uuid ), 'reused'=>true );
         }
         return self::issue_passport( $application_id );
@@ -302,7 +314,13 @@ final class GDO_Advanced_Trust_Hardening {
             return new WP_Error( 'gdo_passport_inactive', __( 'This professional verification passport is not active.', 'global-doctor-onboarding' ), array( 'status'=>404 ) );
         }
         $app = GDO_Application::get( $row['application_id'] );
-        if ( ! $app || absint( $app->user_id ) !== absint( $row['user_id'] ) || ! GDO_State::public_verified( $app->state ) || ! GDO_Membership_Adapter::identity_assurance_current( $row['user_id'] ) || ( $app->verified_until && strtotime( $app->verified_until . ' UTC' ) <= time() ) ) {
+        $verified_expiry = GDO_Advanced_Trust::current_verification_expiry( $app );
+        $approved_snapshot = $app ? GDO_Application::stored_approved_snapshot( $app ) : array();
+        $passport_issued = ! empty( $row['issued_at'] ) ? strtotime( $row['issued_at'] . ' UTC' ) : 0;
+        $snapshot_captured = ! empty( $approved_snapshot['captured_at'] ) ? strtotime( $approved_snapshot['captured_at'] . ' UTC' ) : 0;
+        if ( ! $app || ! $approved_snapshot || ! $passport_issued || ! $snapshot_captured || $passport_issued < $snapshot_captured
+            || absint( $app->user_id ) !== absint( $row['user_id'] ) || ! GDO_State::public_verified( $app->state )
+            || ! GDO_Membership_Adapter::identity_assurance_current( $row['user_id'] ) || ! $verified_expiry ) {
             // Public verification is a read operation. It never mutates owner
             // state; lifecycle/reconciliation callbacks revoke derivatives.
             return new WP_Error( 'gdo_passport_inactive', __( 'This professional verification passport is not active.', 'global-doctor-onboarding' ), array( 'status'=>404 ) );
@@ -388,6 +406,9 @@ final class GDO_Advanced_Trust_Hardening {
         $application_id = absint( $application_id ); $user_id = absint( $user_id );
         $now = current_time( 'mysql', true );
         $uploads = $wpdb->get_results( $wpdb->prepare( 'SELECT upload_uuid,temp_name FROM ' . GDO_Advanced_Trust::table( 'upload_sessions' ) . ' WHERE application_id=%d', $application_id ) );
+        if ( null === $uploads || ! empty( $wpdb->last_error ) ) {
+            return new WP_Error( 'gdo_privacy_upload_inventory', __( 'Private resumable upload inventory could not be verified before erasure.', 'global-doctor-onboarding' ) );
+        }
         foreach ( (array) $uploads as $row ) {
             $dir = GDO_Storage::directory();
             $path = $dir ? trailingslashit( $dir ) . '.chunk-' . basename( sanitize_file_name( $row->temp_name ) ) : '';
@@ -465,7 +486,7 @@ final class GDO_Advanced_Trust_Hardening {
     public static function rest_check( WP_REST_Request $request ) {
         $app_id = absint( $request['application_id'] ); $evidence_id = absint( $request['evidence_id'] );
         $app = GDO_Application::get( $app_id ); $reviewer = get_current_user_id();
-        if ( ! $app || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer, $app->user_id, $app->id ) ) {
+        if ( ! $app || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer, $app->user_id, $app->id ) ) {
             return new WP_Error( 'gdo_check_forbidden', __( 'The professional trust check is not authorized.', 'global-doctor-onboarding' ), array( 'status'=>403 ) );
         }
         $primary = GDO_Advanced_Trust::primary_source_verify( $app_id, $evidence_id );

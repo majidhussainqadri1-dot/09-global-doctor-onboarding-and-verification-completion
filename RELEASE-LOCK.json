@@ -8,9 +8,13 @@
   "operationally_accepted": false,
   "package_root": "global-doctor-onboarding-09/",
   "release_candidate": "RC6",
-  "release_file_count": 52,
+  "release_file_count": 53,
   "review_rounds": 80,
   "runtime": "1.3.0",
   "schema": 6,
+  "second_clean_rounds": 33,
+  "second_defect_rounds": 47,
+  "second_review_baseline": "c3fbbadbee06d2be13b23822f5f17fce07cdab4e",
+  "second_review_rounds": 80,
   "staging_accepted": false
 }

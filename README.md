@@ -9,6 +9,7 @@ This repository contains the canonical File 09 implementation candidate for the 
 | Latest central + File 09 specification | Traced in `TRACEABILITY.md` |
 | Approved Advanced Trust 24 amendment | Implemented/traced candidate in `ADVANCED-TRUST-24.md` |
 | Founder-requested 80-round review | `REVIEW-80-ROUNDS-RC6.md`: 80 rounds; 49 defect-bearing corrected; 31 clean |
+| Fresh-second 80-round re-review | `REVIEW-80-ROUNDS-RC6-R2.md`: 80 rounds; 47 defect-bearing corrected; 33 clean |
 | Source candidate | `1.3.0`, core schema `6`, Advanced Trust schema `2`, contract `1.1.0`, RC6 candidate |
 | Exact-head automated QA | Must pass on the final exact RC6 commit |
 | Deterministic package | RC6 workflow output after final exact-head QA |
@@ -17,7 +18,7 @@ This repository contains the canonical File 09 implementation candidate for the 
 
 File 09 owns doctor applications, private professional evidence, professional verification review/decision, renewal, suspension/revocation, appeal, signed professional-decision claims and File 09 professional-trust records. It does **not** own general identity, login, public profiles, directory/search ranking, clinics, notification transport or platform-wide security governance.
 
-Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, `REVIEW-80-ROUNDS-RC6.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
+Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, `REVIEW-80-ROUNDS-RC6.md`, `REVIEW-80-ROUNDS-RC6-R2.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
 
 ## 1.3.0 RC6 — Advanced Professional Trust + Eighty-Round Corrective Assurance
 
@@ -56,6 +57,6 @@ File 09 exposes public-safe current verification facts only. Private application
 
 ## Assurance history
 
-RC3 completed 40 independent review/fix rounds: **13 defect-bearing rounds corrected; 27 clean rounds**. RC4 closed later central-plan/cross-file/SBOM gaps. RC5 implemented Advanced Trust 24 and became the frozen baseline for the Founder-requested review. RC6 then completed **80 additional independent controls: 49 defect-bearing rounds corrected and 31 clean rounds**.
+RC3 completed 40 independent review/fix rounds: **13 defect-bearing rounds corrected; 27 clean rounds**. RC4 closed later central-plan/cross-file/SBOM gaps. RC5 implemented Advanced Trust 24 and became the frozen baseline for the Founder-requested review. RC6 then completed **80 additional independent controls: 49 defect-bearing rounds corrected and 31 clean rounds**. A fresh-second independent RC6 review then completed **80 further controls: 47 defect-bearing rounds corrected and 33 clean rounds**.
 
-No previous green RC3/RC4/RC5 run is accepted as proof for RC6. The final RC6 exact HEAD must pass the complete PHP 7.4/8.3 workflow, 80-round executable gate, deterministic double build, 52-entry package parity and generated exact-head SPDX SBOM before repository package/QA status can be called green. External Hostinger staging, real provider failure modes, two fresh staging reviews, backup/restore, rollback and explicit Founder acceptance remain mandatory before any live/operational claim.
+No previous green RC3/RC4/RC5 run is accepted as proof for RC6. The final RC6 exact HEAD must pass the complete PHP 7.4/8.3 workflow, 80-round executable gate, deterministic double build, 53-entry package parity and generated exact-head SPDX SBOM before repository package/QA status can be called green. External Hostinger staging, real provider failure modes, two fresh staging reviews, backup/restore, rollback and explicit Founder acceptance remain mandatory before any live/operational claim.

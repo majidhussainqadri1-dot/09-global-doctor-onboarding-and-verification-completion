@@ -217,8 +217,16 @@ final class GDO_Notifications {
 			return absint( SUN_Core::create( $args ) ) > 0 ? true : new WP_Error( 'gdo_notification_provider_rejected', 'File 19 rejected the notification.' );
 		}
 		if ( has_action( 'sabri_notify' ) ) {
+			// A fire-and-forget WordPress action has no delivery acknowledgement.
+			// Never mark the durable File 09 outbox row delivered unless a legacy
+			// adapter explicitly opts into and returns an acknowledgement contract.
+			$supported = (bool) apply_filters( 'gdo_legacy_notification_ack_supported', false, $args );
+			if ( ! $supported ) {
+				return new WP_Error( 'gdo_notification_legacy_unacknowledged', 'The legacy File 19 notification action does not provide a delivery acknowledgement.' );
+			}
 			do_action( 'sabri_notify', $args );
-			return true;
+			$acknowledged = (bool) apply_filters( 'gdo_legacy_notification_acknowledged', false, $args );
+			return $acknowledged ? true : new WP_Error( 'gdo_notification_legacy_unacknowledged', 'The legacy File 19 notification action did not acknowledge the event.' );
 		}
 		return new WP_Error( 'gdo_notification_provider_unavailable', 'File 19 Unified Notifications is unavailable.' );
 	}

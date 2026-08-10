@@ -17,7 +17,7 @@ release_files=[x for x in (root/'RELEASE-FILES.txt').read_text(encoding='utf-8')
 manifest=(root/'RELEASE-MANIFEST-1.3.0.md').read_text(encoding='utf-8')
 if 'global-doctor-onboarding-09/' not in manifest or 'global-doctor-onboarding-09-1.3.0-RC6.zip' not in manifest: fail('canonical package identity mismatch')
 lock=json.loads((root/'RELEASE-LOCK.json').read_text(encoding='utf-8'))
-if lock.get('runtime')!='1.3.0' or lock.get('schema')!=6 or lock.get('advanced_trust_schema')!=2 or lock.get('advanced_trust_contract')!='1.1.0' or lock.get('release_candidate')!='RC6' or lock.get('review_rounds')!=80 or lock.get('defect_rounds')!=49 or lock.get('release_file_count')!=len(release_files): fail('release lock mismatch')
+if lock.get('runtime')!='1.3.0' or lock.get('schema')!=6 or lock.get('advanced_trust_schema')!=2 or lock.get('advanced_trust_contract')!='1.1.0' or lock.get('release_candidate')!='RC6' or lock.get('review_rounds')!=80 or lock.get('defect_rounds')!=49 or lock.get('second_review_rounds')!=80 or lock.get('second_defect_rounds')!=47 or lock.get('second_clean_rounds')!=33 or lock.get('second_review_baseline')!='c3fbbadbee06d2be13b23822f5f17fce07cdab4e' or lock.get('release_file_count')!=len(release_files): fail('release lock mismatch')
 builder=(root/'tools/build-release.py').read_text(encoding='utf-8'); verifier=(root/'tools/verify-release.py').read_text(encoding='utf-8')
 for token in ['generate_sbom',"release_candidate = 'RC6'", "version = '1.3.0'",'sabri:source-head','SBOM.spdx.json']:
     if token not in builder: fail('deterministic generated-SBOM builder missing '+token)
@@ -34,7 +34,7 @@ for i in range(1,25):
     if f'F09-AT-{i:02d}' not in trace: fail(f'missing advanced trust trace {i}')
 for tok in ['F09-CEN-01','F09-CEN-02','CEN-SEARCH-001','AJ-03','AJ-40']:
     if tok not in trace: fail('latest-plan traceability missing '+tok)
-for p in ['includes/class-gdo-advanced-trust.php','includes/class-gdo-advanced-trust-hardening.php','includes/class-gdo-advanced-trust-events.php','ADVANCED-TRUST-24.md','REVIEW-80-ROUNDS-RC6.md']:
+for p in ['includes/class-gdo-advanced-trust.php','includes/class-gdo-advanced-trust-hardening.php','includes/class-gdo-advanced-trust-events.php','ADVANCED-TRUST-24.md','REVIEW-80-ROUNDS-RC6.md','REVIEW-80-ROUNDS-RC6-R2.md']:
     if p not in release_files: fail('RC6 release file missing '+p)
 for p in root.rglob('*'):
     if not p.is_file() or '.git' in p.parts or 'dist' in p.parts: continue

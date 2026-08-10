@@ -17,8 +17,8 @@ final class GDO_Claims {
 		if ( strlen( $secret ) < 32 ) {
 			return new WP_Error( 'gdo_claim_key_missing', __( 'The File 09 claim signing key is unavailable.', 'global-doctor-onboarding' ) );
 		}
-		if ( $manage_transaction ) {
-			$wpdb->query( 'START TRANSACTION' );
+		if ( $manage_transaction && false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'gdo_claim_transaction', __( 'The professional claim transaction could not be started safely.', 'global-doctor-onboarding' ) );
 		}
 		$app = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE', $application_id ) );
 		if ( ! $app ) {
@@ -102,15 +102,29 @@ final class GDO_Claims {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'gdo_claim_commit_failed', __( 'The professional claim could not be committed.', 'global-doctor-onboarding' ) );
 		}
-		GDO_Membership_Adapter::audit( 'doctor_professional_claim_issued', array(
-			'application_id'=>$application_id, 'claim_version'=>$claim_version, 'state'=>$state,
-			'event_id'=>$payload['event_id'], 'subject_digest'=>hash( 'sha256', $subject_uuid ),
-		) );
-		do_action( 'gdo_professional_claim_issued', $payload );
 		if ( $manage_transaction ) {
+			self::publish( $payload );
 			GDO_Notifications::process( 1, $payload['event_id'] );
 		}
 		return $payload;
+	}
+
+	public static function publish( $payload ) {
+		if ( ! is_array( $payload ) || self::CONTRACT !== ( isset( $payload['contract'] ) ? $payload['contract'] : '' ) || empty( $payload['event_id'] ) || empty( $payload['application_uuid'] ) || empty( $payload['claim_version'] ) ) {
+			return false;
+		}
+		global $wpdb;
+		$application_id = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE application_uuid=%s LIMIT 1', (string) $payload['application_uuid'] ) ) );
+		GDO_Membership_Adapter::audit( 'doctor_professional_claim_issued', array(
+			'application_id'=>$application_id,
+			'application_uuid'=>(string) $payload['application_uuid'],
+			'claim_version'=>absint( $payload['claim_version'] ),
+			'state'=>sanitize_key( isset( $payload['state'] ) ? $payload['state'] : '' ),
+			'event_id'=>(string) $payload['event_id'],
+			'subject_digest'=>! empty( $payload['subject_uuid'] ) ? hash( 'sha256', (string) $payload['subject_uuid'] ) : '',
+		) );
+		do_action( 'gdo_professional_claim_issued', $payload );
+		return true;
 	}
 
 	public static function acknowledge( $application_id, $claim_version, $status, $reason = '' ) {

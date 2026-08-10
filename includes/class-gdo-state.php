@@ -51,8 +51,8 @@ final class GDO_State {
         $table = GDO_Schema::table( 'applications' );
         $application_id = absint( $application_id );
         $to = sanitize_key( $to );
-        if ( $manage_transaction ) {
-            $wpdb->query( 'START TRANSACTION' );
+        if ( $manage_transaction && false === $wpdb->query( 'START TRANSACTION' ) ) {
+            return new WP_Error( 'gdo_transaction_start_failed', __( 'The verification transaction could not be started safely.', 'global-doctor-onboarding' ) );
         }
         $app = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id=%d FOR UPDATE", $application_id ) );
         if ( ! $app || ! self::can_transition( $app->state, $to ) ) {
@@ -105,6 +105,9 @@ final class GDO_State {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'gdo_transition_commit_failed', __( 'The verification transition could not be committed.', 'global-doctor-onboarding' ) );
         }
-        return true;
+        if ( $manage_transaction ) {
+            GDO_Audit::publish_transition( $audit );
+        }
+        return $audit;
     }
 }

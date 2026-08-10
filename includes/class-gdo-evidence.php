@@ -113,10 +113,14 @@ final class GDO_Evidence {
 
     private static function quota_allows( $user_id, $new_size, $replacing_size = 0 ) {
         global $wpdb;
-        $used = absint( $wpdb->get_var( $wpdb->prepare(
+        $raw_used = $wpdb->get_var( $wpdb->prepare(
             'SELECT COALESCE(SUM(file_size),0) FROM ' . GDO_Schema::table('evidence') . " WHERE user_id=%d AND retention_state='active' AND deleted_at IS NULL",
             absint( $user_id )
-        ) ) );
+        ) );
+        if ( null === $raw_used || ! empty( $wpdb->last_error ) ) {
+            return false;
+        }
+        $used = absint( $raw_used );
         $limit = absint( apply_filters( 'gdo_user_credential_quota_bytes', self::MAX_USER_BYTES, absint($user_id) ) );
         return max( 0, $used - absint($replacing_size) ) + absint($new_size) <= $limit;
     }
@@ -136,24 +140,37 @@ final class GDO_Evidence {
         if ( ! $actor_id || absint( $application->user_id ) !== $actor_id || ! GDO_Membership_Adapter::is_active_doctor_candidate( $actor_id, $application->jurisdiction ) ) {
             return new WP_Error( 'gdo_evidence_owner_denied', __( 'Credential upload is not authorized for this application.', 'global-doctor-onboarding' ) );
         }
-        if ( $manage_transaction ) {
-            $wpdb->query( 'START TRANSACTION' );
+        if ( $manage_transaction && false === $wpdb->query( 'START TRANSACTION' ) ) {
+            return new WP_Error( 'gdo_evidence_transaction', __( 'The private evidence transaction could not be started safely.', 'global-doctor-onboarding' ) );
         }
-        $locked = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d AND user_id=%d FOR UPDATE', absint( $application->id ), $actor_id ) );
-        if ( ! $locked ) {
+
+        // Re-read the entire application under row lock. The caller-supplied
+        // object is only a preflight hint and must not authorize a write after a
+        // concurrent submit/state/jurisdiction change.
+        $locked_app = $wpdb->get_row( $wpdb->prepare(
+            'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d AND user_id=%d FOR UPDATE',
+            absint( $application->id ),
+            $actor_id
+        ) );
+        $locked_types = $locked_app ? self::types( $locked_app->jurisdiction, $locked_app->application_type ) : array();
+        if ( ! $locked_app
+            || ! in_array( $locked_app->state, array( 'draft', 'more_information' ), true )
+            || ! isset( $locked_types[ $type ] )
+            || ! GDO_Membership_Adapter::is_active_doctor_candidate( $actor_id, $locked_app->jurisdiction ) ) {
             if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
-            return new WP_Error( 'gdo_evidence_application_lock', __( 'The application could not be locked for a safe credential update.', 'global-doctor-onboarding' ) );
+            return new WP_Error( 'gdo_evidence_application_changed', __( 'The application changed before the credential could be stored. Reload and try again.', 'global-doctor-onboarding' ) );
         }
-        $current = self::current( $application->id, $type );
-        if ( ! self::quota_allows( $application->user_id, $normalized['size'], $current ? $current->file_size : 0 ) ) {
+
+        $current = self::current( $locked_app->id, $type );
+        if ( ! self::quota_allows( $locked_app->user_id, $normalized['size'], $current ? $current->file_size : 0 ) ) {
             if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return new WP_Error( 'gdo_storage_quota', __( 'The private credential storage quota has been reached.', 'global-doctor-onboarding' ) );
         }
         $version = $current ? absint( $current->version ) + 1 : 1;
         $meta = array(
-            'application_uuid'    => $application->application_uuid,
-            'application_version' => $application->version,
-            'user_id'             => $application->user_id,
+            'application_uuid'    => $locked_app->application_uuid,
+            'application_version' => $locked_app->version,
+            'user_id'             => $locked_app->user_id,
             'document_type'       => $type,
             'document_version'    => $version,
         );
@@ -170,8 +187,8 @@ final class GDO_Evidence {
         }
         $now = current_time( 'mysql', true );
         $data = array(
-            'application_id'    => absint( $application->id ),
-            'user_id'           => absint( $application->user_id ),
+            'application_id'    => absint( $locked_app->id ),
+            'user_id'           => absint( $locked_app->user_id ),
             'document_type'     => $type,
             'purpose_code'      => 'professional_verification',
             'version'           => $version,
@@ -202,9 +219,7 @@ final class GDO_Evidence {
         );
         $inserted = $wpdb->insert( GDO_Schema::table( 'evidence' ), $data, $formats );
         if ( 1 !== $inserted ) {
-            if ( $manage_transaction ) {
-                $wpdb->query( 'ROLLBACK' );
-            }
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             GDO_Storage::delete_verified( $storage_name, $stored['sha256'] );
             return new WP_Error( 'gdo_evidence_insert', __( 'Credential evidence could not be recorded.', 'global-doctor-onboarding' ) );
         }
@@ -218,9 +233,7 @@ final class GDO_Evidence {
                 array( '%d','%s' )
             );
             if ( 1 !== $superseded ) {
-                if ( $manage_transaction ) {
-                $wpdb->query( 'ROLLBACK' );
-            }
+                if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
                 GDO_Storage::delete_verified( $storage_name, $stored['sha256'] );
                 return new WP_Error( 'gdo_evidence_replace', __( 'The previous credential could not be replaced safely.', 'global-doctor-onboarding' ) );
             }
@@ -230,11 +243,25 @@ final class GDO_Evidence {
             GDO_Storage::delete_verified( $storage_name, $stored['sha256'] );
             return new WP_Error( 'gdo_evidence_commit', __( 'Credential evidence could not be committed.', 'global-doctor-onboarding' ) );
         }
-        GDO_Membership_Adapter::audit( 'doctor_evidence_uploaded', array(
-            'application_id'=>absint( $application->id ), 'evidence_id'=>$new_id, 'document_type'=>$type,
-            'version'=>$version, 'source_digest'=>$normalized['source_sha256'],
-        ) );
-        return array( 'id'=>$new_id, 'storage_name'=>$storage_name, 'ciphertext_sha256'=>$stored['sha256'] );
+
+        $result = array(
+            'id'=>$new_id,
+            'application_id'=>absint( $locked_app->id ),
+            'storage_name'=>$storage_name,
+            'ciphertext_sha256'=>$stored['sha256'],
+            'document_type'=>$type,
+            'version'=>$version,
+            'source_digest'=>$normalized['source_sha256'],
+        );
+        // Never emit an external/canonical audit fact for a transaction that is
+        // still owned by the caller; the caller emits it only after COMMIT.
+        if ( $manage_transaction ) {
+            GDO_Membership_Adapter::audit( 'doctor_evidence_uploaded', array(
+                'application_id'=>$result['application_id'], 'evidence_id'=>$new_id, 'document_type'=>$type,
+                'version'=>$version, 'source_digest'=>$normalized['source_sha256'],
+            ) );
+        }
+        return $result;
     }
 
     public static function all_submittable( $application_id ) {
@@ -317,7 +344,10 @@ final class GDO_Evidence {
         if ( is_wp_error( $stored ) ) {
             return $stored;
         }
-        $wpdb->query( 'START TRANSACTION' );
+        if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+            GDO_Storage::delete_verified( $new_name, $stored['sha256'] );
+            return new WP_Error( 'gdo_rotation_transaction', __( 'Credential rotation could not start a safe database transaction.', 'global-doctor-onboarding' ) );
+        }
         $ok = $wpdb->update( GDO_Schema::table('evidence'), array( 'storage_name'=>$new_name,'ciphertext_sha256'=>$stored['sha256'],'content_hmac'=>$encrypted['content_hmac'],'key_id'=>$encrypted['key_id'],'updated_at'=>current_time('mysql',true) ), array('id'=>$record->id,'storage_name'=>$record->storage_name), array('%s','%s','%s','%s','%s'), array('%d','%s') );
         if ( 1 !== $ok || false === $wpdb->query( 'COMMIT' ) ) {
             $wpdb->query( 'ROLLBACK' );
@@ -334,14 +364,14 @@ final class GDO_Evidence {
 
     public static function review( $evidence_id, $reviewer_id, $status, array $checklist, $registry_result, $validity_from, $validity_until, $review_note, $manage_transaction = true ) {
         global $wpdb;
-        if ( $manage_transaction ) {
-            $wpdb->query( 'START TRANSACTION' );
+        if ( $manage_transaction && false === $wpdb->query( 'START TRANSACTION' ) ) {
+            return new WP_Error( 'gdo_evidence_review_transaction', __( 'Credential review could not start a safe database transaction.', 'global-doctor-onboarding' ) );
         }
         $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . " WHERE id=%d AND retention_state='active' AND deleted_at IS NULL FOR UPDATE", absint( $evidence_id ) ) );
         $app = $record ? $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE', absint( $record->application_id ) ) ) : null;
         $status = sanitize_key( $status );
         $review_note = sanitize_textarea_field( $review_note );
-        if ( ! $record || ! $app || 'under_review' !== $app->state || absint( $app->assigned_reviewer_id ) !== absint( $reviewer_id ) || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! in_array( $status, array( 'accepted', 'rejected', 'more_information' ), true ) ) {
+        if ( ! $record || ! $app || 'under_review' !== $app->state || absint( $app->assigned_reviewer_id ) !== absint( $reviewer_id ) || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer_id, $app->user_id, $app->id ) || ! in_array( $status, array( 'accepted', 'rejected', 'more_information' ), true ) ) {
             if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return new WP_Error( 'gdo_evidence_review', __( 'Invalid credential review.', 'global-doctor-onboarding' ) );
         }
@@ -423,7 +453,7 @@ final class GDO_Evidence {
         $mode = sanitize_key( $mode );
         $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . " WHERE id=%d AND retention_state='active' AND deleted_at IS NULL", $evidence_id ) );
         $app = $record ? GDO_Application::get( $record->application_id ) : null;
-        if ( ! $record || ! $app || strlen( $purpose ) < 10 || absint( $app->user_id ) === $reviewer_id || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::recent_step_up( $reviewer_id ) || ! in_array( $mode, array( 'view','download' ), true ) ) {
+        if ( ! $record || ! $app || strlen( $purpose ) < 10 || absint( $app->user_id ) === $reviewer_id || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::recent_step_up( $reviewer_id ) || ! in_array( $mode, array( 'view','download' ), true ) ) {
             if ( $record ) {
                 GDO_Audit::access( $record->application_id, $evidence_id, $reviewer_id, $purpose, 'grant_denied' );
             }
@@ -458,7 +488,9 @@ final class GDO_Evidence {
         $reviewer_id = absint( $reviewer_id );
         $hash = hash( 'sha256', (string) $token );
         $table = GDO_Schema::table( 'access_grants' );
-        $wpdb->query( 'START TRANSACTION' );
+        if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+            return new WP_Error( 'gdo_evidence_grant_transaction', __( 'Credential access could not start a safe database transaction.', 'global-doctor-onboarding' ) );
+        }
         $grant = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE grant_hash=%s FOR UPDATE", $hash ) );
         $session = function_exists( 'wp_get_session_token' ) ? (string) wp_get_session_token() : '';
         $session_digest = hash( 'sha256', $reviewer_id . '|' . $session );
@@ -468,7 +500,7 @@ final class GDO_Evidence {
         }
         $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . " WHERE id=%d AND retention_state='active' AND deleted_at IS NULL", absint( $grant->evidence_id ) ) );
         $app = $record ? GDO_Application::get( $record->application_id ) : null;
-        if ( ! $record || ! $app || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::recent_step_up( $reviewer_id ) ) {
+        if ( ! $record || ! $app || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::recent_step_up( $reviewer_id ) ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'gdo_evidence_missing', __( 'The credential evidence is unavailable or no longer within reviewer scope.', 'global-doctor-onboarding' ) );
         }
