@@ -29,10 +29,11 @@ final class GDO_Activator {
 			deactivate_plugins( plugin_basename( GDO_FILE ) );
 			wp_die( esc_html( $result->get_error_message() ), '', array( 'back_link' => true ) );
 		}
+		GDO_Advanced_Trust::maybe_install();
 		self::page();
 		self::schedules();
 		update_option( 'gdo_version', GDO_VERSION, false );
-		update_option( 'gdo_activation_evidence', array( 'version' => GDO_VERSION, 'schema' => GDO_SCHEMA_VERSION, 'activated_at' => gmdate( 'c' ) ), false );
+		update_option( 'gdo_activation_evidence', array( 'version' => GDO_VERSION, 'schema' => GDO_SCHEMA_VERSION, 'advanced_trust_schema'=>GDO_Advanced_Trust::SCHEMA_VERSION, 'activated_at' => gmdate( 'c' ) ), false );
 	}
 
 	private static function schedules() {
@@ -41,6 +42,9 @@ final class GDO_Activator {
 		}
 		if ( ! wp_next_scheduled( 'gdo_notification_outbox' ) ) {
 			wp_schedule_event( time() + 5 * MINUTE_IN_SECONDS, 'hourly', 'gdo_notification_outbox' );
+		}
+		if ( ! wp_next_scheduled( 'gdo_trust_continuous_monitor' ) ) {
+			wp_schedule_event( time() + 2 * HOUR_IN_SECONDS, 'daily', 'gdo_trust_continuous_monitor' );
 		}
 	}
 
@@ -73,6 +77,7 @@ final class GDO_Activator {
 	public static function deactivate() {
 		wp_clear_scheduled_hook( 'gdo_daily_retention' );
 		wp_clear_scheduled_hook( 'gdo_notification_outbox' );
+		wp_clear_scheduled_hook( 'gdo_trust_continuous_monitor' );
 		GDO_Membership_Adapter::clear_step_up();
 	}
 }
