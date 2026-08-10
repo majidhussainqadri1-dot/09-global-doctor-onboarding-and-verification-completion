@@ -43,11 +43,11 @@ assert 'gdo_requires_dual_review' in trust
 for token in ['command_center_shortcode','verification_matrix','verified_until','public_verified']:
     assert token in trust or token in hard
 
-# Resumable secure upload is bounded and finalizes through the mature evidence path.
-for method in ['create_upload_session','append_upload_chunk','finalize_upload']:
-    assert ('function ' + method) in trust or ('function ' + method) in hard
-for token in ['expected_chunks','expected_bytes','received_bytes','next_chunk_index','GDO_Evidence::stage_upload']:
-    assert token in hard
+# Resumable secure upload is owned by the base Advanced Trust class; schema hardening adds migration safeguards.
+for method in ['create_upload_session','append_upload_chunk','finalize_upload_session']:
+    assert ('function ' + method) in trust
+for token in ['expected_chunks','expected_bytes','received_bytes','received_chunks','GDO_Evidence::stage_upload']:
+    assert token in trust
 assert '.chunk-' in retention
 
 # Secure evidence viewing reuses the one-time File 09 grant and forbids download.
