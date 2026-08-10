@@ -35,3 +35,8 @@ Required private configuration: `GDO_KEYRING`, `GDO_PRIVATE_STORAGE_DIR`, `GDO_C
 ## Evidence status law
 
 The repository can prove source/test/package properties only. Hostinger schema-2 migration, real provider integrations, browser/accessibility, backup/restore, penetration/security acceptance, deployment parity and live behavior require separate external evidence. No RC6 repository result may be described as staging/live/operational proof.
+
+
+## RC6 R6 storage and privacy completion truth
+
+Private credential storage now treats directory/file permission persistence, canonical path health and post-write hash verification as security postconditions. Resumable temporary files are never considered deleted merely because cleanup was attempted; unsafe path, storage-health, filesystem deletion or cleanup-state DB uncertainty is surfaced and audited. Privacy export/erasure and public transparency likewise fail or pause on incomplete Advanced Trust DB/storage evidence rather than reporting a false complete result.

@@ -134,3 +134,10 @@ Repository source proves only the early links. Staging/live/operational links re
 ## Fifth fresh 80-round corrective trace — R5
 
 Baseline `58313a67e1d21ad17c9a066e9a29c34245a0763e` → source corrections → `tests/eighty-round-audit-r5.py` → `REVIEW-80-ROUNDS-RC6-R5.md` → exact-head PHP 7.4/8.3 workflow → deterministic 56-entry package/SBOM. R5 specifically closes future-schema fail-open behavior, pre-migration normal-hook exposure, Advanced Trust REST/monitor mutation-gate gaps, monitor DB/provider/cleanup failure semantics, recurring/wakeup scheduler ambiguity, activation persistence gaps, canonical private-storage/symlink use-time safety, Safe Mode manager bypass and fail-silent destructive uninstall paths. External staging/live acceptance remains separate.
+
+
+## Sixth fresh 80-round corrective trace — R6
+
+Baseline `6fa0a5cb7063b6b821bd50c105c735470f589b80` → 80-control review → immediate root-cause corrections in Advanced Trust/private storage/privacy → `tests/eighty-round-audit-r6.py` → `REVIEW-80-ROUNDS-RC6-R6.md` → exact-head PHP 7.4/8.3 authoritative workflow → deterministic **57-entry** package/source-parity/generated-SBOM gate. R6 specifically strengthens F09-FR-004/006/008/012/013/014/015/016/017, F09-NFR-001/002/003/006/007/008 and F09-AT-01/02/03/04/06/08/12/14/15/16/17/20/21/22/23/24 without changing canonical ownership.
+
+R6 preserves the trace-chain law: `governing ID → File 09 design/owner → code/data/API/event → executable test → defect/fix ledger → exact-head package/checksum → staging evidence → Founder approval → live verification`. The repository currently proves only the repository-side links; staging/live/operational links remain unverified and must not be inferred.

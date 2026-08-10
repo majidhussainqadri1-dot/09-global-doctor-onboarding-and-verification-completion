@@ -62,7 +62,10 @@ assert "'suppressed'=>true" in trust
 # Privacy/retention cover Advanced Trust derivatives.
 assert 'privacy_export_rows' in privacy
 assert 'GDO_Advanced_Trust_Hardening::privacy_erase_application' in privacy
-assert "delete( GDO_Advanced_Trust::table( 'verification_passports' )" in hard
+privacy_erase = hard[hard.index('public static function privacy_erase_application'):hard.index('private static function rest_value')]
+assert 'verification_passports' in privacy_erase
+assert ('checked_delete' in privacy_erase or '$wpdb->delete' in privacy_erase)
+assert 'gdo_privacy_operational_cleanup' in privacy_erase
 assert 'retire_advanced_trust_for_application' in retention
 
 # REST object authorization is exact-case scoped; individual provider failures are structured.

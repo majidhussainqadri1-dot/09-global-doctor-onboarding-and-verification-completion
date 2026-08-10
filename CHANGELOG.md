@@ -118,3 +118,15 @@
 - Added bounded fail-closed File 03, File 07 and File 08 eligibility projections; retained File 00, File 02, File 19, File 20 and CF-01 boundaries.
 - Removed temporary, self-mutating, stale baseline/corrective and duplicate CI workflows plus branch-marker/noop artifacts; one exact-head RC2 workflow is authoritative.
 - Added RC2 adversarial assurance, PHP 7.4/8.3 exact-head CI and deterministic RC2 packaging.
+
+
+## 1.3.0-RC6 — Sixth fresh 80-round corrective assurance — 2026-08-10
+
+- Re-reviewed frozen exact-head baseline `6fa0a5cb7063b6b821bd50c105c735470f589b80` through 80 independent controls; 60 rounds found defects/unsafe uncertainty paths and 20 were clean.
+- Made trusted issuer, jurisdiction, credential-check, authenticity, fraud-ring, risk, conflict, calibration, public-history and passport reads explicitly fail closed on database uncertainty.
+- Hardened resumable evidence upload creation/chunk/finalize with canonical mutation readiness, transaction-start checks, row-lock error checks, seek/fsync/rollback durability, hash/size read checks, recovery-state persistence and fail-visible temp cleanup.
+- Hardened Advanced Trust privacy export, WordPress exporter propagation, transparency aggregates and erasure so DB/storage uncertainty cannot be reported as a complete or safe result.
+- Made submission/history/passport/reverification/provider-assistance callback failures propagate or produce durable audit evidence.
+- Strengthened private-storage health with explicit directory/file permission and final hash verification.
+- Added `REVIEW-80-ROUNDS-RC6-R6.md`, `tests/eighty-round-audit-r6.py`, sixth-cycle release-lock evidence and a 57-entry deterministic release allowlist.
+- Staging, live deployment and operational acceptance remain false pending external evidence.

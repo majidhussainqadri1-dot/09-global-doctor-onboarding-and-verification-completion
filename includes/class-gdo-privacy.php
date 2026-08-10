@@ -69,7 +69,12 @@ final class GDO_Privacy {
 				foreach ( $items as $item ) { $rows[] = array( 'name'=>$label, 'value'=>wp_json_encode( $item ) ); }
 			}
 			if ( class_exists( 'GDO_Advanced_Trust' ) ) {
-				$rows = array_merge( $rows, GDO_Advanced_Trust::privacy_export_rows( $app->id ) );
+				$advanced_rows = GDO_Advanced_Trust::privacy_export_rows( $app->id );
+				if ( is_wp_error( $advanced_rows ) ) {
+					GDO_Membership_Adapter::audit( 'gdo_advanced_export_failed', array( 'application_id'=>absint( $app->id ), 'error'=>$advanced_rows->get_error_code() ) );
+					return array( 'data'=>$data, 'done'=>false );
+				}
+				$rows = array_merge( $rows, $advanced_rows );
 			}
 			$data[] = array( 'group_id'=>'global-doctor-verification', 'group_label'=>__( 'Global Doctor Verification', 'global-doctor-onboarding' ), 'item_id'=>'application-' . absint( $app->id ), 'data'=>$rows );
 		}

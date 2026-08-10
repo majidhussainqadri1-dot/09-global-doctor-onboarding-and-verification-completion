@@ -29,7 +29,7 @@ RC6 preserves all 24 approved F09-AT capabilities and uses a corrective layer th
 
 ## Authoritative RC6 repository gate
 
-The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, now named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 syntax/source suites, all legacy adversarial gates, latest-plan parity, `tests/advanced-trust-24.py`, `tests/eighty-round-audit.py`, deterministic double build, **56-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
+The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, now named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 syntax/source suites, all legacy adversarial gates, latest-plan parity, `tests/advanced-trust-24.py`, `tests/eighty-round-audit.py`, deterministic double build, **57-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
 
 ## External gates still pending
 
@@ -55,3 +55,10 @@ The authoritative repository QA/package claim remains conditional on the final e
 ## Fifth fresh 80-round corrective assurance — R5
 
 Frozen baseline `58313a67e1d21ad17c9a066e9a29c34245a0763e` was re-reviewed through 80 independent controls. **29 rounds found defects and were corrected immediately; 51 rounds were clean.** Defect-bearing rounds: 04, 06, 08, 09, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 31, 32, 33, 34, 35, 41, 42, 43, 80. The fifth executable gate is `tests/eighty-round-audit-r5.py`; current deterministic release allowlist is 56 entries. Repository-level completion still requires the authoritative exact-final-head workflow to be green after these changes. Staging accepted, live deployed and operationally accepted remain **false**.
+
+
+## Sixth fresh 80-round corrective assurance — R6
+
+Frozen exact-head baseline `6fa0a5cb7063b6b821bd50c105c735470f589b80` was independently re-reviewed through 80 controls. **60 rounds exposed a defect or unsafe uncertainty path and were corrected immediately; 20 rounds were clean.** Defect-bearing rounds: 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 28, 29, 30, 31, 32, 33, 35, 36, 37, 38, 39, 40, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 80. Clean rounds: 01, 02, 03, 25, 27, 34, 41, 42, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79. The sixth ledger is `REVIEW-80-ROUNDS-RC6-R6.md`; the executable gate is `tests/eighty-round-audit-r6.py`; the deterministic release allowlist is now 57 entries.
+
+R6 closes fail-open/fail-silent database-result ambiguity in the Advanced Trust registry/risk/history/passport surfaces, strengthens resumable-upload transaction and filesystem durability, propagates lifecycle/provider/store failures, prevents incomplete privacy/export/transparency work from being reported complete, and makes privileged upload/issuer/viewing-room mutations consistently obey runtime readiness. Repository-level Automated-QA and package truth is established only by the authoritative workflow on the exact final R6 HEAD. **Staging accepted: false. Live deployed: false. Operationally accepted: false.**

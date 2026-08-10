@@ -75,7 +75,11 @@ check(60,'Retention emits completed only after all checked steps succeed',has(re
 # 61-70 maintenance/operations/integration
 check(61,'Retention uses hardened resumable-upload cleanup rather than legacy silent cleanup',has(retention,'GDO_Advanced_Trust_Hardening::cleanup_upload_sessions') and 'GDO_Advanced_Trust::cleanup_upload_sessions();' not in retention)
 check(62,'Rate-limit cleanup DB failure is surfaced',has(rates,'gdo_rate_cleanup_failed','false === $deleted'))
-check(63,'Hardened resumable cleanup surfaces inventory/file/store failure',has(hard,'gdo_upload_cleanup_inventory','gdo_upload_cleanup_file','gdo_upload_cleanup_store'))
+cleanup_start=hard.index('function cleanup_upload_sessions')
+cleanup_tail=hard[cleanup_start:]
+next_candidates=[cleanup_tail.find(x,1) for x in ['public static function ','private static function ','protected static function '] if cleanup_tail.find(x,1)>0]
+cleanup_block=cleanup_tail[:min(next_candidates)] if next_candidates else cleanup_tail
+check(63,'Hardened resumable cleanup surfaces inventory/file/store failure',has(cleanup_block,'$wpdb->get_results','$wpdb->last_error','WP_Error') and ('is_link' in cleanup_block or 'is_file' in cleanup_block) and 'unlink' in cleanup_block and ('$wpdb->delete' in cleanup_block or '$wpdb->update' in cleanup_block) and cleanup_block.count('WP_Error')>=3)
 check(64,'Continuous-monitor wakeup failure is auditable',hard.count('doctor_reverification_wakeup_failed')>=2)
 check(65,'Operational reconciliation propagates query/transaction/outbox/metric failure',has(ops,'gdo_reconcile_query_failed','gdo_reconcile_transaction_failed','gdo_reconcile_metric_failed'))
 check(66,'Safe Mode persistence is verified after write',has(ops,'gdo_safe_mode_persist_failed','self::safe_mode() !== $desired'))

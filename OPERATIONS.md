@@ -37,3 +37,8 @@ A production release requires an isolated restore of database, encrypted objects
 ## Release truth
 
 RC6 repository exact-head CI/package evidence, Hostinger staging evidence, deployed artifact parity and live operational evidence are four different records. No operator may infer one from another. After any deployment, record Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status separately.
+
+
+## RC6 R6 resumable-upload recovery note
+
+A successfully committed encrypted evidence object can return `cleanup_pending=true` with warning code `gdo_upload_temp_delete` if the temporary resumable file could not be removed after canonical evidence commit. This is **not** a second evidence commit and must not be treated as upload failure or duplicate success. The residual session is made immediately eligible for hardened cleanup, the deletion failure is audited, and operators must use System Check/repair rather than manually deleting unverified paths. Any storage-health, unsafe-path or cleanup-store uncertainty remains fail-visible.
