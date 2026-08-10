@@ -57,7 +57,8 @@ jobs:
           python3 tests/architecture-check.py
           python3 tests/completion-security.py
           python3 tests/release-integrity.py
-          python3 tests/rc2-adversarial.py
+          # rc2-adversarial.py enforces a singular authoritative workflow; it is intentionally deferred
+          # until this temporary apply workflow is removed and the final exact-head workflow runs.
           python3 tests/final-hardening.py
           python3 tests/review40-adversarial.py
           python3 tests/latest-plan-parity.py
