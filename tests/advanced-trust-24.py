@@ -15,9 +15,9 @@ privacy=read('includes/class-gdo-privacy.php')
 retention=read('includes/class-gdo-retention.php')
 release=read('RELEASE-FILES.txt')
 
-# Bootstrap + versions.
-for token in ["define( 'GDO_ADVANCED_TRUST_SCHEMA_VERSION', 2 )", "define( 'GDO_ADVANCED_TRUST_CONTRACT_VERSION', '1.1.0' )"]:
-    assert token in main
+# Bootstrap + versions: RC6 schema/contract truth is owned by the hardening class.
+assert "const SCHEMA_VERSION = 2;" in hard
+assert "const CONTRACT_VERSION = '1.1.0';" in hard
 for path in ['class-gdo-advanced-trust.php','class-gdo-advanced-trust-hardening.php','class-gdo-advanced-trust-events.php']:
     assert path in main or path in plugin
 
@@ -25,7 +25,7 @@ for path in ['class-gdo-advanced-trust.php','class-gdo-advanced-trust-hardening.
 for token in ['credential_checks','issuer_registry','jurisdiction_rules','monitor_state','reviewer_conflicts','verification_passports','professional_history','upload_sessions']:
     assert token in trust or token in hard
 assert 'maybe_upgrade_schema' in hard
-assert 'GDO_ADVANCED_TRUST_SCHEMA_VERSION' in hard
+assert "get_option( 'gdo_advanced_trust_schema'" in hard
 
 # Primary source / authenticity / equivalency / translation / AI are provider mediated and non-decisional.
 for token in ['gdo_primary_source_provider','gdo_authenticity_provider','gdo_equivalency_provider','gdo_translation_provider','gdo_ai_verification_assistance']:
