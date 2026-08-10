@@ -28,6 +28,12 @@ jobs:
           git apply --check /tmp/file09-r4.patch
           git apply /tmp/file09-r4.patch
           python3 tools/file09-r4-release-sync.py
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ['STATUS.md','RELEASE-MANIFEST-1.3.0.md']:
+              p=Path(name)
+              p.write_text(p.read_text(encoding='utf-8').rstrip()+'\n',encoding='utf-8')
+          PY
           git rm -f R4-APPLY-TRIGGER.txt tools/file09-r4-code.patch.b64.part* tools/file09-r4-release-sync.py
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
         if: steps.gate.outputs.run == 'true'
