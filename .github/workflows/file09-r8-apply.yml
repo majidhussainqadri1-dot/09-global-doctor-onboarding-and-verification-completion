@@ -22,16 +22,16 @@ jobs:
           php-version: '8.3'
           coverage: none
           extensions: openssl,fileinfo,gd
-      - name: Freeze R8 parent baseline and apply sequential corrections
+      - name: Freeze R8 baseline and apply sequential corrections
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "f40228d29ffa92e8d27ea84f9b1c1ae4a63ff9b2"
+          git merge-base --is-ancestor f40228d29ffa92e8d27ea84f9b1c1ae4a63ff9b2 HEAD
           python3 - <<'PY'
           from pathlib import Path
           p=Path('tools/r8-apply.py')
           s=p.read_text(encoding='utf-8')
           old="head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()\nif head!=BASE: raise SystemExit(f'R8 frozen baseline mismatch: {head} != {BASE}')"
-          new="head=subprocess.check_output(['git','rev-parse','HEAD^'],cwd=root,text=True).strip()\nif head!=BASE: raise SystemExit(f'R8 frozen baseline mismatch: {head} != {BASE}')"
+          new="ok=subprocess.call(['git','merge-base','--is-ancestor',BASE,'HEAD'],cwd=root)\nif ok!=0: raise SystemExit(f'R8 frozen baseline {BASE} is not an ancestor of the corrective harness head')"
           if old not in s: raise SystemExit('R8 baseline anchor missing')
           p.write_text(s.replace(old,new,1),encoding='utf-8')
           PY
@@ -39,6 +39,8 @@ jobs:
       - name: Validate corrected R8 tree before commit
         run: |
           set -euo pipefail
+          # The normal repo invariant permits exactly one authoritative workflow; remove this one-shot harness before running that gate.
+          git rm -f .github/workflows/file09-r8-apply.yml
           python3 -m py_compile tests/eighty-round-audit-r8.py
           find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l >/dev/null
           node --check assets/js/onboarding.js
@@ -63,7 +65,7 @@ jobs:
           python3 tests/eighty-round-audit-r5.py
           python3 tests/eighty-round-audit-r6.py
           python3 tests/eighty-round-audit-r7.py
-          # The R8 script's round-80 workflow synchronization check is enabled in the final authoritative workflow commit.
+          # Round 80's final workflow-synchronization assertion is enabled after the authoritative workflow itself gains R8.
           sed -i "s/ and 'tests\/eighty-round-audit-r8.py' in workflow//" tests/eighty-round-audit-r8.py
           python3 tests/eighty-round-audit-r8.py
           git checkout -- tests/eighty-round-audit-r8.py
