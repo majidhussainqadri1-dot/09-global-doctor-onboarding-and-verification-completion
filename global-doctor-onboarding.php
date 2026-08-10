@@ -44,6 +44,7 @@ $gdo_files = array(
 	'class-gdo-cf01-practitioner-contract.php',
 	'class-gdo-integration-contracts.php',
 	'class-gdo-advanced-trust.php',
+	'class-gdo-advanced-trust-hardening.php',
 	'class-gdo-advanced-trust-events.php',
 	'class-gdo-rest.php',
 	'class-gdo-activator.php',
