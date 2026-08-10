@@ -15,7 +15,7 @@ for forbidden in ['_smc_totp_secret','_smc_2fa_enabled','_smc_identity_verified'
     if forbidden in text: fail('forbidden token '+forbidden)
 for pattern in [r'\badd_role\s*\(',r'->add_role\s*\(',r'->remove_role\s*\(',r'->add_cap\s*\(',r'->set_role\s*\(']:
     if re.search(pattern,text): fail('role mutation '+pattern)
-markers=['GDO_KEYRING','GDO_PRIVATE_STORAGE_DIR','GDO_CLAIM_SIGNING_KEY','aes-256-gcm','GDO2','application_uuid','approved_snapshot_json','row_version','legal_hold','gdo_credential_scan_result','verify_step_up','SMC_Contracts::assertions','SMC_CF01_Contract::membership_assertion','SA_Professional_Reauthentication::verify_and_record','gdo.cf01.practitioner-eligibility','gdo.file00.professional-decision','grants_clinical_authorization','professional_scope_restrictions_not_structured','submission_hash','access_grants','risk_signals','quality_samples','gdo_trusted_issuers','gdo_jurisdiction_rules','gdo_credential_checks','gdo_verification_passports','gdo_upload_sessions','human_final_decision_required']
+markers=['GDO_KEYRING','GDO_PRIVATE_STORAGE_DIR','GDO_CLAIM_SIGNING_KEY','aes-256-gcm','GDO2','application_uuid','approved_snapshot_json','row_version','legal_hold','gdo_credential_scan_result','verify_step_up','SMC_Contracts::assertions','SMC_CF01_Contract::membership_assertion','SA_Professional_Reauthentication::verify_and_record','gdo.cf01.practitioner-eligibility','gdo.file00.professional-decision','grants_clinical_authorization','professional_scope_restrictions_not_structured','submission_hash','access_grants','risk_signals','quality_samples','trusted_issuers','jurisdiction_rules','credential_checks','verification_passports','upload_sessions','human_final_decision_required']
 for token in markers:
     if token not in text: fail('missing architecture marker '+token)
 adapter=(root/'includes/class-gdo-membership-adapter.php').read_text()
@@ -24,6 +24,6 @@ admin=(root/'includes/class-gdo-admin.php').read_text()
 for token in ['assigned_reviewer_id','recommender_id','finalizer_id','recent_step_up','conflict','Access purpose','source_state','run_repair']:
     if token not in admin: fail('missing reviewer/operation marker '+token)
 trust=(root/'includes/class-gdo-advanced-trust.php').read_text()
-for token in ['gdo_primary_source_verification','gdo_ai_evidence_assistance','automated_decision_forbidden','GDO_Evidence::stage_upload','download_allowed\'=>false']:
+for token in ['gdo_primary_source_verification','gdo_ai_evidence_assistance','automated_decision_forbidden','GDO_Evidence::stage_upload',"'download_allowed'=>false"]:
     if token not in trust: fail('missing advanced trust invariant '+token)
 print('Architecture checks passed.')
