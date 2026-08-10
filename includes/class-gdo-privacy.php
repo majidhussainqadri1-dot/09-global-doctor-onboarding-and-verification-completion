@@ -153,8 +153,8 @@ final class GDO_Privacy {
 				continue;
 			}
 
-			if ( class_exists( 'GDO_Advanced_Trust' ) ) {
-				$advanced = GDO_Advanced_Trust::privacy_erase_application( $app->id, $user->ID );
+			if ( class_exists( 'GDO_Advanced_Trust_Hardening' ) ) {
+				$advanced = GDO_Advanced_Trust_Hardening::privacy_erase_application( $app->id, $user->ID );
 				if ( is_wp_error( $advanced ) ) {
 					$retained = true;
 					$messages[] = $advanced->get_error_message();
