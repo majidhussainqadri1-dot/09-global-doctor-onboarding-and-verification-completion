@@ -35,21 +35,30 @@ final class GDO_Activator {
 			wp_die( esc_html( $result->get_error_message() ), '', array( 'back_link' => true ) );
 		}
 		self::page();
-		self::schedules();
+		$schedules = self::schedules();
+		if ( is_wp_error( $schedules ) ) {
+			deactivate_plugins( plugin_basename( GDO_FILE ) );
+			wp_die( esc_html( $schedules->get_error_message() ), '', array( 'back_link'=>true ) );
+		}
 		update_option( 'gdo_version', GDO_VERSION, false );
 		update_option( 'gdo_activation_evidence', array( 'version'=>GDO_VERSION, 'schema'=>GDO_SCHEMA_VERSION, 'advanced_trust_schema'=>GDO_Advanced_Trust_Hardening::SCHEMA_VERSION, 'advanced_trust_contract'=>GDO_Advanced_Trust_Hardening::CONTRACT_VERSION, 'review80_corrective_layer'=>true, 'activated_at'=>gmdate( 'c' ) ), false );
 	}
 
 	private static function schedules() {
-		if ( ! wp_next_scheduled( 'gdo_daily_retention' ) ) {
-			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'gdo_daily_retention' );
+		$specs = array(
+			array( 'gdo_daily_retention', time() + HOUR_IN_SECONDS, 'daily', 'gdo_activation_retention_schedule' ),
+			array( 'gdo_notification_outbox', time() + 5 * MINUTE_IN_SECONDS, 'hourly', 'gdo_activation_outbox_schedule' ),
+			array( 'gdo_trust_continuous_monitor', time() + 2 * HOUR_IN_SECONDS, 'daily', 'gdo_activation_trust_schedule' ),
+		);
+		foreach ( $specs as $spec ) {
+			list( $hook, $timestamp, $recurrence, $error_code ) = $spec;
+			if ( wp_next_scheduled( $hook ) ) { continue; }
+			$scheduled = wp_schedule_event( $timestamp, $recurrence, $hook, array(), true );
+			if ( is_wp_error( $scheduled ) || false === $scheduled || ! wp_next_scheduled( $hook ) ) {
+				return new WP_Error( $error_code, __( 'A required File 09 maintenance schedule could not be persisted safely.', 'global-doctor-onboarding' ) );
+			}
 		}
-		if ( ! wp_next_scheduled( 'gdo_notification_outbox' ) ) {
-			wp_schedule_event( time() + 5 * MINUTE_IN_SECONDS, 'hourly', 'gdo_notification_outbox' );
-		}
-		if ( ! wp_next_scheduled( 'gdo_trust_continuous_monitor' ) ) {
-			wp_schedule_event( time() + 2 * HOUR_IN_SECONDS, 'daily', 'gdo_trust_continuous_monitor' );
-		}
+		return true;
 	}
 
 	private static function page() {

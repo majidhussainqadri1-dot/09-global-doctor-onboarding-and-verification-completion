@@ -29,6 +29,7 @@ final class GDO_Rate_Limiter {
 
     public static function cleanup() {
         global $wpdb;
-        $wpdb->query( $wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'rate_limits' ) . ' WHERE expires_at < %d', time() ) );
+        $deleted = $wpdb->query( $wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'rate_limits' ) . ' WHERE expires_at < %d', time() ) );
+        return false === $deleted ? new WP_Error( 'gdo_rate_cleanup_failed', __( 'Expired rate-limit state could not be cleaned safely.', 'global-doctor-onboarding' ) ) : true;
     }
 }

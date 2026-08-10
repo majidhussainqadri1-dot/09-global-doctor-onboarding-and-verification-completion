@@ -87,7 +87,7 @@ digest = sha256(zpath.read_bytes())
 (out / 'PACKAGE-MANIFEST.json').write_text(json.dumps({
     'package':name,'sha256':digest,'bytes':zpath.stat().st_size,'root':slug+'/',
     'version':version,'schema':6,'advanced_trust_schema':2,'advanced_trust_contract':'1.1.0',
-    'release_candidate':release_candidate,'source_head':head,'review_rounds':80,'defect_rounds':49,'second_review_rounds':80,'second_defect_rounds':47,'second_clean_rounds':33,'third_review_rounds':80,'third_defect_rounds':13,'third_clean_rounds':67,
+    'release_candidate':release_candidate,'source_head':head,'review_rounds':80,'defect_rounds':49,'second_review_rounds':80,'second_defect_rounds':47,'second_clean_rounds':33,'third_review_rounds':80,'third_defect_rounds':13,'third_clean_rounds':67,'fourth_review_rounds':80,'fourth_defect_rounds':30,'fourth_clean_rounds':50,
     'staging_accepted':False,'live_deployed':False,'operationally_accepted':False,'files':manifest,
 }, indent=2, sort_keys=True) + '\n', encoding='utf-8', newline='')
 print(digest)

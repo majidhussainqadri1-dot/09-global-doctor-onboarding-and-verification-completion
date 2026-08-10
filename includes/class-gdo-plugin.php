@@ -12,7 +12,16 @@ final class GDO_Plugin {
         if ( ! GDO_Membership_Adapter::available() ) {
             return;
         }
-        GDO_Migration::maybe_run();
+        $migration = GDO_Migration::maybe_run();
+        if ( is_wp_error( $migration ) ) {
+            GDO_Membership_Adapter::audit( 'doctor_verification_runtime_blocked', array( 'reason'=>$migration->get_error_code(), 'layer'=>'core_schema' ) );
+            return;
+        }
+        $advanced = GDO_Advanced_Trust_Hardening::maybe_upgrade_schema();
+        if ( is_wp_error( $advanced ) ) {
+            GDO_Membership_Adapter::audit( 'doctor_verification_runtime_blocked', array( 'reason'=>$advanced->get_error_code(), 'layer'=>'advanced_trust_schema' ) );
+            return;
+        }
         (new GDO_Advanced_Trust())->hooks();
         GDO_Advanced_Trust_Hardening::hooks();
         GDO_Advanced_Trust_Events::hooks();

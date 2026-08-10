@@ -7,7 +7,7 @@ final class GDO_Migration {
 	public static function maybe_run() {
 		$current = absint( get_option( 'gdo_schema_version', 0 ) );
 		if ( $current >= GDO_SCHEMA_VERSION ) {
-			return true;
+			return GDO_Schema::verify_installation();
 		}
 		$token = wp_generate_uuid4();
 		if ( ! add_option( self::LOCK_OPTION, array( 'token'=>$token, 'started_at'=>time() ), '', false ) ) {
@@ -21,10 +21,13 @@ final class GDO_Migration {
 			}
 		}
 		try {
-			GDO_Schema::install();
+			$schema = GDO_Schema::install();
+			if ( is_wp_error( $schema ) ) { throw new RuntimeException( $schema->get_error_code() ); }
 			self::backfill_current_records( $current );
 			self::quarantine_legacy();
-			update_option( 'gdo_schema_version', GDO_SCHEMA_VERSION, false );
+			if ( ! update_option( 'gdo_schema_version', GDO_SCHEMA_VERSION, false ) && absint( get_option( 'gdo_schema_version', 0 ) ) !== GDO_SCHEMA_VERSION ) {
+				throw new RuntimeException( 'File 09 schema version could not be persisted.' );
+			}
 			update_option( 'gdo_last_migration', array( 'from'=>$current, 'to'=>GDO_SCHEMA_VERSION, 'completed_at'=>gmdate( 'c' ) ), false );
 			GDO_Membership_Adapter::audit( 'doctor_verification_schema_migrated', array( 'from'=>$current, 'to'=>GDO_SCHEMA_VERSION ) );
 			return true;
@@ -43,10 +46,15 @@ final class GDO_Migration {
 		global $wpdb;
 		$table = GDO_Schema::table( 'applications' );
 		$now = current_time( 'mysql', true );
-		$wpdb->query( "UPDATE {$table} SET application_type='homeopathic_doctor' WHERE application_type='' OR application_type IS NULL" );
-		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET preferred_language=%s WHERE preferred_language='' OR preferred_language IS NULL", 'en-US' ) );
-		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET policy_version=%s WHERE policy_version='' OR policy_version IS NULL", GDO_Policy::VERSION ) );
-		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET draft_expires_at=%s WHERE state='draft' AND draft_expires_at IS NULL", GDO_Policy::draft_expiry() ) );
+		$writes = array(
+			"UPDATE {$table} SET application_type='homeopathic_doctor' WHERE application_type='' OR application_type IS NULL",
+			$wpdb->prepare( "UPDATE {$table} SET preferred_language=%s WHERE preferred_language='' OR preferred_language IS NULL", 'en-US' ),
+			$wpdb->prepare( "UPDATE {$table} SET policy_version=%s WHERE policy_version='' OR policy_version IS NULL", GDO_Policy::VERSION ),
+			$wpdb->prepare( "UPDATE {$table} SET draft_expires_at=%s WHERE state='draft' AND draft_expires_at IS NULL", GDO_Policy::draft_expiry() ),
+		);
+		foreach ( $writes as $sql ) {
+			if ( false === $wpdb->query( $sql ) ) { throw new RuntimeException( 'File 09 application backfill write failed.' ); } // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		}
 		$last_id = 0;
 		do {
 			$rows = $wpdb->get_results( $wpdb->prepare(
@@ -191,7 +199,9 @@ final class GDO_Migration {
 					}
 				} while ( 100 === count( $rows ) );
 				$checkpoint = $user_id;
-				update_option( 'gdo_legacy_migration_user_checkpoint', $checkpoint, false );
+				if ( ! update_option( 'gdo_legacy_migration_user_checkpoint', $checkpoint, false ) && absint( get_option( 'gdo_legacy_migration_user_checkpoint', 0 ) ) !== $checkpoint ) {
+					throw new RuntimeException( 'Legacy File 09 migration checkpoint could not be persisted.' );
+				}
 				++$migrated_users;
 			}
 		} while ( 25 === count( $users ) );

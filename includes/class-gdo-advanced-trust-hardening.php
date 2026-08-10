@@ -43,26 +43,32 @@ final class GDO_Advanced_Trust_Hardening {
 
     public static function maybe_upgrade_schema() {
         global $wpdb;
-        GDO_Advanced_Trust::maybe_install();
-        if ( absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) >= self::SCHEMA_VERSION ) {
-            return true;
-        }
+        $base = GDO_Advanced_Trust::maybe_install();
+        if ( is_wp_error( $base ) ) { return $base; }
         $indexes = array(
             array( GDO_Advanced_Trust::table( 'verification_passports' ), 'application_status', 'application_id,status' ),
             array( GDO_Advanced_Trust::table( 'upload_sessions' ), 'application_state', 'application_id,state' ),
         );
         foreach ( $indexes as $spec ) {
             list( $table, $name, $columns ) = $spec;
+            $wpdb->last_error = '';
             $exists = $wpdb->get_var( $wpdb->prepare( "SHOW INDEX FROM {$table} WHERE Key_name=%s", $name ) );
+            if ( ! empty( $wpdb->last_error ) ) {
+                return new WP_Error( 'gdo_advanced_schema_index_read', __( 'Advanced Trust schema indexes could not be verified safely.', 'global-doctor-onboarding' ) );
+            }
             if ( ! $exists ) {
-                $added = $wpdb->query( "ALTER TABLE {$table} ADD KEY {$name} ({$columns})" );
+                $added = $wpdb->query( "ALTER TABLE {$table} ADD KEY {$name} ({$columns})" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
                 if ( false === $added ) {
                     return new WP_Error( 'gdo_advanced_schema_index', __( 'Advanced Trust schema index migration failed.', 'global-doctor-onboarding' ) );
                 }
             }
         }
-        update_option( 'gdo_advanced_trust_schema', self::SCHEMA_VERSION, false );
-        GDO_Membership_Adapter::audit( 'doctor_advanced_trust_schema_upgraded', array( 'schema'=>self::SCHEMA_VERSION ) );
+        if ( absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) < self::SCHEMA_VERSION ) {
+            if ( ! update_option( 'gdo_advanced_trust_schema', self::SCHEMA_VERSION, false ) && absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) !== self::SCHEMA_VERSION ) {
+                return new WP_Error( 'gdo_advanced_schema_version', __( 'Advanced Trust schema version could not be persisted.', 'global-doctor-onboarding' ) );
+            }
+            GDO_Membership_Adapter::audit( 'doctor_advanced_trust_schema_upgraded', array( 'schema'=>self::SCHEMA_VERSION ) );
+        }
         return true;
     }
 
@@ -186,18 +192,28 @@ final class GDO_Advanced_Trust_Hardening {
 
     private static function schedule_wakeup( $when ) {
         $when = absint( $when );
-        if ( ! $when || $when <= time() ) { return; }
+        if ( ! $when || $when <= time() ) { return true; }
         $next = wp_next_scheduled( 'gdo_trust_continuous_monitor' );
         if ( ! $next || $next > $when + MINUTE_IN_SECONDS ) {
-            wp_schedule_single_event( $when, 'gdo_trust_continuous_monitor' );
+            $scheduled = wp_schedule_single_event( $when, 'gdo_trust_continuous_monitor', array(), true );
+            if ( is_wp_error( $scheduled ) || false === $scheduled ) {
+                return new WP_Error( 'gdo_trust_wakeup_schedule', __( 'Professional reverification wake-up could not be scheduled safely.', 'global-doctor-onboarding' ) );
+            }
         }
+        return true;
     }
 
     public static function event_reverification( $application_id, $event_type = 'status_change', $context = array() ) {
         unset( $context );
         $when = time() + HOUR_IN_SECONDS;
         $ok = self::schedule_reverification( $application_id, $event_type, $when, true );
-        if ( $ok ) { self::schedule_wakeup( $when ); }
+        if ( $ok ) {
+            $wake = self::schedule_wakeup( $when );
+            if ( is_wp_error( $wake ) ) {
+                GDO_Membership_Adapter::audit( 'doctor_reverification_wakeup_failed', array( 'application_id'=>absint( $application_id ), 'reason'=>$wake->get_error_code() ) );
+                return $wake;
+            }
+        }
         return $ok;
     }
 
@@ -371,9 +387,11 @@ final class GDO_Advanced_Trust_Hardening {
             }
             if ( $provider_failure ) {
                 GDO_Membership_Adapter::audit( 'doctor_continuous_verification_provider_degraded', array( 'application_id'=>$app->id, 'failure_count'=>$failures, 'last_result'=>$result ) );
-                self::schedule_wakeup( $next_check );
+                $wake = self::schedule_wakeup( $next_check );
+                if ( is_wp_error( $wake ) ) { GDO_Membership_Adapter::audit( 'doctor_reverification_wakeup_failed', array( 'application_id'=>$app->id, 'reason'=>$wake->get_error_code() ) ); }
             } elseif ( $adverse ) {
-                self::schedule_wakeup( $next_check );
+                $wake = self::schedule_wakeup( $next_check );
+                if ( is_wp_error( $wake ) ) { GDO_Membership_Adapter::audit( 'doctor_reverification_wakeup_failed', array( 'application_id'=>$app->id, 'reason'=>$wake->get_error_code() ) ); }
             } elseif ( 'no_license_evidence' === $result ) {
                 GDO_Membership_Adapter::audit( 'doctor_continuous_verification_license_missing', array( 'application_id'=>$app->id ) );
             }
@@ -388,17 +406,24 @@ final class GDO_Advanced_Trust_Hardening {
             "SELECT upload_uuid,temp_name FROM {$table} WHERE state IN ('open','failed','finalizing') AND expires_at<%s LIMIT 200",
             current_time( 'mysql', true )
         ) );
+        if ( null === $rows || ! empty( $wpdb->last_error ) ) {
+            return new WP_Error( 'gdo_upload_cleanup_inventory', __( 'Expired resumable uploads could not be inventoried safely.', 'global-doctor-onboarding' ) );
+        }
         foreach ( (array) $rows as $row ) {
             $dir = GDO_Storage::directory();
             $path = $dir ? trailingslashit( $dir ) . '.chunk-' . basename( sanitize_file_name( $row->temp_name ) ) : '';
             $deleted = true;
             if ( $path && is_file( $path ) && ! is_link( $path ) ) { $deleted = @unlink( $path ); }
-            if ( $deleted ) {
-                $wpdb->update( $table, array( 'state'=>'expired', 'updated_at'=>current_time( 'mysql', true ) ), array( 'upload_uuid'=>$row->upload_uuid ) );
-            } else {
+            if ( ! $deleted ) {
                 GDO_Membership_Adapter::audit( 'doctor_resumable_upload_cleanup_failed', array( 'upload_uuid'=>$row->upload_uuid ) );
+                return new WP_Error( 'gdo_upload_cleanup_file', __( 'An expired resumable upload could not be deleted safely.', 'global-doctor-onboarding' ) );
+            }
+            $updated = $wpdb->update( $table, array( 'state'=>'expired', 'updated_at'=>current_time( 'mysql', true ) ), array( 'upload_uuid'=>$row->upload_uuid ) );
+            if ( false === $updated ) {
+                return new WP_Error( 'gdo_upload_cleanup_store', __( 'Expired resumable upload state could not be persisted safely.', 'global-doctor-onboarding' ) );
             }
         }
+        return true;
     }
 
     public static function privacy_erase_application( $application_id, $user_id ) {

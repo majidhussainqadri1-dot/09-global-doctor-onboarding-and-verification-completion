@@ -2,6 +2,13 @@
 
 ## 1.3.0-RC6 — Eighty-Round Corrective Assurance — 2026-08-10
 
+### Fourth fresh 80-round corrective review (R4)
+- Frozen baseline: `7875ce20a0fd40c0952960b6e45cf1e869b9c4dd`.
+- 80 controls: **30 defect-bearing rounds corrected; 50 clean rounds**.
+- Added physical schema postconditions and runtime schema gates for core + Advanced Trust migrations.
+- Hardened activation/repair/reverification scheduling, applicant Safe Mode mutation paths, privacy/retention failure truth, resumable cleanup, rate cleanup and guarded destructive uninstall.
+- Added `REVIEW-80-ROUNDS-RC6-R4.md`, `tests/eighty-round-audit-r4.py`, 55-entry release parity and fourth-review release-lock fields.
+
 ### Third fresh 80-round corrective review (R3)
 - Frozen baseline: `f1901a2326ddf1189b90a5f34f8bbcc7e6eb0361`.
 - 80 controls: **13 defect-bearing rounds corrected; 67 clean rounds**.

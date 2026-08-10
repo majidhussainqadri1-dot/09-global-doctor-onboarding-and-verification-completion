@@ -46,7 +46,7 @@ final class GDO_Advanced_Trust {
 
     public static function maybe_install() {
         if ( absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) >= self::SCHEMA_VERSION ) {
-            return true;
+            return self::verify_installation();
         }
         if ( ! function_exists( 'dbDelta' ) ) {
             require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -215,11 +215,50 @@ final class GDO_Advanced_Trust {
             KEY expires_at (expires_at)
         ) {$engine};" );
 
-        update_option( 'gdo_advanced_trust_schema', self::SCHEMA_VERSION, false );
+        $verified = self::verify_installation();
+        if ( is_wp_error( $verified ) ) { return $verified; }
+        if ( ! update_option( 'gdo_advanced_trust_schema', self::SCHEMA_VERSION, false ) && absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) < self::SCHEMA_VERSION ) {
+            return new WP_Error( 'gdo_advanced_schema_version', __( 'Advanced Trust schema version could not be persisted.', 'global-doctor-onboarding' ) );
+        }
         if ( ! wp_next_scheduled( 'gdo_trust_continuous_monitor' ) ) {
-            wp_schedule_event( time() + 2 * HOUR_IN_SECONDS, 'daily', 'gdo_trust_continuous_monitor' );
+            $scheduled = wp_schedule_event( time() + 2 * HOUR_IN_SECONDS, 'daily', 'gdo_trust_continuous_monitor', array(), true );
+            if ( is_wp_error( $scheduled ) || false === $scheduled || ! wp_next_scheduled( 'gdo_trust_continuous_monitor' ) ) {
+                return new WP_Error( 'gdo_advanced_monitor_schedule', __( 'Advanced Trust continuous monitoring could not be scheduled safely.', 'global-doctor-onboarding' ) );
+            }
         }
         GDO_Membership_Adapter::audit( 'doctor_advanced_trust_schema_ready', array( 'schema'=>self::SCHEMA_VERSION ) );
+        return true;
+    }
+
+    public static function verify_installation() {
+        global $wpdb;
+        $required = array(
+            'trusted_issuers'=>array( 'id','issuer_uuid','status' ),
+            'jurisdiction_rules'=>array( 'id','jurisdiction','rule_version','status' ),
+            'credential_checks'=>array( 'id','check_uuid','application_id','status' ),
+            'professional_history'=>array( 'id','history_uuid','user_id','application_id' ),
+            'reviewer_conflicts'=>array( 'id','reviewer_id','applicant_id','status' ),
+            'verification_passports'=>array( 'id','passport_uuid','application_id','status' ),
+            'monitor_state'=>array( 'application_id','monitor_status','next_check_at' ),
+            'upload_sessions'=>array( 'upload_uuid','application_id','state','expires_at' ),
+        );
+        foreach ( $required as $name=>$columns ) {
+            $table = self::table( $name );
+            $wpdb->last_error = '';
+            $actual = $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            if ( ! is_array( $actual ) || ! empty( $wpdb->last_error ) ) {
+                return new WP_Error( 'gdo_advanced_schema_table', __( 'A required Advanced Trust table is unavailable after schema installation.', 'global-doctor-onboarding' ) );
+            }
+            foreach ( $columns as $column ) {
+                if ( ! in_array( $column, $actual, true ) ) {
+                    return new WP_Error( 'gdo_advanced_schema_column', __( 'A required Advanced Trust column is unavailable after schema installation.', 'global-doctor-onboarding' ) );
+                }
+            }
+            $status = $wpdb->get_row( $wpdb->prepare( 'SHOW TABLE STATUS LIKE %s', $table ) );
+            if ( ! $status || ! empty( $wpdb->last_error ) || 'innodb' !== strtolower( (string) $status->Engine ) ) {
+                return new WP_Error( 'gdo_advanced_schema_engine', __( 'Advanced Trust transactional tables must use InnoDB.', 'global-doctor-onboarding' ) );
+            }
+        }
         return true;
     }
 

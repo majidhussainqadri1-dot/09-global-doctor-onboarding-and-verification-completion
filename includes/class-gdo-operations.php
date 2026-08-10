@@ -7,7 +7,12 @@ final class GDO_Operations {
 	}
 
 	public static function mutation_allowed() {
+		$core_schema_ready = absint( get_option( 'gdo_schema_version', 0 ) ) === GDO_SCHEMA_VERSION;
+		$advanced_schema_ready = ! class_exists( 'GDO_Advanced_Trust_Hardening' )
+			|| absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) === GDO_Advanced_Trust_Hardening::SCHEMA_VERSION;
 		return ! self::safe_mode()
+			&& $core_schema_ready
+			&& $advanced_schema_ready
 			&& GDO_Membership_Adapter::available()
 			&& GDO_Membership_Adapter::authentication_available()
 			&& GDO_Crypto::available()
@@ -31,8 +36,10 @@ final class GDO_Operations {
 		$checks['crypto_keyring'] = GDO_Crypto::available() ? 'pass' : 'fail';
 		$checks['private_storage'] = is_wp_error( GDO_Storage::health() ) ? 'fail' : 'pass';
 		$checks['schema_version'] = absint( get_option( 'gdo_schema_version', 0 ) ) === GDO_SCHEMA_VERSION ? 'pass' : 'fail';
+		$checks['advanced_trust_schema'] = ! class_exists( 'GDO_Advanced_Trust_Hardening' ) || absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) === GDO_Advanced_Trust_Hardening::SCHEMA_VERSION ? 'pass' : 'fail';
 		$checks['retention_cron'] = wp_next_scheduled( 'gdo_daily_retention' ) ? 'pass' : 'warn';
 		$checks['outbox_cron'] = wp_next_scheduled( 'gdo_notification_outbox' ) ? 'pass' : 'warn';
+		$checks['trust_monitor_cron'] = wp_next_scheduled( 'gdo_trust_continuous_monitor' ) ? 'pass' : 'warn';
 		$modern_notifications = function_exists( 'sun_ingest_domain_event' ) && function_exists( 'sun_register_notification_producer' );
 		$checks['notification_provider'] = ( $modern_notifications || class_exists( 'SUN_Core' ) || has_action( 'sabri_notify' ) ) ? 'pass' : 'warn';
 		$checks['claim_signing_key'] = defined( 'GDO_CLAIM_SIGNING_KEY' ) && strlen( (string) GDO_CLAIM_SIGNING_KEY ) >= 32 ? 'pass' : 'fail';
@@ -132,6 +139,10 @@ final class GDO_Operations {
 			if ( ! wp_next_scheduled( 'gdo_notification_outbox' ) ) {
 				$scheduled = wp_schedule_event( time() + 5 * MINUTE_IN_SECONDS, 'hourly', 'gdo_notification_outbox', array(), true );
 				if ( is_wp_error( $scheduled ) || false === $scheduled || ! wp_next_scheduled( 'gdo_notification_outbox' ) ) { return new WP_Error( 'gdo_repair_outbox_schedule', __( 'The outbox schedule could not be persisted safely.', 'global-doctor-onboarding' ) ); }
+			}
+			if ( ! wp_next_scheduled( 'gdo_trust_continuous_monitor' ) ) {
+				$scheduled = wp_schedule_event( time() + 2 * HOUR_IN_SECONDS, 'daily', 'gdo_trust_continuous_monitor', array(), true );
+				if ( is_wp_error( $scheduled ) || false === $scheduled || ! wp_next_scheduled( 'gdo_trust_continuous_monitor' ) ) { return new WP_Error( 'gdo_repair_trust_monitor_schedule', __( 'The professional trust monitor schedule could not be persisted safely.', 'global-doctor-onboarding' ) ); }
 			}
 		} elseif ( 'outbox' === $action ) {
 			$result = GDO_Notifications::process( 100 );

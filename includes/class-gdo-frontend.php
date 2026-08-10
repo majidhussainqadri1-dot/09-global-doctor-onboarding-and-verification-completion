@@ -107,7 +107,8 @@ final class GDO_Frontend {
 		} catch ( Throwable $e ) {
 			$wpdb->query( 'ROLLBACK' );
 			foreach ( $new_files as $record ) { GDO_Storage::delete_verified( $record['storage_name'], $record['ciphertext_sha256'] ); }
-			wp_die( esc_html( $e->getMessage() ), '', array( 'response'=>400, 'back_link'=>true ) );
+			GDO_Membership_Adapter::audit( 'doctor_application_save_failed', array( 'application_id'=>$id, 'error_class'=>get_class( $e ), 'error_digest'=>hash( 'sha256', $e->getMessage() ) ) );
+			wp_die( esc_html__( 'The private application could not be saved safely. No partial application change was accepted.', 'global-doctor-onboarding' ), '', array( 'response'=>503, 'back_link'=>true ) );
 		}
 		wp_safe_redirect( GDO_Plugin::application_url( array( 'saved'=>'1' ) ) ); exit;
 	}
@@ -123,6 +124,7 @@ final class GDO_Frontend {
 
 	public function appeal() {
 		if ( ! is_user_logged_in() ) { wp_die( esc_html__( 'Log in.', 'global-doctor-onboarding' ), '', array( 'response'=>403 ) ); }
+		if ( ! GDO_Operations::mutation_allowed() ) { wp_die( esc_html__( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
 		global $wpdb;
 		$id = absint( isset( $_POST['application_id'] ) ? $_POST['application_id'] : 0 );
 		check_admin_referer( 'gdo_file_appeal_' . $id );
@@ -174,6 +176,7 @@ final class GDO_Frontend {
 
 	public function withdraw() {
 		if ( ! is_user_logged_in() ) { wp_die( esc_html__( 'Log in.', 'global-doctor-onboarding' ), '', array( 'response'=>403 ) ); }
+		if ( ! GDO_Operations::mutation_allowed() ) { wp_die( esc_html__( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
 		$id = absint( isset( $_POST['application_id'] ) ? $_POST['application_id'] : 0 );
 		check_admin_referer( 'gdo_withdraw_application_' . $id );
 		$app = GDO_Application::get( $id );

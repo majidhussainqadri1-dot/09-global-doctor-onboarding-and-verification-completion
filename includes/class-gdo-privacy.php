@@ -28,6 +28,9 @@ final class GDO_Privacy {
 			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE user_id=%d ORDER BY version ASC LIMIT %d OFFSET %d',
 			$user->ID, $per, $offset
 		) );
+		if ( null === $apps || ! empty( $wpdb->last_error ) ) {
+			return array( 'data'=>array(), 'done'=>false );
+		}
 		$data = array();
 		foreach ( $apps as $app ) {
 			$rows = array(
@@ -59,9 +62,11 @@ final class GDO_Privacy {
 				'Quality sample' => 'SELECT original_decision,status,outcome,reason,created_at,completed_at FROM ' . GDO_Schema::table( 'quality_samples' ) . ' WHERE application_id=%d',
 			);
 			foreach ( $queries as $label => $sql ) {
-				foreach ( $wpdb->get_results( $wpdb->prepare( $sql, $app->id ), ARRAY_A ) as $item ) {
-					$rows[] = array( 'name'=>$label, 'value'=>wp_json_encode( $item ) );
+				$items = $wpdb->get_results( $wpdb->prepare( $sql, $app->id ), ARRAY_A );
+				if ( null === $items || ! empty( $wpdb->last_error ) ) {
+					return array( 'data'=>$data, 'done'=>false );
 				}
+				foreach ( $items as $item ) { $rows[] = array( 'name'=>$label, 'value'=>wp_json_encode( $item ) ); }
 			}
 			if ( class_exists( 'GDO_Advanced_Trust' ) ) {
 				$rows = array_merge( $rows, GDO_Advanced_Trust::privacy_export_rows( $app->id ) );
@@ -90,10 +95,17 @@ final class GDO_Privacy {
 			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE user_id=%d AND legal_hold=0 ORDER BY id ASC LIMIT %d',
 			$user->ID, $limit
 		) );
-		$held = absint( $wpdb->get_var( $wpdb->prepare(
+		if ( null === $apps || ! empty( $wpdb->last_error ) ) {
+			return array( 'items_removed'=>false, 'items_retained'=>true, 'messages'=>array( 'Erasure is paused because application records could not be read safely.' ), 'done'=>false );
+		}
+		$held_raw = $wpdb->get_var( $wpdb->prepare(
 			'SELECT COUNT(*) FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE user_id=%d AND legal_hold=1',
 			$user->ID
-		) ) );
+		) );
+		if ( null === $held_raw || ! empty( $wpdb->last_error ) ) {
+			return array( 'items_removed'=>false, 'items_retained'=>true, 'messages'=>array( 'Erasure is paused because legal-hold status could not be verified safely.' ), 'done'=>false );
+		}
+		$held = absint( $held_raw );
 		$removed = false;
 		$retained = $held > 0;
 		$messages = $held ? array( 'One or more doctor-verification records remain under a documented legal hold.' ) : array();

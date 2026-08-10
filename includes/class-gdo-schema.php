@@ -316,5 +316,44 @@ final class GDO_Schema {
 			PRIMARY KEY  (id),
 			KEY name_observed (metric_name,observed_at)
 		) {$engine};" );
+
+		return self::verify_installation();
+	}
+
+	public static function verify_installation() {
+		global $wpdb;
+		$required = array(
+			'applications'=>array( 'id','application_uuid','user_id','state','row_version','claim_status' ),
+			'evidence'=>array( 'id','application_id','storage_name','ciphertext_sha256','retention_state' ),
+			'transitions'=>array( 'id','application_id','event_hash','previous_hash' ),
+			'consents'=>array( 'id','application_id','evidence_hash' ),
+			'access_log'=>array( 'id','application_id','reviewer_id','purpose_code' ),
+			'appeals'=>array( 'id','application_id','status' ),
+			'outbox'=>array( 'id','event_uuid','status','available_at' ),
+			'rate_limits'=>array( 'bucket_hash','hits','expires_at' ),
+			'reviewer_profiles'=>array( 'user_id','status','jurisdictions_json' ),
+			'risk_signals'=>array( 'id','application_id','severity','status' ),
+			'quality_samples'=>array( 'id','application_id','status' ),
+			'access_grants'=>array( 'id','grant_hash','application_id','expires_at' ),
+			'metrics'=>array( 'id','metric_name','observed_at' ),
+		);
+		foreach ( $required as $name=>$columns ) {
+			$table = self::table( $name );
+			$wpdb->last_error = '';
+			$actual = $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			if ( ! is_array( $actual ) || ! empty( $wpdb->last_error ) ) {
+				return new WP_Error( 'gdo_schema_table_missing', __( 'A required File 09 database table is unavailable after schema installation.', 'global-doctor-onboarding' ) );
+			}
+			foreach ( $columns as $column ) {
+				if ( ! in_array( $column, $actual, true ) ) {
+					return new WP_Error( 'gdo_schema_column_missing', __( 'A required File 09 database column is unavailable after schema installation.', 'global-doctor-onboarding' ) );
+				}
+			}
+			$status = $wpdb->get_row( $wpdb->prepare( 'SHOW TABLE STATUS LIKE %s', $table ) );
+			if ( ! $status || ! empty( $wpdb->last_error ) || 'innodb' !== strtolower( (string) $status->Engine ) ) {
+				return new WP_Error( 'gdo_schema_engine_invalid', __( 'File 09 transactional tables must be available with the InnoDB engine.', 'global-doctor-onboarding' ) );
+			}
+		}
+		return true;
 	}
 }

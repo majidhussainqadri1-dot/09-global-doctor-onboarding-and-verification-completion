@@ -8,30 +8,51 @@ final class GDO_Retention {
 	}
 
 	public function process_outbox() {
-		GDO_Notifications::process( 50 );
+		return GDO_Notifications::process( 50 );
 	}
 
 	public function run() {
-		global $wpdb;
-		GDO_Rate_Limiter::cleanup();
-		GDO_Notifications::process( 50 );
+		if ( ! GDO_Operations::mutation_allowed() ) {
+			$error = new WP_Error( 'gdo_retention_runtime_not_ready', __( 'File 09 retention is paused until dependencies and schemas are healthy.', 'global-doctor-onboarding' ) );
+			GDO_Membership_Adapter::audit( 'doctor_verification_retention_failed', array( 'reason'=>$error->get_error_code() ) );
+			return $error;
+		}
+		$rate = GDO_Rate_Limiter::cleanup();
+		if ( is_wp_error( $rate ) ) { return self::retention_failure( $rate ); }
+		$outbox = GDO_Notifications::process( 50 );
+		if ( is_wp_error( $outbox ) ) { return self::retention_failure( $outbox ); }
 		$now = current_time( 'mysql', true );
 		$apps_table = GDO_Schema::table( 'applications' );
 		$evidence_table = GDO_Schema::table( 'evidence' );
-		$this->expire_drafts( $now, $apps_table );
-		$this->open_renewals( $now, $apps_table );
-		$this->expire_verifications( $now, $apps_table );
-		$this->reconcile_pending_claims( $now, $apps_table );
-		$this->rotate_keys( $evidence_table );
-		$this->delete_superseded( $now, $evidence_table );
-		$this->apply_retention( $now, $apps_table );
-		$this->cleanup_access( $now );
-		if ( class_exists( 'GDO_Advanced_Trust' ) ) {
-			GDO_Advanced_Trust::cleanup_upload_sessions();
+		$steps = array(
+			array( $this, 'expire_drafts', array( $now, $apps_table ) ),
+			array( $this, 'open_renewals', array( $now, $apps_table ) ),
+			array( $this, 'expire_verifications', array( $now, $apps_table ) ),
+			array( $this, 'reconcile_pending_claims', array( $now, $apps_table ) ),
+			array( $this, 'rotate_keys', array( $evidence_table ) ),
+			array( $this, 'delete_superseded', array( $now, $evidence_table ) ),
+			array( $this, 'apply_retention', array( $now, $apps_table ) ),
+			array( $this, 'cleanup_access', array( $now ) ),
+		);
+		foreach ( $steps as $step ) {
+			$result = call_user_func_array( array( $step[0], $step[1] ), $step[2] );
+			if ( is_wp_error( $result ) ) { return self::retention_failure( $result ); }
 		}
-		self::cleanup_orphans();
+		if ( class_exists( 'GDO_Advanced_Trust_Hardening' ) ) {
+			$advanced = GDO_Advanced_Trust_Hardening::cleanup_upload_sessions();
+			if ( is_wp_error( $advanced ) ) { return self::retention_failure( $advanced ); }
+		}
+		$orphans = self::cleanup_orphans();
+		if ( false === $orphans ) { return self::retention_failure( new WP_Error( 'gdo_retention_orphan_cleanup', __( 'Credential orphan cleanup could not be verified safely.', 'global-doctor-onboarding' ) ) ); }
 		GDO_Membership_Adapter::audit( 'doctor_verification_retention_completed', array( 'completed_at'=>$now ) );
 		do_action( 'gdo_retention_completed', $now );
+		return true;
+	}
+
+	private static function retention_failure( $error ) {
+		$error = is_wp_error( $error ) ? $error : new WP_Error( 'gdo_retention_failed', __( 'File 09 retention could not complete safely.', 'global-doctor-onboarding' ) );
+		GDO_Membership_Adapter::audit( 'doctor_verification_retention_failed', array( 'reason'=>$error->get_error_code() ) );
+		return $error;
 	}
 
 	private function expire_drafts( $now, $apps_table ) {
@@ -41,20 +62,26 @@ final class GDO_Retention {
 			"SELECT id,user_id,draft_expires_at FROM {$apps_table} WHERE state='draft' AND draft_expires_at>%s AND draft_expires_at<=%s LIMIT 100",
 			$now, $warn_at
 		) );
+		if ( null === $warning_rows || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_draft_warning_query', __( 'Draft expiry warnings could not be read safely.', 'global-doctor-onboarding' ) ); }
 		foreach ( $warning_rows as $app ) {
 			$dedupe = hash( 'sha256', 'draft-warning|' . absint( $app->id ) . '|' . substr( $app->draft_expires_at, 0, 10 ) );
-			$exists = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_type=%s AND payload_json LIKE %s LIMIT 1', 'doctor_application_draft_expiring', '%' . $wpdb->esc_like( $dedupe ) . '%' ) ) );
-			if ( ! $exists ) {
-				GDO_Notifications::queue( 'doctor_application_draft_expiring', $app->user_id, array( 'application_id'=>absint( $app->id ), 'expires_at'=>gmdate( 'c', strtotime( $app->draft_expires_at . ' UTC' ) ), 'dedupe_digest'=>$dedupe ), false );
+			$exists_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_type=%s AND payload_json LIKE %s LIMIT 1', 'doctor_application_draft_expiring', '%' . $wpdb->esc_like( $dedupe ) . '%' ) );
+			if ( ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_draft_warning_dedupe', __( 'Draft expiry notification state could not be verified safely.', 'global-doctor-onboarding' ) ); }
+			if ( ! absint( $exists_raw ) ) {
+				$queued = GDO_Notifications::queue( 'doctor_application_draft_expiring', $app->user_id, array( 'application_id'=>absint( $app->id ), 'expires_at'=>gmdate( 'c', strtotime( $app->draft_expires_at . ' UTC' ) ), 'dedupe_digest'=>$dedupe ), false );
+				if ( is_wp_error( $queued ) ) { return $queued; }
 			}
 		}
 		$expired = $wpdb->get_results( $wpdb->prepare(
 			"SELECT id,user_id,row_version FROM {$apps_table} WHERE state='draft' AND draft_expires_at IS NOT NULL AND draft_expires_at<%s LIMIT 100",
 			$now
 		) );
+		if ( null === $expired || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_draft_expiry_query', __( 'Expired drafts could not be read safely.', 'global-doctor-onboarding' ) ); }
 		foreach ( $expired as $app ) {
-			GDO_State::transition( $app->id, 'withdrawn', 0, 'application_withdrawn', 'Private application draft expired under the configured draft-retention policy.', $app->row_version );
+			$result = GDO_State::transition( $app->id, 'withdrawn', 0, 'application_withdrawn', 'Private application draft expired under the configured draft-retention policy.', $app->row_version );
+			if ( is_wp_error( $result ) ) { return $result; }
 		}
+		return true;
 	}
 
 	private function open_renewals( $now, $apps_table ) {
@@ -64,20 +91,22 @@ final class GDO_Retention {
 			"SELECT id,user_id,row_version,verified_until FROM {$apps_table} WHERE state IN ('verified','reinstated') AND verified_until IS NOT NULL AND verified_until>%s AND verified_until<=%s LIMIT 100",
 			$now, $window
 		) );
+		if ( null === $rows || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_renewal_query', __( 'Renewal-due records could not be read safely.', 'global-doctor-onboarding' ) ); }
 		foreach ( $rows as $app ) {
 			if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
-				continue;
+				return new WP_Error( 'gdo_retention_renewal_transaction', __( 'Renewal processing could not start a safe transaction.', 'global-doctor-onboarding' ) );
 			}
 			$result = GDO_State::transition( $app->id, 'renewal_due', 0, 'verification_lifecycle', 'Verification entered the configured renewal window.', $app->row_version, false );
 			$event = is_wp_error( $result ) ? $result : GDO_Notifications::queue( 'doctor_verification_renewal_due', $app->user_id, array( 'application_id'=>absint( $app->id ), 'verified_until'=>$app->verified_until ), false );
 			$claim = is_wp_error( $event ) ? $event : GDO_Claims::issue( $app->id, 'renewal_due', array(), false );
 			if ( is_wp_error( $result ) || is_wp_error( $event ) || is_wp_error( $claim ) || false === $wpdb->query( 'COMMIT' ) ) {
 				$wpdb->query( 'ROLLBACK' );
-			} else {
-				GDO_Audit::publish_transition( $result );
-				GDO_Claims::publish( $claim );
+				return is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : ( is_wp_error( $claim ) ? $claim : new WP_Error( 'gdo_retention_renewal_commit', __( 'Renewal processing could not be committed safely.', 'global-doctor-onboarding' ) ) ) );
 			}
+			GDO_Audit::publish_transition( $result );
+			GDO_Claims::publish( $claim );
 		}
+		return true;
 	}
 
 	private function expire_verifications( $now, $apps_table ) {
@@ -86,21 +115,23 @@ final class GDO_Retention {
 			"SELECT id,user_id,row_version FROM {$apps_table} WHERE state IN ('verified','reinstated','renewal_due') AND verified_until IS NOT NULL AND verified_until<%s LIMIT 100",
 			$now
 		) );
+		if ( null === $rows || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_expiry_query', __( 'Expired verification records could not be read safely.', 'global-doctor-onboarding' ) ); }
 		foreach ( $rows as $app ) {
 			if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
-				continue;
+				return new WP_Error( 'gdo_retention_expiry_transaction', __( 'Verification expiry could not start a safe transaction.', 'global-doctor-onboarding' ) );
 			}
 			$result = GDO_State::transition( $app->id, 'expired', 0, 'verification_expired', 'Verification validity period ended.', $app->row_version, false );
 			$event = is_wp_error( $result ) ? $result : GDO_Notifications::queue( 'doctor_verification_expired', $app->user_id, array( 'application_id'=>absint( $app->id ) ), false );
 			$claim = is_wp_error( $event ) ? $event : GDO_Claims::issue( $app->id, 'expired', array(), false );
 			if ( is_wp_error( $result ) || is_wp_error( $event ) || is_wp_error( $claim ) || false === $wpdb->query( 'COMMIT' ) ) {
 				$wpdb->query( 'ROLLBACK' );
-				continue;
+				return is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : ( is_wp_error( $claim ) ? $claim : new WP_Error( 'gdo_retention_expiry_commit', __( 'Verification expiry could not be committed safely.', 'global-doctor-onboarding' ) ) ) );
 			}
 			GDO_Audit::publish_transition( $result );
 			GDO_Claims::publish( $claim );
 			do_action( 'gdo_verification_decision_changed', $app->user_id, 'expired', $app->id, array() );
 		}
+		return true;
 	}
 
 	private function reconcile_pending_claims( $now, $apps_table ) {
@@ -110,14 +141,17 @@ final class GDO_Retention {
 			"SELECT id,state,claim_version FROM {$apps_table} WHERE claim_status IN ('pending','failed') AND updated_at<%s ORDER BY updated_at ASC LIMIT 50",
 			$stale
 		) );
+		if ( null === $rows || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_claim_query', __( 'Pending professional claims could not be read safely.', 'global-doctor-onboarding' ) ); }
 		foreach ( $rows as $app ) {
 			$pattern = '%"application_id":' . absint( $app->id ) . ',%';
 			$event = $wpdb->get_row( $wpdb->prepare(
 				"SELECT id,status,event_uuid FROM " . GDO_Schema::table( 'outbox' ) . " WHERE event_type='doctor_professional_claim' AND payload_json LIKE %s ORDER BY id DESC LIMIT 1",
 				$pattern
 			) );
+			if ( ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_claim_outbox_query', __( 'Professional claim outbox state could not be verified safely.', 'global-doctor-onboarding' ) ); }
 			if ( $event && in_array( $event->status, array( 'pending','failed' ), true ) ) {
-				GDO_Notifications::process( 1, $event->event_uuid );
+				$processed = GDO_Notifications::process( 1, $event->event_uuid );
+				if ( is_wp_error( $processed ) ) { return $processed; }
 				continue;
 			}
 			if ( $event && 'dead' === $event->status ) {
@@ -125,24 +159,27 @@ final class GDO_Retention {
 				continue;
 			}
 			if ( ! $event ) {
-				GDO_Claims::issue( $app->id, $app->state );
+				$issued = GDO_Claims::issue( $app->id, $app->state );
+				if ( is_wp_error( $issued ) ) { return $issued; }
 			}
 		}
+		return true;
 	}
 
 	private function rotate_keys( $evidence_table ) {
 		global $wpdb;
 		$ring = GDO_Crypto::keyring();
-		if ( is_wp_error( $ring ) ) {
-			return;
-		}
+		if ( is_wp_error( $ring ) ) { return $ring; }
 		$ids = $wpdb->get_col( $wpdb->prepare(
 			"SELECT id FROM {$evidence_table} WHERE envelope_version='GDO2' AND key_id<>%s AND deleted_at IS NULL LIMIT 25",
 			$ring['active']
 		) );
+		if ( null === $ids || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_rotation_query', __( 'Credential key-rotation inventory could not be read safely.', 'global-doctor-onboarding' ) ); }
 		foreach ( $ids as $evidence_id ) {
-			GDO_Evidence::rotate_key( $evidence_id );
+			$rotated = GDO_Evidence::rotate_key( $evidence_id );
+			if ( is_wp_error( $rotated ) ) { return $rotated; }
 		}
+		return true;
 	}
 
 	private function delete_superseded( $now, $evidence_table ) {
@@ -152,9 +189,11 @@ final class GDO_Retention {
 			"SELECT * FROM {$evidence_table} WHERE retention_state='superseded' AND deleted_at IS NULL AND updated_at<%s LIMIT 100",
 			$before
 		) );
+		if ( null === $rows || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_superseded_query', __( 'Superseded credential records could not be read safely.', 'global-doctor-onboarding' ) ); }
 		foreach ( $rows as $record ) {
-			self::delete_record( $record, 'superseded_deleted', $now );
+			if ( ! self::delete_record( $record, 'superseded_deleted', $now ) ) { return new WP_Error( 'gdo_retention_superseded_delete', __( 'A superseded credential could not be deleted safely.', 'global-doctor-onboarding' ) ); }
 		}
+		return true;
 	}
 
 	private function apply_retention( $now, $apps_table ) {
@@ -163,6 +202,7 @@ final class GDO_Retention {
 			"SELECT * FROM {$apps_table} WHERE legal_hold=0 AND retention_until IS NOT NULL AND retention_until<%s LIMIT 100",
 			$now
 		) );
+		if ( null === $apps || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_application_query', __( 'Retention-eligible applications could not be read safely.', 'global-doctor-onboarding' ) ); }
 		foreach ( $apps as $app ) {
 			if ( in_array( $app->state, array( 'verified','reinstated','under_review','recommended','appeal_pending','submitted','resubmitted','renewal_due' ), true ) ) {
 				continue;
@@ -173,11 +213,9 @@ final class GDO_Retention {
 					$failed = true;
 				}
 			}
-			if ( $failed ) {
-				continue;
-			}
+			if ( $failed ) { return new WP_Error( 'gdo_retention_evidence_delete', __( 'Credential evidence retention could not complete safely.', 'global-doctor-onboarding' ) ); }
 			if ( class_exists( 'GDO_Advanced_Trust' ) && ! $this->retire_advanced_trust_for_application( $app, $now ) ) {
-				continue;
+				return new WP_Error( 'gdo_retention_advanced_trust', __( 'Advanced Trust retention could not complete safely.', 'global-doctor-onboarding' ) );
 			}
 			$anonymous = hash( 'sha256', 'retained|' . $app->application_uuid . '|' . wp_salt( 'nonce' ) );
 			$updated = $wpdb->update( $apps_table, array(
@@ -188,7 +226,7 @@ final class GDO_Retention {
 			), array( 'id'=>absint( $app->id ) ) );
 			if ( false === $updated ) {
 				GDO_Membership_Adapter::audit( 'doctor_verification_retention_app_anonymize_failed', array( 'application_id'=>absint( $app->id ) ) );
-				continue;
+				return new WP_Error( 'gdo_retention_app_anonymize', __( 'Application retention anonymization could not be persisted safely.', 'global-doctor-onboarding' ) );
 			}
 			$native_ok = true;
 			$native_ok = $native_ok && false !== $wpdb->update( GDO_Schema::table( 'consents' ), array( 'user_id'=>0, 'purpose'=>'retained-accountability-record', 'retention_notice'=>'anonymized', 'withdrawn_at'=>$now ), array( 'application_id'=>$app->id ) );
@@ -199,10 +237,11 @@ final class GDO_Retention {
 			$native_ok = $native_ok && false !== $wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'application_id'=>$app->id ) );
 			if ( ! $native_ok ) {
 				GDO_Membership_Adapter::audit( 'doctor_verification_retention_native_anonymize_failed', array( 'application_id'=>absint( $app->id ) ) );
-				continue;
+				return new WP_Error( 'gdo_retention_native_anonymize', __( 'Related retention records could not be anonymized safely.', 'global-doctor-onboarding' ) );
 			}
 			GDO_Membership_Adapter::audit( 'doctor_verification_retention_anonymized', array( 'application_id'=>absint( $app->id ) ) );
 		}
+		return true;
 	}
 
 	private function retire_advanced_trust_for_application( $app, $now ) {
@@ -238,12 +277,13 @@ final class GDO_Retention {
 
 	private function cleanup_access( $now ) {
 		global $wpdb;
-		$wpdb->query( $wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'access_grants' ) . ' WHERE expires_at<%s OR used_at IS NOT NULL', $now ) );
-		$wpdb->query( $wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'rate_limits' ) . ' WHERE expires_at<%d', time() ) );
-		$wpdb->query( $wpdb->prepare(
-			'UPDATE ' . GDO_Schema::table( 'access_log' ) . " SET reviewer_id=0,purpose_code='anonymized' WHERE created_at<%s",
-			gmdate( 'Y-m-d H:i:s', time() - absint( apply_filters( 'gdo_access_log_identifiable_days', 365 ) ) * DAY_IN_SECONDS )
-		) );
+		$queries = array(
+			$wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'access_grants' ) . ' WHERE expires_at<%s OR used_at IS NOT NULL', $now ),
+			$wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'rate_limits' ) . ' WHERE expires_at<%d', time() ),
+			$wpdb->prepare( 'UPDATE ' . GDO_Schema::table( 'access_log' ) . " SET reviewer_id=0,purpose_code='anonymized' WHERE created_at<%s", gmdate( 'Y-m-d H:i:s', time() - absint( apply_filters( 'gdo_access_log_identifiable_days', 365 ) ) * DAY_IN_SECONDS ) ),
+		);
+		foreach ( $queries as $sql ) { if ( false === $wpdb->query( $sql ) ) { return new WP_Error( 'gdo_retention_access_cleanup', __( 'Expired access records could not be cleaned safely.', 'global-doctor-onboarding' ) ); } } // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		return true;
 	}
 
 	private static function delete_record( $record, $state, $now ) {
@@ -264,9 +304,7 @@ final class GDO_Retention {
 	private static function cleanup_orphans() {
 		global $wpdb;
 		$health = GDO_Storage::health();
-		if ( is_wp_error( $health ) ) {
-			return;
-		}
+		if ( is_wp_error( $health ) ) { return false; }
 		$dir = GDO_Storage::directory();
 		$known_rows = $wpdb->get_col( 'SELECT storage_name FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE deleted_at IS NULL' );
 		if ( null === $known_rows || ! empty( $wpdb->last_error ) ) {
