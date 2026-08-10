@@ -14,6 +14,7 @@ final class GDO_Plugin {
         }
         GDO_Migration::maybe_run();
         (new GDO_Advanced_Trust())->hooks();
+        GDO_Advanced_Trust_Hardening::hooks();
         GDO_Advanced_Trust_Events::hooks();
         (new GDO_Frontend())->hooks();
         (new GDO_Admin())->hooks();
@@ -112,7 +113,8 @@ final class GDO_Plugin {
     public function shell_health( $health ) {
         $health['file09'] = GDO_Operations::health();
         $health['file09']['advanced_trust_schema'] = absint( get_option( 'gdo_advanced_trust_schema', 0 ) );
-        $health['file09']['advanced_trust_contract'] = GDO_Advanced_Trust::CONTRACT_VERSION;
+        $health['file09']['advanced_trust_contract'] = GDO_Advanced_Trust_Hardening::CONTRACT_VERSION;
+        $health['file09']['review80_corrective_layer'] = true;
         return $health;
     }
 
