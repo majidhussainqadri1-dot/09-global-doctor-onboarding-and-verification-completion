@@ -26,6 +26,7 @@ jobs:
           set -euo pipefail
           python3 -m py_compile tools/r7-apply.py
           python3 tools/r7-apply.py
+          sed -i 's/in workflow))/in workflow)/' tests/eighty-round-audit-r7.py
       - name: Validate corrected R7 tree
         run: |
           set -euo pipefail
