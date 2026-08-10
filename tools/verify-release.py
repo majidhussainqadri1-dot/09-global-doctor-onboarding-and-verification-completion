@@ -18,15 +18,14 @@ with zipfile.ZipFile(zpath) as z:
     if any(i.compress_type != zipfile.ZIP_STORED for i in z.infolist()): raise SystemExit('package must use deterministic stored entries')
     for info, rel in zip(z.infolist(), release_files):
         if info.date_time != (1980,1,1,0,0,0): raise SystemExit('non-deterministic timestamp: '+info.filename)
-        if rel == 'SBOM.spdx.json':
-            continue
+        if rel == 'SBOM.spdx.json': continue
         source = repo_root / rel
         if digest(z.read(info.filename)) != digest(source.read_bytes()): raise SystemExit('source/package parity mismatch: '+rel)
 
     sbom = json.loads(z.read(package_root + 'SBOM.spdx.json').decode('utf-8'))
     if sbom.get('spdxVersion') != 'SPDX-2.3': raise SystemExit('invalid generated SBOM')
     package = (sbom.get('packages') or [{}])[0]
-    if package.get('versionInfo') != '1.3.0-RC5' or package.get('filesAnalyzed') is not True: raise SystemExit('generated SBOM identity mismatch')
+    if package.get('versionInfo') != '1.3.0-RC6' or package.get('filesAnalyzed') is not True: raise SystemExit('generated SBOM identity mismatch')
     declared = {}
     for item in sbom.get('files', []):
         rel = item.get('fileName','').removeprefix('./')
@@ -43,4 +42,4 @@ with zipfile.ZipFile(zpath) as z:
     refs = package.get('externalRefs') or []
     locators = {x.get('referenceLocator') for x in refs if x.get('referenceType') == 'sabri:source-head'}
     if head and head not in locators: raise SystemExit('generated SBOM is not bound to exact source head')
-print('Package verification passed:', len(expected), 'entries; generated SBOM exact-head coverage passed')
+print('Package verification passed:', len(expected), 'entries; RC6 generated SBOM exact-head coverage passed')
