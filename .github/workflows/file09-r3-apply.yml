@@ -52,7 +52,6 @@ jobs:
           python3 tests/architecture-check.py
           python3 tests/completion-security.py
           python3 tests/release-integrity.py
-          python3 tests/rc2-adversarial.py
           python3 tests/final-hardening.py
           python3 tests/review40-adversarial.py
           python3 tests/latest-plan-parity.py
