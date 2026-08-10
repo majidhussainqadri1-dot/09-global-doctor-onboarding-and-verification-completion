@@ -45,6 +45,16 @@ jobs:
           git apply --check /tmp/r6-source.patch
           git apply /tmp/r6-source.patch
 
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('includes/class-gdo-storage.php')
+          s=p.read_text(encoding='utf-8')
+          if 'is_link($dir)' not in s and 'is_link( $dir )' not in s:
+              raise SystemExit('storage directory symlink guard missing')
+          s=s.replace('is_link($dir)','is_link( $dir )',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+
           cat tools/r6-overlay.part.* | base64 -d > /tmp/r6-overlay.tar.gz
           tar -xzf /tmp/r6-overlay.tar.gz -C .
 
@@ -72,8 +82,6 @@ jobs:
           p.write_text(s,encoding='utf-8')
           PY
 
-          # The legacy adversarial suite correctly requires a single authoritative workflow.
-          # Hide this temporary applier only in the runner worktree during validation, then restore it before commit.
           rm -f .github/workflows/file09-r6-apply.yml
 
       - name: Validate R6 corrected source
