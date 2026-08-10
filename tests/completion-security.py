@@ -7,7 +7,7 @@ def have(path,*tokens):
     for token in tokens:
         if token not in text: fail(f'{path}: missing {token}')
     return text
-main=have('global-doctor-onboarding.php','Version: 1.2.0',"define( 'GDO_SCHEMA_VERSION', 6 )")
+main=have('global-doctor-onboarding.php','Version: 1.3.0',"define( 'GDO_SCHEMA_VERSION', 6 )",'class-gdo-advanced-trust.php','class-gdo-advanced-trust-events.php')
 required={
 'includes/class-gdo-policy.php':['eligibility','required_fields','evidence_types'],
 'includes/class-gdo-application.php':['save_draft','completeness','submission_hash','draft_expires_at'],
@@ -21,8 +21,10 @@ required={
 'includes/class-gdo-operations.php':['safe_mode','dead_letters','repair'],
 'includes/class-gdo-migration.php':['gdo_migration_lock','decrypt_legacy','GDO2'],
 'assets/css/onboarding.css':['--gdo-green','focus-visible','prefers-reduced-motion','[dir="rtl"]'],
-'includes/class-gdo-integration-contracts.php':['gdo.file03.doctor-profile-eligibility','gdo.file07.directory-eligibility','gdo.file08.clinic-eligibility'],
-'TRACEABILITY.md':['F09-FR-001','F09-FR-017','F09-NFR-010','DoD-13'],
+'includes/class-gdo-integration-contracts.php':['gdo.file03.doctor-profile-eligibility','gdo.file07.directory-eligibility','gdo.file08.clinic-eligibility','gdo.file26.doctor-verification-projection'],
+'includes/class-gdo-advanced-trust.php':['primary_source_verify','trusted_issuers','jurisdiction_rules','continuous_monitor','issue_passport','ai_assistance','risk_explanation','requires_dual_review','smart_reviewer_candidates','create_upload_session','issue_viewing_room_grant','transparency_snapshot','human_final_decision_required'],
+'includes/class-gdo-advanced-trust-events.php':['gdo_canonical_audit_event','gdo_professional_reverification_required'],
+'TRACEABILITY.md':['F09-FR-001','F09-FR-017','F09-NFR-010','F09-AT-01','F09-AT-24','DoD-13'],
 }
 for path,tokens in required.items(): have(path,*tokens)
 runtime_paths=[root/'global-doctor-onboarding.php',root/'uninstall.php']+list((root/'includes').glob('*.php'))
@@ -46,7 +48,18 @@ if 'doctor_credential_accessed' not in evidence: fail('applicant notification mi
 retention=(root/'includes/class-gdo-retention.php').read_text(encoding='utf-8')
 if 'requires_operator_replay' not in retention or "'dead' === $event->status" not in retention: fail('dead claim events require explicit operator replay')
 
+trust=(root/'includes/class-gdo-advanced-trust.php').read_text(encoding='utf-8')
+events=(root/'includes/class-gdo-advanced-trust-events.php').read_text(encoding='utf-8')
+if "unset( $result['decision'], $result['approve'], $result['reject'] )" not in trust: fail('AI final decision keys are not discarded')
+if "return $allowed && ! self::has_conflict" not in trust: fail('reviewer conflict must narrow, never widen authorization')
+if 'GDO_Evidence::stage_upload' not in trust: fail('resumable upload bypasses canonical evidence path')
+if "'download_allowed'=>false" not in trust: fail('secure viewing room no-download contract missing')
+if 'change_state' in events: fail('advanced trust derivative event bridge must not directly mutate professional state')
+public_passport=trust[trust.index('function verify_passport_uuid'):trust.index('function schedule_reverification')]
+for forbidden in ['profile_json','storage_name','source_sha256','review_note']:
+    if forbidden in public_passport: fail('public passport leaks '+forbidden)
+
 schema=have('includes/class-gdo-schema.php','reviewer_profiles','risk_signals','quality_samples','access_grants','metrics')
 for table in ['applications','evidence','transitions','consents','access_log','appeals','outbox','rate_limits','reviewer_profiles','risk_signals','quality_samples','access_grants','metrics']:
     if table not in (root/'uninstall.php').read_text(): fail('uninstall missing owned table '+table)
-print('File 09 completion/security static invariants passed.')
+print('File 09 1.3.0 completion/security static invariants passed.')
