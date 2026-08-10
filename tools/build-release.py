@@ -16,7 +16,7 @@ name = f'global-doctor-onboarding-09-1.2.0-{release_candidate}.zip'
 zpath = out / name
 
 try:
-    head = os.environ.get('GITHUB_SHA') or subprocess.check_output(['git','rev-parse','HEAD'], cwd=root, text=True, stderr=subprocess.DEVNULL).strip()
+    head = os.environ.get('EXPECTED_SHA') or os.environ.get('GITHUB_SHA') or subprocess.check_output(['git','rev-parse','HEAD'], cwd=root, text=True, stderr=subprocess.DEVNULL).strip()
 except Exception:
     head = 'UNAVAILABLE'
 try:
