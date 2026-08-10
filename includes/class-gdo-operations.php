@@ -13,6 +13,8 @@ final class GDO_Operations {
 		return ! self::safe_mode()
 			&& $core_schema_ready
 			&& $advanced_schema_ready
+			&& defined( 'GDO_CLAIM_SIGNING_KEY' )
+			&& strlen( (string) GDO_CLAIM_SIGNING_KEY ) >= 32
 			&& GDO_Membership_Adapter::available()
 			&& GDO_Membership_Adapter::authentication_available()
 			&& GDO_Crypto::available()
@@ -27,6 +29,7 @@ final class GDO_Operations {
 
 	private static function count_query( $sql, $error_code ) {
 		global $wpdb;
+		$wpdb->last_error = '';
 		$raw = $wpdb->get_var( $sql );
 		if ( null === $raw || ! empty( $wpdb->last_error ) ) {
 			return new WP_Error( sanitize_key( $error_code ), __( 'A File 09 health query could not be completed safely.', 'global-doctor-onboarding' ) );
@@ -92,6 +95,7 @@ final class GDO_Operations {
 		global $wpdb;
 		$limit = max( 1, min( 500, absint( $limit ) ) );
 		$now = current_time( 'mysql', true );
+		$wpdb->last_error = '';
 		$expired = $wpdb->get_results( $wpdb->prepare(
 			"SELECT id,user_id,row_version FROM " . GDO_Schema::table( 'applications' ) . " WHERE state IN ('verified','reinstated','renewal_due') AND verified_until IS NOT NULL AND verified_until<%s LIMIT %d",
 			$now, $limit
@@ -125,6 +129,10 @@ final class GDO_Operations {
 	}
 
 	public static function repair( $action, $actor_id, $reason ) {
+		$current_actor = get_current_user_id();
+		if ( ! $current_actor || absint( $actor_id ) !== absint( $current_actor ) || ! GDO_Membership_Adapter::can( 'sabri_manage_doctor_verification', $current_actor ) || ! GDO_Membership_Adapter::recent_step_up( $current_actor ) ) {
+			return new WP_Error( 'gdo_repair_forbidden', __( 'Controlled repair requires current File 00 manager authorization and recent File 02 step-up.', 'global-doctor-onboarding' ) );
+		}
 		$action = sanitize_key( $action );
 		$reason = sanitize_textarea_field( $reason );
 		if ( strlen( $reason ) < 20 ) {
@@ -169,6 +177,10 @@ final class GDO_Operations {
 	}
 
 	public static function set_safe_mode( $enabled, $actor_id, $reason ) {
+		$current_actor = get_current_user_id();
+		if ( ! $current_actor || absint( $actor_id ) !== absint( $current_actor ) || ! GDO_Membership_Adapter::can( 'sabri_manage_doctor_verification', $current_actor ) || ! GDO_Membership_Adapter::recent_step_up( $current_actor ) ) {
+			return new WP_Error( 'gdo_safe_mode_forbidden', __( 'Safe Mode changes require current File 00 manager authorization and recent File 02 step-up.', 'global-doctor-onboarding' ) );
+		}
 		$reason = sanitize_textarea_field( $reason );
 		if ( strlen( $reason ) < 20 ) {
 			return new WP_Error( 'gdo_safe_mode_reason', __( 'A reason of at least 20 characters is required.', 'global-doctor-onboarding' ) );

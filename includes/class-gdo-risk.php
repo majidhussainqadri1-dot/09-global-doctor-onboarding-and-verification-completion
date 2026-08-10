@@ -54,6 +54,7 @@ final class GDO_Risk {
 	}
 
 	public static function record( $application_id, $type, $severity, $related_digest = '' ) {
+		if ( ! GDO_Operations::mutation_allowed() ) { return new WP_Error( 'gdo_risk_runtime_not_ready', __( 'Professional risk recording is temporarily unavailable.', 'global-doctor-onboarding' ) ); }
 		global $wpdb;
 		$type = sanitize_key( $type );
 		$severity = sanitize_key( $severity );
@@ -105,6 +106,10 @@ final class GDO_Risk {
 	}
 
 	public static function resolve( $signal_id, $actor_id, $decision, $reason ) {
+		$current_actor = get_current_user_id();
+		if ( ! GDO_Operations::mutation_allowed() || ! $current_actor || absint( $actor_id ) !== absint( $current_actor ) || ! GDO_Membership_Adapter::can( 'sabri_manage_doctor_verification', $current_actor ) || ! GDO_Membership_Adapter::recent_step_up( $current_actor ) ) {
+			return new WP_Error( 'gdo_risk_resolution_forbidden', __( 'Risk resolution requires current File 00 manager authorization and recent File 02 step-up.', 'global-doctor-onboarding' ) );
+		}
 		global $wpdb;
 		$decision = sanitize_key( $decision );
 		$reason = sanitize_textarea_field( $reason );

@@ -145,3 +145,6 @@ R6 preserves the trace-chain law: `governing ID → File 09 design/owner → cod
 ## R7 corrective assurance trace
 
 The seventh fresh 80-control review is frozen in `REVIEW-80-ROUNDS-RC6-R7.md` and executable in `tests/eighty-round-audit-r7.py`. It adds regression evidence for F09-AT-02 issuer registry semantics; jurisdiction/conflict mutation readiness; F09-AT-08 passport atomicity/public-safe token boundaries; F09-AT-19 reviewer routing uncertainty; F09-AT-24 small-cell transparency privacy; F09-FR-003 nonce-protected draft start; F09-NFR-001/002/003/010; and the exact-head release chain.
+
+## R8 corrective trace
+R8 maps File 09 authorization/privacy/reliability/operability requirements and F09-AT-08/09/15/20 controls to `GDO_Operations`, `GDO_Migration`, `GDO_Admin`, `GDO_Advanced_Trust_Hardening`, `GDO_Risk`, `GDO_Quality`, `tests/eighty-round-audit-r8.py`, `REVIEW-80-ROUNDS-RC6-R8.md`, exact-head CI and deterministic package/SBOM evidence. Frozen baseline: `f40228d29ffa92e8d27ea84f9b1c1ae4a63ff9b2`.

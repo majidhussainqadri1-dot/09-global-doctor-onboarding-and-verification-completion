@@ -135,3 +135,8 @@
 - Corrected 22 defect-bearing controls from frozen baseline 9103310fc93d978b6e70661f024a079fc0971003; 58 controls were clean.
 - Hardened issuer lifecycle, mutation readiness, DB uncertainty, passport atomicity/privacy, public transparency, and nonce-protected application start.
 - Added `REVIEW-80-ROUNDS-RC6-R7.md` and `tests/eighty-round-audit-r7.py`; staging/live/operational claims remain false.
+
+### RC6 — eighth fresh 80-round corrective assurance (R8)
+- Reviewed frozen exact-head baseline `f40228d29ffa92e8d27ea84f9b1c1ae4a63ff9b2` through 80 independent controls.
+- Corrected 15 defect-bearing rounds (04–18): runtime mutation dependency completeness, privileged owner-command reauthorization, DB-uncertainty truth, reviewer queue/risk fail-closed UX, passport cache safety, risk writes and reviewer-calibration writes/metrics.
+- Added `REVIEW-80-ROUNDS-RC6-R8.md` and `tests/eighty-round-audit-r8.py`; staging/live/operational remain false.

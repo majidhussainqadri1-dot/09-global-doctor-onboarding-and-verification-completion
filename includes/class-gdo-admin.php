@@ -107,12 +107,21 @@ final class GDO_Admin {
 		$offset = ( $paged - 1 ) * $per_page;
 		$table = GDO_Schema::table( 'applications' );
 		if ( $manager ) {
+			$wpdb->last_error = '';
 			$apps = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} ORDER BY FIELD(state,'submitted','resubmitted','under_review','recommended','appeal_pending','renewal_due','suspended','verified','rejected','revoked','expired','withdrawn','draft'), updated_at DESC LIMIT %d OFFSET %d", $per_page, $offset ) );
-			$total = absint( $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" ) );
+			if ( null === $apps || ! empty( $wpdb->last_error ) ) { wp_die( esc_html__( 'The doctor-verification review queue is temporarily unavailable because its database state could not be read safely.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
+			$wpdb->last_error = '';
+			$total_raw = $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+			if ( null === $total_raw || ! empty( $wpdb->last_error ) ) { wp_die( esc_html__( 'The doctor-verification queue total could not be read safely.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
 		} else {
+			$wpdb->last_error = '';
 			$apps = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} WHERE assigned_reviewer_id=%d ORDER BY updated_at DESC LIMIT %d OFFSET %d", $reviewer, $per_page, $offset ) );
-			$total = absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE assigned_reviewer_id=%d", $reviewer ) ) );
+			if ( null === $apps || ! empty( $wpdb->last_error ) ) { wp_die( esc_html__( 'The assigned doctor-verification review queue is temporarily unavailable because its database state could not be read safely.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
+			$wpdb->last_error = '';
+			$total_raw = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE assigned_reviewer_id=%d", $reviewer ) );
+			if ( null === $total_raw || ! empty( $wpdb->last_error ) ) { wp_die( esc_html__( 'The assigned doctor-verification queue total could not be read safely.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
 		}
+		$total = absint( $total_raw );
 		$health = GDO_Operations::health();
 		?>
 		<div class="wrap gdo-admin">
@@ -143,7 +152,9 @@ final class GDO_Admin {
 	private function render_application_row( $app, $reviewer, $manager ) {
 		global $wpdb;
 		$evidence = GDO_Evidence::records( $app->id, true );
+		$wpdb->last_error = '';
 		$risks = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'risk_signals' ) . ' WHERE application_id=%d ORDER BY created_at DESC', $app->id ) );
+		if ( null === $risks || ! empty( $wpdb->last_error ) ) { wp_die( esc_html__( 'Professional risk signals could not be read safely for this review.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
 		$types = GDO_Evidence::types( $app->jurisdiction, $app->application_type );
 		?>
 		<tr>

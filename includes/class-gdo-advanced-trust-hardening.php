@@ -524,6 +524,12 @@ final class GDO_Advanced_Trust_Hardening {
 
     public static function rest_public_passport( WP_REST_Request $request ) {
         $result = self::verify_passport_uuid( $request['uuid'] );
-        return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
+        if ( is_wp_error( $result ) ) { return $result; }
+        $response = rest_ensure_response( $result );
+        $response->header( 'Cache-Control', 'no-store, max-age=0, must-revalidate' );
+        $response->header( 'Pragma', 'no-cache' );
+        $response->header( 'X-Robots-Tag', 'noindex, nofollow, noarchive' );
+        $response->header( 'Referrer-Policy', 'no-referrer' );
+        return $response;
     }
 }

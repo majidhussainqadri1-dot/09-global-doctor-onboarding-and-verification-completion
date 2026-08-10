@@ -125,7 +125,11 @@ final class GDO_Migration {
 	private static function quarantine_legacy() {
 		global $wpdb;
 		$legacy = $wpdb->prefix . 'gdo_documents';
+		$wpdb->last_error = '';
 		$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $legacy ) );
+		if ( ! empty( $wpdb->last_error ) ) {
+			throw new RuntimeException( 'Legacy File 09 table inventory could not be verified safely.' );
+		}
 		if ( $exists !== $legacy ) {
 			delete_option( 'gdo_legacy_migration_user_checkpoint' );
 			return;

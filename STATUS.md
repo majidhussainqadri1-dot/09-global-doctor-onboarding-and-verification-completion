@@ -1,10 +1,10 @@
 # File 09 — Evidence-Based Status
 
-Runtime version: **1.3.0 RC6 candidate**  
-Core schema: **6**  
-Advanced Trust schema: **2**  
-Advanced Trust contract: **1.1.0**  
-Candidate branch: `codex/file09-1.3.0-rc6-80-round-review`  
+Runtime version: **1.3.0 RC6 candidate**
+Core schema: **6**
+Advanced Trust schema: **2**
+Advanced Trust contract: **1.1.0**
+Candidate branch: `codex/file09-1.3.0-rc6-80-round-review`
 Frozen review baseline: `6d5c2850dbf86ce954e0c2fdef8adf36d2dbf1f1`
 
 ## Repository assurance
@@ -66,3 +66,10 @@ R6 closes fail-open/fail-silent database-result ambiguity in the Advanced Trust 
 ## Seventh fresh 80-round corrective assurance — R7
 
 Frozen exact-head baseline `9103310fc93d978b6e70661f024a079fc0971003` was reviewed through 80 fresh controls. **22 rounds exposed defects and were corrected immediately; 58 rounds were clean.** Defect-bearing rounds: 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 80. The seventh ledger is `REVIEW-80-ROUNDS-RC6-R7.md`; executable gate `tests/eighty-round-audit-r7.py`; current deterministic release allowlist **58 entries**. The final exact-head workflow must be green before repository QA/package status is asserted. **Staging accepted: false. Live deployed: false. Operationally accepted: false.**
+
+## Eighth fresh 80-round corrective assurance — R8
+Frozen baseline `f40228d29ffa92e8d27ea84f9b1c1ae4a63ff9b2` underwent a new independent 80-control review: **15 defect-bearing rounds corrected; 65 clean rounds**. The corrective tree adds method-level privileged reauthorization, runtime claim-key readiness, fail-closed DB uncertainty for migration/reviewer/quality paths, no-store passport responses, and Safe Mode enforcement for risk/quality writes. Repository candidate remains separate from external maturity gates.
+
+Staging Accepted: false
+Live Deployed: false
+Operational: false
