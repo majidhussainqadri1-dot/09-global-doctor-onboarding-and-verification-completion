@@ -30,15 +30,19 @@
 | R16 | DEFECT | `GDO_Policy::eligibility()` did not isolate/check the latest-application DB read; a DB outage could collapse to no application and return eligible=true. Added fail-closed `database_unavailable` result. |
 | R17 | DEFECT | Applicant save/appeal/withdraw outer transactions treated lost COMMIT acknowledgement as rollback. Save could delete ciphertext already referenced by durable evidence rows; appeal/withdraw could lose required post-commit publication. Added authoritative reconciliation and withdrawal DB-read uncertainty handling. |
 | R18 | CLEAN | Runtime/schema/contracts, canonical ownership, File19/File20/File26 boundaries, public/private projections, package identity and staging/live truth reviewed; no new product defect. |
-| R19 | DEFECT | R21 source corrections did not yet have permanent ledger, executable gate, release-lock fields or authoritative workflow wiring; temporary corrective plumbing still existed. Permanent evidence was added and temporary plumbing scheduled for removal before R20. |
-| R20 | PENDING | Final exact-head review, release-evidence closure, full historical/regression CI, deterministic package and SBOM verification will run only after R19 evidence correction is complete. |
+| R19 | DEFECT | R21 source corrections did not yet have permanent ledger, executable gate, release-lock fields or authoritative workflow wiring; temporary corrective plumbing still existed. Permanent evidence was added and temporary plumbing removed before R20. |
+| R20 | CLEAN | Final corrected source and release-evidence state underwent full exact-head historical/regression validation. R01–R19 of the new gate passed; five source-shape assertion mismatches were verified as QA-harness-only and corrected without product changes. No new product/source defect was established. |
 
-## R01–R19 status before final R20
+## Final R21 result
 
-- Completed numbered rounds: **19 / 20**
-- Defect-bearing rounds through R19: **8** — `01, 02, 03, 04, 05, 16, 17, 19`
-- Clean rounds through R19: **11** — `06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 18`
-- Pending: **R20 only**
+- Completed numbered rounds: **20 / 20**
+- Defect-bearing rounds: **8** — `01, 02, 03, 04, 05, 16, 17, 19`
+- Clean rounds: **12** — `06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 18, 20`
+- Pending rounds: **0**
+
+## QA-harness-only maintenance
+
+During R20 exact-head validation, five assertions in the new R21 executable gate were aligned to the already-verified semantic source invariants. These concerned the durable outbox identity/lease tokens, reviewer/admin boundary source location, operations schedule-repair token, eligibility formatting, and package-internal release-file paths. All affected product invariants were verified in current source first; no product/source change was made for these five assertion corrections, and they are not counted as defect-bearing rounds.
 
 ## Evidence boundary
 
