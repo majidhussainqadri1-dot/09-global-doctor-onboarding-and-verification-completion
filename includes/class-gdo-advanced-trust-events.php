@@ -25,7 +25,10 @@ final class GDO_Advanced_Trust_Events {
         if ( 'doctor_verification_transition' === $event ) {
             $to = isset( $context['to_state'] ) ? sanitize_key( $context['to_state'] ) : '';
             if ( 'submitted' === $to ) {
-                GDO_Advanced_Trust_Hardening::application_submitted( $application_id );
+                // GDO_Application::submit() emits the canonical post-commit
+                // gdo_application_submitted owner hook immediately after this
+                // transition publication. Do not execute the same Advanced Trust
+                // submission side effects twice in one successful submit.
                 return;
             }
             if ( in_array( $to, array( 'verified','reinstated','expired','suspended','revoked','rejected','withdrawn' ), true ) ) {
