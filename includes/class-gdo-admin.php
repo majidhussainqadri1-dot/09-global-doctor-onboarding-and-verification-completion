@@ -218,6 +218,11 @@ final class GDO_Admin {
 				echo '<div class="notice notice-error"><p>' . esc_html__( 'Appeal workflow state is temporarily unavailable because the database read failed. No appeal action has been assumed.', 'global-doctor-onboarding' ) . '</p></div>';
 				return;
 			}
+			if ( $appeal && ! empty( $appeal->deadline_at ) ) {
+				$appeal_deadline = strtotime( $appeal->deadline_at . ' UTC' );
+				$appeal_overdue = $appeal_deadline && $appeal_deadline < time();
+				echo '<p class="description">' . esc_html( sprintf( $appeal_overdue ? __( 'Appeal review deadline: %s UTC — OVERDUE; prioritize resolution without prejudicing the applicant.', 'global-doctor-onboarding' ) : __( 'Appeal review deadline: %s UTC.', 'global-doctor-onboarding' ), $appeal->deadline_at ) ) . '</p>';
+			}
 			if ( $appeal && empty( $appeal->assigned_reviewer_id ) ) {
 				?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="gdo_assign_appeal"><input type="hidden" name="application_id" value="<?php echo absint( $app->id ); ?>"><input type="hidden" name="appeal_id" value="<?php echo absint( $appeal->id ); ?>"><?php wp_nonce_field( 'gdo_assign_appeal_' . $appeal->id ); ?><label><?php esc_html_e( 'Independent senior reviewer user ID', 'global-doctor-onboarding' ); ?><input type="number" min="1" name="reviewer_id" required></label><button class="button"><?php esc_html_e( 'Assign appeal independently', 'global-doctor-onboarding' ); ?></button></form><?php
 			} elseif ( $appeal && absint( $appeal->assigned_reviewer_id ) === absint( $reviewer ) ) {

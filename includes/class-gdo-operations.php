@@ -69,6 +69,10 @@ final class GDO_Operations {
 				gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS )
 			), 'gdo_health_stale_claims' ),
 			'open_critical_risks' => self::count_query( "SELECT COUNT(*) FROM " . GDO_Schema::table( 'risk_signals' ) . " WHERE severity='critical' AND status IN ('open','reviewing')", 'gdo_health_critical_risks' ),
+			'overdue_appeals' => self::count_query( $wpdb->prepare(
+				"SELECT COUNT(*) FROM " . GDO_Schema::table( 'appeals' ) . " WHERE status='open' AND deadline_at IS NOT NULL AND deadline_at<%s",
+				current_time( 'mysql', true )
+			), 'gdo_health_overdue_appeals' ),
 		);
 		$db_ok = true;
 		foreach ( $counts as $value ) {
@@ -79,15 +83,17 @@ final class GDO_Operations {
 		$pending = is_wp_error( $counts['pending_outbox'] ) ? 0 : $counts['pending_outbox'];
 		$stale_claims = is_wp_error( $counts['stale_claims'] ) ? 0 : $counts['stale_claims'];
 		$open_critical_risks = is_wp_error( $counts['open_critical_risks'] ) ? 0 : $counts['open_critical_risks'];
+		$overdue_appeals = is_wp_error( $counts['overdue_appeals'] ) ? 0 : $counts['overdue_appeals'];
 		$checks['dead_letters'] = $dead ? 'warn' : 'pass';
 		$checks['stale_claims'] = $stale_claims ? 'warn' : 'pass';
 		$checks['critical_risks'] = $open_critical_risks ? 'warn' : 'pass';
+		$checks['appeal_deadlines'] = $overdue_appeals ? 'warn' : 'pass';
 		$critical = array_keys( array_filter( $checks, function( $value ) { return 'fail' === $value; } ) );
 		return array(
 			'status' => $critical ? 'degraded' : ( in_array( 'warn', $checks, true ) ? 'attention' : 'healthy' ),
 			'safe_mode'=>self::safe_mode(), 'checks'=>$checks, 'critical'=>$critical,
 			'dead_letters'=>$dead, 'pending_outbox'=>$pending, 'stale_claims'=>$stale_claims,
-			'open_critical_risks'=>$open_critical_risks, 'checked_at'=>gmdate( 'c' ),
+			'open_critical_risks'=>$open_critical_risks, 'overdue_appeals'=>$overdue_appeals, 'checked_at'=>gmdate( 'c' ),
 			'version'=>GDO_VERSION, 'schema'=>GDO_SCHEMA_VERSION, 'policy_version'=>GDO_Policy::VERSION,
 		);
 	}
