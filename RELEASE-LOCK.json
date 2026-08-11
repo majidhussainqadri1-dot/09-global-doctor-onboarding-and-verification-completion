@@ -56,5 +56,9 @@
   "twelfth_clean_rounds": 0,
   "twelfth_defect_rounds": 10,
   "twelfth_review_baseline": "0df40731282a4dc905a12b37e5fa5aa4604dc68a",
-  "twelfth_review_rounds": 10
+  "twelfth_review_rounds": 10,
+  "thirteenth_clean_rounds": 4,
+  "thirteenth_defect_rounds": 6,
+  "thirteenth_review_baseline": "e5e867d235aafc49dd084644590afe8dfaf27d47",
+  "thirteenth_review_rounds": 10
 }
