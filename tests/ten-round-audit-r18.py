@@ -50,7 +50,7 @@ c(5,'Provider and assistance adapters remain bounded and human-final',
 apply_retention=retention[retention.index('private function apply_retention'):retention.index('private function retire_advanced_trust_for_application')]
 c(6,'Legal hold and retention eligibility are serialized before irreversible deletion',
   has(apply_retention, 'gdo_retention_predelete_transaction', 'FOR UPDATE', 'legal_hold,retention_until,state', 'gdo_retention_predelete_commit')
-  and apply_retention.index('gdo_retention_predelete_transaction') < apply_retention.index('delete_for_privacy')
+  and apply_retention.index('gdo_retention_predelete_transaction') < apply_retention.index("self::delete_record( $record, 'retention_deleted', $now )")
   and has(privacy, 'Establish a database-serialized erasure authorization point', 'SELECT id,user_id,legal_hold', 'FOR UPDATE', 'Erasure is paused because the application is now under legal hold'))
 
 c(7,'Claim delivery rejects acknowledgement WP_Error instead of reporting delivered',
