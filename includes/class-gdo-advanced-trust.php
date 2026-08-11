@@ -676,7 +676,7 @@ final class GDO_Advanced_Trust {
         $issuer = self::trusted_issuer( $issuer_name, $app->jurisdiction );
         if ( is_wp_error( $issuer ) ) { return $issuer; }
         if ( ! $issuer ) {
-            return self::record_check( $app->id, $record->id, 'primary_source', 'none', 'issuer_unverified', 0, array( 'issuer_name'=>$issuer_name ), array( 'reason'=>'trusted_issuer_not_available' ) );
+            return self::record_check( $app->id, $record->id, 'primary_source', 'none', 'manual_review_required', 0, array( 'issuer_name'=>$issuer_name ), array( 'reason'=>'trusted_issuer_not_available' ) );
         }
         $request = array(
             'application_id'=>absint( $app->id ), 'evidence_id'=>absint( $record->id ), 'document_type'=>$record->document_type,
@@ -697,7 +697,7 @@ final class GDO_Advanced_Trust {
         if ( ! is_array( $result ) || empty( $result['status'] ) ) {
             return self::record_check( $app->id, $record->id, 'primary_source', $issuer->adapter_key ? $issuer->adapter_key : 'unconfigured', 'provider_unavailable', 0, array( 'issuer_uuid'=>$issuer->issuer_uuid ), array( 'reason'=>'provider_adapter_unavailable' ) );
         }
-        $allowed = array( 'matched','not_matched','revoked','expired','pending','provider_error' );
+        $allowed = array( 'matched','not_matched','revoked','expired','pending','provider_error','provider_unavailable','timeout','malformed_response','manual_review_required' );
         $status = sanitize_key( $result['status'] );
         if ( ! in_array( $status, $allowed, true ) ) { $status = 'provider_error'; }
         return self::record_check(

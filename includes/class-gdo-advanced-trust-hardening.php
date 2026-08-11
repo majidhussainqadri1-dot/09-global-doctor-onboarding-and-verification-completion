@@ -479,7 +479,7 @@ final class GDO_Advanced_Trust_Hardening {
                     do_action( 'gdo_continuous_verification_adverse_result', $app->id, $check_result, $check );
                     continue;
                 }
-                if ( 'provider_error' === $check_result || in_array( $check_result, array( 'provider_unavailable','pending','timeout','malformed_response' ), true ) ) {
+                if ( 'provider_error' === $check_result || in_array( $check_result, array( 'provider_unavailable','pending','timeout','malformed_response','manual_review_required','issuer_unverified' ), true ) ) {
                     $provider_failure = true;
                     if ( ! $adverse ) { $result = $check_result; }
                     continue;
