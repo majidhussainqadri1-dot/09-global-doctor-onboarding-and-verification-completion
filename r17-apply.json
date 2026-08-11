@@ -1,10 +1,35 @@
 {
-  "message": "fix(file09): preserve resumable finalize retry on application DB uncertainty",
+  "message": "fix(file09): distinguish unavailable public verification truth",
   "changes": [
     {
       "path": "includes/class-gdo-advanced-trust.php",
-      "old": "        $app=GDO_Application::get($row->application_id);if(!$app||absint($app->user_id)!==$uid||!in_array($app->state,array('draft','more_information'),true)){$state=self::set_upload_session_state($row->upload_uuid,'finalizing','failed');return is_wp_error($state)?$state:new WP_Error('gdo_upload_application_changed',__('The application changed before the upload could be finalized.','global-doctor-onboarding'));}",
-      "new": "        $app=self::application_record($row->application_id);if(is_wp_error($app)){$state=self::set_upload_session_state($row->upload_uuid,'finalizing','open');return is_wp_error($state)?$state:$app;}if(!$app||absint($app->user_id)!==$uid||!in_array($app->state,array('draft','more_information'),true)){$state=self::set_upload_session_state($row->upload_uuid,'finalizing','failed');return is_wp_error($state)?$state:new WP_Error('gdo_upload_application_changed',__('The application changed before the upload could be finalized.','global-doctor-onboarding'));}"
+      "old": "            'last_reverified'=>null, 'next_review'=>null, 'jurisdiction'=>'',\n            'scope_status'=>array(",
+      "new": "            'last_reverified'=>null, 'next_review'=>null, 'jurisdiction'=>'', 'data_available'=>true,\n            'scope_status'=>array("
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "            $matrix['current_status'] = false;\n            $matrix['scope_status']['current_status'] = 'not_verified';\n            return $matrix;",
+      "new": "            $matrix['current_status'] = false;\n            $matrix['scope_status']['current_status'] = 'not_verified';\n            $matrix['data_available'] = false;\n            return $matrix;"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "    public static function verification_matrix( $user_id ) {\n        return self::public_matrix_for_app( GDO_Application::verification_record_for_user( absint( $user_id ) ) );\n    }",
+      "new": "    public static function verification_matrix( $user_id ) {\n        global $wpdb;\n        $wpdb->last_error = '';\n        $app = GDO_Application::verification_record_for_user( absint( $user_id ) );\n        if ( ! empty( $wpdb->last_error ) ) {\n            $matrix = self::public_matrix_for_app( null );\n            $matrix['data_available'] = false;\n            return $matrix;\n        }\n        return self::public_matrix_for_app( $app );\n    }"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "    public static function public_card_shortcode( $atts ) {\n        $atts=shortcode_atts(array('user_id'=>0),$atts,'gdo_public_verification_card');$uid=absint($atts['user_id']);if(!$uid){return '';}$matrix=self::verification_matrix($uid);$labels=array(",
+      "new": "    public static function public_card_shortcode( $atts ) {\n        $atts=shortcode_atts(array('user_id'=>0),$atts,'gdo_public_verification_card');$uid=absint($atts['user_id']);if(!$uid){return '';}$matrix=self::verification_matrix($uid);if(empty($matrix['data_available'])){return '<section class=\"gdo-public-verification-card\"><h3>'.esc_html__('Professional Verification','global-doctor-onboarding').'</h3><p role=\"status\">'.esc_html__('Professional verification status is temporarily unavailable.','global-doctor-onboarding').'</p></section>';}$labels=array("
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust-hardening.php",
+      "old": "        $scope = GDO_Advanced_Trust::verification_matrix( $app->user_id );\n        $payload = array( 'passport_uuid'=>$uuid, 'version'=>$version, 'scope'=>$scope, 'iat'=>$issued, 'exp'=>$exp );",
+      "new": "        $scope = GDO_Advanced_Trust::verification_matrix( $app->user_id );\n        if ( empty( $scope['data_available'] ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'gdo_passport_scope_unavailable', __( 'Professional verification scope could not be verified safely for passport issuance.', 'global-doctor-onboarding' ) ); }\n        $payload = array( 'passport_uuid'=>$uuid, 'version'=>$version, 'scope'=>$scope, 'iat'=>$issued, 'exp'=>$exp );"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust-hardening.php",
+      "old": "        return array('passport_uuid'=>$row['passport_uuid'],'version'=>absint($row['version']),'verification'=>GDO_Advanced_Trust::verification_matrix($row['user_id']),'issued_at'=>$row['issued_at'],'expires_at'=>$row['expires_at'],'cure_guarantee'=>false,'clinical_authorization'=>false,'professional_scope_only'=>true);",
+      "new": "        $verification=GDO_Advanced_Trust::verification_matrix($row['user_id']);if(empty($verification['data_available'])){return new WP_Error('gdo_passport_scope_unavailable',__('Professional verification scope is temporarily unavailable.','global-doctor-onboarding'),array('status'=>503));}\n        return array('passport_uuid'=>$row['passport_uuid'],'version'=>absint($row['version']),'verification'=>$verification,'issued_at'=>$row['issued_at'],'expires_at'=>$row['expires_at'],'cure_guarantee'=>false,'clinical_authorization'=>false,'professional_scope_only'=>true);"
     }
   ]
 }
