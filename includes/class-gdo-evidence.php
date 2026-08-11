@@ -147,11 +147,25 @@ final class GDO_Evidence {
             absint( $user_id )
         ) );
         if ( null === $raw_used || ! empty( $wpdb->last_error ) ) {
-            return false;
+            return new WP_Error( 'gdo_storage_quota_query', __( 'The private credential storage quota could not be verified safely.', 'global-doctor-onboarding' ) );
         }
         $used = absint( $raw_used );
         $limit = absint( apply_filters( 'gdo_user_credential_quota_bytes', self::MAX_USER_BYTES, absint($user_id) ) );
         return max( 0, $used - absint($replacing_size) ) + absint($new_size) <= $limit;
+    }
+
+    private static function cleanup_failed_storage( $storage_name, $expected_sha256, $application_id, $context ) {
+        $cleanup = GDO_Storage::delete_verified( $storage_name, $expected_sha256 );
+        if ( ! is_wp_error( $cleanup ) ) {
+            return true;
+        }
+        GDO_Membership_Adapter::audit( 'doctor_evidence_orphan_cleanup_failed', array(
+            'application_id'=>absint( $application_id ),
+            'storage_name'=>basename( (string) $storage_name ),
+            'context'=>substr( sanitize_key( $context ), 0, 40 ),
+            'error'=>$cleanup->get_error_code(),
+        ) );
+        return new WP_Error( 'gdo_evidence_orphan_cleanup', __( 'Credential persistence failed and encrypted orphan cleanup also failed. Operator repair is required.', 'global-doctor-onboarding' ) );
     }
 
     public static function stage_upload( $application, $type, array $file, $manage_transaction = true, $trusted_internal_path = '' ) {
@@ -201,7 +215,12 @@ final class GDO_Evidence {
             if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return new WP_Error( 'gdo_evidence_current_query', __( 'Existing credential evidence could not be read safely before replacement.', 'global-doctor-onboarding' ) );
         }
-        if ( ! self::quota_allows( $locked_app->user_id, $normalized['size'], $current ? $current->file_size : 0 ) ) {
+        $quota = self::quota_allows( $locked_app->user_id, $normalized['size'], $current ? $current->file_size : 0 );
+        if ( is_wp_error( $quota ) ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+            return $quota;
+        }
+        if ( ! $quota ) {
             if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return new WP_Error( 'gdo_storage_quota', __( 'The private credential storage quota has been reached.', 'global-doctor-onboarding' ) );
         }
@@ -259,8 +278,8 @@ final class GDO_Evidence {
         $inserted = $wpdb->insert( GDO_Schema::table( 'evidence' ), $data, $formats );
         if ( 1 !== $inserted ) {
             if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
-            GDO_Storage::delete_verified( $storage_name, $stored['sha256'] );
-            return new WP_Error( 'gdo_evidence_insert', __( 'Credential evidence could not be recorded.', 'global-doctor-onboarding' ) );
+            $cleanup = self::cleanup_failed_storage( $storage_name, $stored['sha256'], $locked_app->id, 'insert_failed' );
+            return is_wp_error( $cleanup ) ? $cleanup : new WP_Error( 'gdo_evidence_insert', __( 'Credential evidence could not be recorded.', 'global-doctor-onboarding' ) );
         }
         $new_id = absint( $wpdb->insert_id );
         if ( $current ) {
@@ -273,14 +292,29 @@ final class GDO_Evidence {
             );
             if ( 1 !== $superseded ) {
                 if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
-                GDO_Storage::delete_verified( $storage_name, $stored['sha256'] );
-                return new WP_Error( 'gdo_evidence_replace', __( 'The previous credential could not be replaced safely.', 'global-doctor-onboarding' ) );
+                $cleanup = self::cleanup_failed_storage( $storage_name, $stored['sha256'], $locked_app->id, 'supersede_failed' );
+                return is_wp_error( $cleanup ) ? $cleanup : new WP_Error( 'gdo_evidence_replace', __( 'The previous credential could not be replaced safely.', 'global-doctor-onboarding' ) );
             }
         }
         if ( $manage_transaction && false === $wpdb->query( 'COMMIT' ) ) {
+            // COMMIT failure is outcome-ambiguous. Roll back any still-open
+            // transaction, then query authoritative DB state before deleting
+            // the encrypted object; never guess that the commit failed.
             $wpdb->query( 'ROLLBACK' );
-            GDO_Storage::delete_verified( $storage_name, $stored['sha256'] );
-            return new WP_Error( 'gdo_evidence_commit', __( 'Credential evidence could not be committed.', 'global-doctor-onboarding' ) );
+            $wpdb->last_error = '';
+            $committed = $wpdb->get_row( $wpdb->prepare(
+                'SELECT id,storage_name FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id=%d AND storage_name=%s LIMIT 1',
+                $new_id, $storage_name
+            ) );
+            if ( null === $committed && ! empty( $wpdb->last_error ) ) {
+                GDO_Membership_Adapter::audit( 'doctor_evidence_commit_uncertain', array( 'application_id'=>absint( $locked_app->id ), 'storage_name'=>basename( (string) $storage_name ) ) );
+                return new WP_Error( 'gdo_evidence_commit_uncertain', __( 'Credential commit status is temporarily uncertain. Encrypted evidence was retained for reconciliation rather than being deleted speculatively.', 'global-doctor-onboarding' ) );
+            }
+            if ( ! $committed ) {
+                $cleanup = self::cleanup_failed_storage( $storage_name, $stored['sha256'], $locked_app->id, 'commit_not_persisted' );
+                return is_wp_error( $cleanup ) ? $cleanup : new WP_Error( 'gdo_evidence_commit', __( 'Credential evidence could not be committed.', 'global-doctor-onboarding' ) );
+            }
+            GDO_Membership_Adapter::audit( 'doctor_evidence_commit_recovered', array( 'application_id'=>absint( $locked_app->id ), 'evidence_id'=>$new_id ) );
         }
 
         $result = array(
