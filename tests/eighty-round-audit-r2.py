@@ -50,7 +50,9 @@ check(12,'Resubmitted immutability/state law',"array( 'draft','more_information'
 check(13,'Audit chain read failure is fail-closed',has(audit,'gdo_audit_chain_read_failed','$wpdb->last_error'))
 check(14,'Transition facts publish only after commit',has(audit,'publish_transition') and 'GDO_Membership_Adapter::audit' not in audit[audit.index('function transition'):audit.index('function publish_transition')])
 check(15,'Claim signing, subject/version binding and safe transaction start',has(claims,'hash_hmac','claim_version','subject_uuid','membership_record_version','gdo_claim_transaction'))
-check(16,'Claim external publish separated from transaction',has(claims,'function publish','if ( $manage_transaction )') and 'GDO_Membership_Adapter::audit' not in claims[claims.index('function issue'):claims.index('function publish')])
+claim_issue_segment=claims[claims.index('function issue'):claims.index('function publish')]
+claim_publish_segment=claims[claims.index('function publish'):claims.index('function acknowledge')]
+check(16,'Claim external publish separated from transaction','doctor_professional_claim_issued' not in claim_issue_segment and has(claim_publish_segment,'doctor_professional_claim_issued',"do_action( 'gdo_professional_claim_issued'"))
 check(17,'Reviewer scope is monotonic',has(member,'reviewer_scope_allows','return $allowed && $filtered'))
 check(18,'Private evidence is case-bound, not merely scope-bound',has(member,'reviewer_case_allows') and evidence.count('reviewer_case_allows') >= 2)
 check(19,'Self-review blocked',has(evidence,'absint( $app->user_id ) === $reviewer_id'))
@@ -107,7 +109,7 @@ check(68,'Public transparency fixed-window/cohort suppression',has(trust,'PUBLIC
 check(69,'Advanced REST check is case-bound',hard.count('reviewer_case_allows') >= 1 and trust.count('reviewer_case_allows') >= 1)
 check(70,'REST provider errors are structured',has(hard,"'ok'=>false",'rest_value'))
 check(71,'Privacy export covers Advanced Trust',has(privacy,'privacy_export_rows','GDO_Advanced_Trust::privacy_export_rows'))
-check(72,'Native privacy anonymization is transactionally grouped',has(privacy,'native database identity links were not partially committed','START TRANSACTION','FOR UPDATE'))
+check(72,'Native privacy anonymization is transactionally grouped',has(privacy,'START TRANSACTION','FOR UPDATE','gdo_privacy_anonymization_commit_reconciled','SELECT user_id,profile_json,approved_snapshot_json'))
 check(73,'Previously-deleted evidence must detach user identity or erasure stops',has(privacy,'previously deleted credential record could not be detached'))
 check(74,'Advanced Trust privacy erasure is application-scoped and inventory-fail-closed',has(hard,'privacy_erase_application','gdo_privacy_upload_inventory'))
 check(75,'Advanced Trust retention DB failures are observable',has(retention,'database_anonymization_failed','upload_inventory_failed'))
