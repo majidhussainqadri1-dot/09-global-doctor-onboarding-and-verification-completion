@@ -125,10 +125,26 @@ final class GDO_Operations {
 			$result = GDO_State::transition( $app->id, 'expired', 0, 'verification_expired', 'Verification validity period ended.', $app->row_version, false );
 			$claim = is_wp_error( $result ) ? $result : GDO_Claims::issue( $app->id, 'expired', array(), false );
 			$notice = is_wp_error( $claim ) ? $claim : GDO_Notifications::queue( 'doctor_verification_expired', $app->user_id, array( 'application_id'=>$app->id ), false );
-			if ( is_wp_error( $result ) || is_wp_error( $claim ) || is_wp_error( $notice ) || false === $wpdb->query( 'COMMIT' ) ) {
+			if ( is_wp_error( $result ) || is_wp_error( $claim ) || is_wp_error( $notice ) ) {
 				$wpdb->query( 'ROLLBACK' );
-				$error = is_wp_error( $result ) ? $result : ( is_wp_error( $claim ) ? $claim : ( is_wp_error( $notice ) ? $notice : new WP_Error( 'gdo_reconcile_commit_failed', __( 'Verification reconciliation could not be committed.', 'global-doctor-onboarding' ) ) ) );
-				return $error;
+				return is_wp_error( $result ) ? $result : ( is_wp_error( $claim ) ? $claim : $notice );
+			}
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				$wpdb->last_error = '';
+				$current = $wpdb->get_row( $wpdb->prepare( 'SELECT state,claim_version FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d LIMIT 1', absint( $app->id ) ) );
+				$app_error = ! empty( $wpdb->last_error );
+				$wpdb->last_error = '';
+				$notice_id = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_uuid=%s LIMIT 1', (string) $notice ) ) );
+				$notice_error = ! empty( $wpdb->last_error );
+				$claim_event = is_array( $claim ) && ! empty( $claim['event_id'] ) ? (string) $claim['event_id'] : '';
+				$wpdb->last_error = '';
+				$claim_outbox_id = $claim_event ? absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_uuid=%s LIMIT 1', $claim_event ) ) ) : 0;
+				$claim_error = ! empty( $wpdb->last_error );
+				if ( $app_error || $notice_error || $claim_error ) { return new WP_Error( 'gdo_reconcile_commit_uncertain', __( 'Verification reconciliation commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) ); }
+				$committed = $current && 'expired' === sanitize_key( $current->state ) && is_array( $claim ) && absint( $current->claim_version ) === absint( $claim['claim_version'] ) && $notice_id > 0 && $claim_outbox_id > 0;
+				if ( ! $committed ) { return new WP_Error( 'gdo_reconcile_commit_failed', __( 'Verification reconciliation could not be committed.', 'global-doctor-onboarding' ) ); }
+				GDO_Membership_Adapter::audit( 'doctor_reconciliation_commit_reconciled', array( 'application_id'=>absint($app->id), 'claim_version'=>absint($claim['claim_version']) ) );
 			}
 			GDO_Audit::publish_transition( $result );
 			GDO_Claims::publish( $claim );
