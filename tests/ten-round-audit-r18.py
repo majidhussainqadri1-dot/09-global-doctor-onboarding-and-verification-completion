@@ -29,9 +29,10 @@ c(1,'Existing active-passport verification errors do not trigger replacement iss
   and has(hard_ensure, '$verified=self::verify_passport_uuid', 'if(is_wp_error($verified)){return $verified;}', 'return self::issue_passport')
   and hard_ensure.index('if(is_wp_error($verified))') < hard_ensure.index('return self::issue_passport'))
 
-c(2,'Claim acknowledgement is terminal CAS, idempotent and DB-failure-aware',
+c(2,'Claim acknowledgement is terminal CAS, idempotent, retryable after transport failure and DB-failure-aware',
   has(claims, "'claim_status'=>'pending'", 'gdo_claim_ack_query_failed', 'gdo_claim_ack_store_failed', 'gdo_claim_ack_recheck_failed')
-  and has(claims, 'if ( $status === $current_status ) { return true; }', "if ( 'pending' !== $current_status ) { return false; }"))
+  and has(claims, 'if ( $status === $current_status ) { return true; }', "array( 'pending','failed' )", "'claim_status'=>$current_status")
+  and "if ( ! in_array( $current_status, array( 'pending','failed' ), true ) ) { return false; }" in claims)
 
 c(3,'Reviewer/finalizer/conflict/appeal separation remains guarded',
   has(admin, 'function assign_appeal', 'function resolve_appeal', 'reviewer_case_allows', 'recommender_id', 'sabri_finalize_doctor_verification'))
