@@ -382,8 +382,8 @@ final class GDO_Evidence {
                     return new WP_Error( 'gdo_evidence_ceiling_expired', __( 'A required credential is no longer valid and cannot support verification.', 'global-doctor-onboarding' ) );
                 }
                 $candidates[] = $timestamp;
-            } elseif ( 'license' === $type ) {
-                return new WP_Error( 'gdo_evidence_ceiling_license_validity', __( 'A verified license requires an explicit current validity end date.', 'global-doctor-onboarding' ) );
+            } elseif ( in_array( $type, array( 'license', 'registration', 'professional_registration' ), true ) ) {
+                return new WP_Error( 'gdo_evidence_ceiling_license_validity', __( 'A verified license or professional registration requires an explicit current validity end date.', 'global-doctor-onboarding' ) );
             }
             if ( ! $candidates ) {
                 return new WP_Error( 'gdo_evidence_ceiling_unknown', __( 'Required evidence has no bounded validity period and cannot support verification.', 'global-doctor-onboarding' ) );
@@ -646,7 +646,7 @@ final class GDO_Evidence {
                 if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
                 return new WP_Error( 'gdo_evidence_checklist', __( 'Accepted credentials require a complete affirmative checklist and authenticity method.', 'global-doctor-onboarding' ) );
             }
-            if ( 'license' === $record->document_type ) {
+            if ( in_array( sanitize_key( $record->document_type ), array( 'license', 'registration', 'professional_registration' ), true ) ) {
                 $accepted_registry = array( 'verified','active','matched' );
                 if ( ! in_array( sanitize_key($registry_result), $accepted_registry, true ) || ! $validity_until || strtotime( $validity_until . ' 23:59:59 UTC' ) <= time() ) {
                     if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
