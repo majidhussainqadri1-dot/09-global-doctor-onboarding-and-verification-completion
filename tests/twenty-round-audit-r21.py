@@ -60,10 +60,11 @@ checks.append(require(6,
     has(adv, 'gdo_upload_session_commit_uncertain', 'gdo_upload_chunk_commit_uncertain', 'gdo_upload_finalize_commit_uncertain'),
     'Resumable upload transaction ambiguity remains authoritatively reconciled'))
 checks.append(require(7,
-    has(notifications, 'event_uuid', "status='processing'", 'dead_letter', 'message_id') and 'gdo_claim_ack_failed' in notifications,
+    has(notifications, 'event_uuid', "status='processing'", "status IN ('pending','failed')", "'status'=>'delivered'", "'status'=>'dead'", 'idempotency_key')
+    and 'gdo_claim_ack_failed' in notifications,
     'Durable outbox retains dedupe, processing lease, retry/dead-letter and claim acknowledgement protections'))
 checks.append(require(8,
-    has(admin, 'reviewer_case_allows', 'reviewer_conflict', 'appeal') and 'commit_or_reconcile' in admin,
+    has(admin, "add_action( 'admin_post_gdo_assign_application'", "add_action( 'admin_post_gdo_finalize_decision'", "add_action( 'admin_post_gdo_assign_appeal'", "add_action( 'admin_post_gdo_resolve_appeal'", 'GDO_Membership_Adapter::recent_step_up', 'commit_or_reconcile', 'outbox_commit_verified'),
     'Reviewer/finalizer/appeal authorization and independent transaction boundaries remain guarded'))
 checks.append(require(9,
     has(risk, 'gdo_risk_query_failed', 'false_positive', 'recent_step_up') and 'Risk-state uncertainty must narrow professional verification' in risk,
@@ -88,11 +89,11 @@ checks.append(require(14,
     and "'done'=>false" in privacy,
     'Privacy export/erasure remains legal-hold constrained, deletion-safe and retryable'))
 checks.append(require(15,
-    has(ops, 'mutation_allowed', 'repair_schedules', 'recent_step_up', 'gdo_reconcile_commit_uncertain'),
+    has(ops, 'mutation_allowed', 'required_schedules_ready', "'schedules'", 'GDO_Membership_Adapter::recent_step_up', 'gdo_reconcile_commit_uncertain', 'doctor_reconciliation_commit_reconciled'),
     'Safe Mode, runtime readiness, repair authorization and operational reconciliation remain fail-safe'))
 checks.append(require(16,
     has(policy, "$wpdb->last_error = '';", 'GDO_Application::latest_for_user( $user_id )', "reason_code'] = 'database_unavailable'")
-    and "'eligible'=>false" in policy,
+    and "'eligible'       => false" in policy,
     'Eligibility latest-application DB uncertainty fails closed instead of granting eligibility'))
 checks.append(require(17,
     has(frontend, '$preserve_new_files = false', 'doctor_application_save_commit_reconciled', 'appeal commit outcome is uncertain', 'doctor_appeal_commit_reconciled', 'withdrawal application state could not be read safely', 'doctor_withdraw_commit_reconciled')
@@ -100,7 +101,8 @@ checks.append(require(17,
     'Applicant save/appeal/withdraw transactions reconcile ambiguous commits without deleting possibly committed ciphertext'))
 checks.append(require(18,
     "Version: 1.3.0" in plugin and "define( 'GDO_SCHEMA_VERSION', 6 )" in plugin
-    and 'global-doctor-onboarding-09/' in release_files
+    and 'global-doctor-onboarding.php' in release_files
+    and 'includes/class-gdo-advanced-trust-hardening.php' in release_files
     and lock.get('release_file_count') == 62
     and lock.get('staging_accepted') is False
     and lock.get('live_deployed') is False,
