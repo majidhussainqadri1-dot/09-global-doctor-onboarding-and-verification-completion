@@ -24,18 +24,19 @@ This repository contains the canonical File 09 implementation candidate for the 
 | Fresh 10-round review R14 | 6 defect-bearing corrected; 4 clean |
 | Fresh 10-round review R15 | 6 defect-bearing corrected; 4 clean |
 | Fresh 10-round review R16 | 9 defect-bearing corrected; 1 clean |
-| **Fresh 10-round review R17** | **7 defect-bearing corrected; 3 clean; exact-head gate required** |
+| Fresh 10-round review R17 | 7 defect-bearing corrected; 3 clean |
+| **Fresh 10-round review R18** | **7 defect-bearing corrected; 3 clean; exact-head gate required** |
 | Source candidate | `1.3.0`, core schema `6`, Advanced Trust schema `2`, contract `1.1.0`, RC6 candidate |
-| Exact-head automated QA | Must pass on the final exact RC6/R17 commit |
+| Exact-head automated QA | Must pass on the final exact RC6/R18 commit |
 | Deterministic package | 62-entry RC6 allowlist; exact-head workflow output only |
 | Hostinger-equivalent staging | Pending external execution |
 | Production/live/operational | Not authorized |
 
-**Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected; 63 clean; its own exact-head result was 80/80 PASS. R12–R17 supersede it only as current repository review evidence, not as historical evidence.
+**Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected; 63 clean; its own exact-head result was 80/80 PASS. R12–R18 supersede it only as current repository review evidence, not as historical evidence.
 
 File 09 owns doctor applications, private professional evidence, professional verification review/decision, renewal, suspension/revocation, appeal, signed professional-decision claims and File 09 professional-trust records. It does **not** own general identity, login, public profiles, directory/search ranking, clinics, notification transport or platform-wide security governance.
 
-Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, all `REVIEW-80-ROUNDS-RC6*.md` ledgers, `REVIEW-10-ROUNDS-RC6-R12.md`, `REVIEW-10-ROUNDS-RC6-R13.md`, `REVIEW-10-ROUNDS-RC6-R14.md`, `REVIEW-10-ROUNDS-RC6-R15.md`, `REVIEW-10-ROUNDS-RC6-R16.md`, `REVIEW-10-ROUNDS-RC6-R17.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
+Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, all `REVIEW-80-ROUNDS-RC6*.md` ledgers, `REVIEW-10-ROUNDS-RC6-R12.md`, `REVIEW-10-ROUNDS-RC6-R13.md`, `REVIEW-10-ROUNDS-RC6-R14.md`, `REVIEW-10-ROUNDS-RC6-R15.md`, `REVIEW-10-ROUNDS-RC6-R16.md`, `REVIEW-10-ROUNDS-RC6-R17.md`, `REVIEW-10-ROUNDS-RC6-R18.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
 
 ## 1.3.0 RC6 — Advanced Professional Trust assurance history
 
@@ -77,7 +78,7 @@ File 09 exposes public-safe current verification facts only. Private application
 
 R1–R11 review ledgers and executable gates remain preserved as historical source assurance. Their exact-head runs/artifacts certify only their corresponding historical source heads.
 
-The final exact HEAD must pass the complete PHP 7.4/8.3 workflow, all R1–R11 executable 80-round gates, the R12, R13, R14, R15, R16 and R17 ten-round gates, deterministic double build, **62-entry** package parity and generated exact-head SPDX SBOM before repository package/QA status can be called green.
+The final exact HEAD must pass the complete PHP 7.4/8.3 workflow, all R1–R11 executable 80-round gates, the R12, R13, R14, R15, R16, R17 and R18 ten-round gates, deterministic double build, **62-entry** package parity and generated exact-head SPDX SBOM before repository package/QA status can be called green.
 
 External Hostinger staging, real provider failure modes, real applicant/reviewer lifecycle journeys, private storage/key/scanner checks, two fresh staging review→fix→full-retest cycles, backup/restore, rollback and explicit Founder acceptance remain mandatory before any live/operational claim.
 
@@ -126,3 +127,11 @@ R17 froze the green R16 exact head `66e43bcb42904a381728509144cd0a1e6c77c6ac` an
 R17 makes more-information application reads DB-fail-visible; contains external primary-source/equivalency/affiliation/translation/AI exceptions; preserves resumable-upload retry under application DB uncertainty; distinguishes unavailable public verification/passport scope from `Not verified`; makes ordinary retention checkpoint filesystem deletion and transactionally anonymize DB state; and contains File00/File02 companion contract exceptions at the File09 boundary. R10 permanently records and executes this assurance.
 
 The permanent R17 ledger is `REVIEW-10-ROUNDS-RC6-R17.md`; the executable gate is `tests/ten-round-audit-r17.py` and must report **10 PASS / 0 FAIL**. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced.
+
+## Eighteenth fresh 10-round corrective assurance (R18)
+
+R18 froze the green R17 exact head `67a3e999fa44e527bc4a795759a1b48cb8e7766d` and performed ten new sequential review → fix → review controls. Defects were established in rounds **01, 02, 06, 07, 08, 09 and 10**; rounds **03, 04 and 05** were clean. Each established defect was corrected before the next numbered round advanced.
+
+R18 preserves active-passport verification errors instead of triggering replacement issuance; makes professional-claim acknowledgement a terminal-state CAS with idempotent same-status replay; serializes legal-hold/retention eligibility before irreversible deletion; prevents acknowledgement `WP_Error` from becoming outbox delivery success; replaces stale migration-lock delete/re-add with atomic CAS takeover; separates File00 identity dependency uncertainty from a factual `Not verified` public projection; and permanently records/exercises R18 release evidence.
+
+The permanent R18 ledger is `REVIEW-10-ROUNDS-RC6-R18.md`; the executable gate is `tests/ten-round-audit-r18.py` and must report **10 PASS / 0 FAIL**. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced.
