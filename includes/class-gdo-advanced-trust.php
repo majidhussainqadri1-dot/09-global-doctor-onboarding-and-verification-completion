@@ -1017,7 +1017,9 @@ final class GDO_Advanced_Trust {
     public static function ensure_passport( $application_id ) {
         $existing = self::active_passport_for_application( $application_id );
         if ( is_wp_error( $existing ) ) { return $existing; }
-        if ( $existing && ! is_wp_error( self::verify_passport_uuid( $existing->passport_uuid ) ) ) {
+        if ( $existing ) {
+            $verified = self::verify_passport_uuid( $existing->passport_uuid );
+            if ( is_wp_error( $verified ) ) { return $verified; }
             return array( 'token'=>null, 'passport_uuid'=>$existing->passport_uuid, 'verification_url'=>rest_url(self::REST_NAMESPACE.'/public/passport/'.$existing->passport_uuid), 'qr_payload'=>rest_url(self::REST_NAMESPACE.'/public/passport/'.$existing->passport_uuid), 'reused'=>true );
         }
         return self::issue_passport( $application_id );

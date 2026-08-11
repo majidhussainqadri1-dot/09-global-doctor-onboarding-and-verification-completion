@@ -364,7 +364,7 @@ final class GDO_Advanced_Trust_Hardening {
     public static function ensure_passport( $application_id ) {
         $existing=GDO_Advanced_Trust::active_passport_for_application($application_id);
         if(is_wp_error($existing)){return $existing;}
-        if($existing&&!is_wp_error(self::verify_passport_uuid($existing->passport_uuid))){return array('token'=>null,'passport_uuid'=>$existing->passport_uuid,'verification_url'=>rest_url(GDO_Advanced_Trust::REST_NAMESPACE.'/public/passport/'.$existing->passport_uuid),'qr_payload'=>rest_url(GDO_Advanced_Trust::REST_NAMESPACE.'/public/passport/'.$existing->passport_uuid),'reused'=>true);}
+        if($existing){$verified=self::verify_passport_uuid($existing->passport_uuid);if(is_wp_error($verified)){return $verified;}return array('token'=>null,'passport_uuid'=>$existing->passport_uuid,'verification_url'=>rest_url(GDO_Advanced_Trust::REST_NAMESPACE.'/public/passport/'.$existing->passport_uuid),'qr_payload'=>rest_url(GDO_Advanced_Trust::REST_NAMESPACE.'/public/passport/'.$existing->passport_uuid),'reused'=>true);}
         return self::issue_passport($application_id);
     }
     public static function verify_passport_uuid( $uuid ) {
