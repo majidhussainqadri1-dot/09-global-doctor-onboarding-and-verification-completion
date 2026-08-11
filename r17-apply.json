@@ -1,10 +1,10 @@
 {
-  "message": "fix(file09): surface more-info application DB uncertainty",
+  "message": "fix(file09): degrade primary-source provider exceptions safely",
   "changes": [
     {
-      "path": "includes/class-gdo-admin.php",
-      "old": "\t\tcheck_admin_referer( 'gdo_request_more_info_' . $id );\n\t\t$app = GDO_Application::get( $id );\n\t\t$reviewer = get_current_user_id();",
-      "new": "\t\tcheck_admin_referer( 'gdo_request_more_info_' . $id );\n\t\t$wpdb->last_error = '';\n\t\t$app = GDO_Application::get( $id );\n\t\tif ( null === $app && ! empty( $wpdb->last_error ) ) {\n\t\t\twp_die( esc_html__( 'The professional application could not be read safely for the information request.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );\n\t\t}\n\t\t$reviewer = get_current_user_id();"
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "        $result = apply_filters( 'gdo_primary_source_verification', null, $request, $issuer_context );\n        if ( ! is_array( $result ) || empty( $result['status'] ) ) {",
+      "new": "        try {\n            $result = apply_filters( 'gdo_primary_source_verification', null, $request, $issuer_context );\n        } catch ( Throwable $e ) {\n            unset( $e );\n            return self::record_check( $app->id, $record->id, 'primary_source', $issuer->adapter_key ? $issuer->adapter_key : 'configured', 'provider_unavailable', 0, array( 'issuer_uuid'=>$issuer->issuer_uuid ), array( 'reason'=>'provider_exception' ) );\n        }\n        if ( ! is_array( $result ) || empty( $result['status'] ) ) {"
     }
   ]
 }
