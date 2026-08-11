@@ -85,6 +85,10 @@ final class GDO_Claims {
 			array( '%d','%s','%s','%s','%s' ),
 			array( '%d','%d' )
 		);
+		if ( false === $updated ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_claim_store_failed', __( 'The professional verification claim could not be stored safely.', 'global-doctor-onboarding' ) );
+		}
 		if ( 1 !== $updated ) {
 			if ( $manage_transaction ) {
 				$wpdb->query( 'ROLLBACK' );
@@ -119,7 +123,9 @@ final class GDO_Claims {
 			return false;
 		}
 		global $wpdb;
+		$wpdb->last_error = '';
 		$application_id = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE application_uuid=%s LIMIT 1', (string) $payload['application_uuid'] ) ) );
+		if ( ! empty( $wpdb->last_error ) || ! $application_id ) { return false; }
 		GDO_Membership_Adapter::audit( 'doctor_professional_claim_issued', array(
 			'application_id'=>$application_id,
 			'application_uuid'=>(string) $payload['application_uuid'],

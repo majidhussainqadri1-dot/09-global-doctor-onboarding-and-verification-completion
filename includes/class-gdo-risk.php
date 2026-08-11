@@ -10,6 +10,7 @@ final class GDO_Risk {
 		$signals = array();
 		$identity = self::identity_fingerprint( $profile );
 		if ( $identity ) {
+			$wpdb->last_error = '';
 			$duplicate = $wpdb->get_var( $wpdb->prepare(
 				'SELECT id FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id<>%d AND identity_fingerprint=%s AND state NOT IN (\'withdrawn\') LIMIT 1',
 				absint( $application->id ), $identity
@@ -27,6 +28,7 @@ final class GDO_Risk {
 			if ( empty( $record->source_sha256 ) ) {
 				continue;
 			}
+			$wpdb->last_error = '';
 			$duplicate = $wpdb->get_var( $wpdb->prepare(
 				'SELECT id FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id<>%d AND source_sha256=%s AND deleted_at IS NULL LIMIT 1',
 				absint( $record->id ), (string) $record->source_sha256
@@ -62,6 +64,7 @@ final class GDO_Risk {
 		if ( ! in_array( $type, $allowed, true ) || ! in_array( $severity, array( 'low','medium','high','critical' ), true ) ) {
 			return 0;
 		}
+		$wpdb->last_error = '';
 		$existing = $wpdb->get_var( $wpdb->prepare(
 			'SELECT id FROM ' . GDO_Schema::table( 'risk_signals' ) . " WHERE application_id=%d AND signal_type=%s AND status IN ('open','reviewing') LIMIT 1",
 			absint( $application_id ), $type
@@ -88,6 +91,7 @@ final class GDO_Risk {
 		global $wpdb;
 		$levels = array( 'low'=>1, 'medium'=>2, 'high'=>3, 'critical'=>4 );
 		$min = isset( $levels[ $minimum ] ) ? $levels[ $minimum ] : 3;
+		$wpdb->last_error = '';
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			'SELECT severity FROM ' . GDO_Schema::table( 'risk_signals' ) . " WHERE application_id=%d AND status IN ('open','reviewing')",
 			absint( $application_id )
@@ -120,6 +124,9 @@ final class GDO_Risk {
 			'status' => 'resolved', 'resolution' => $decision, 'resolution_reason' => $reason,
 			'resolver_id' => absint( $actor_id ), 'resolved_at' => current_time( 'mysql', true ), 'updated_at' => current_time( 'mysql', true ),
 		), array( 'id'=>absint( $signal_id ), 'status'=>'open' ), array( '%s','%s','%s','%d','%s','%s' ), array( '%d','%s' ) );
+		if ( false === $updated ) {
+			return new WP_Error( 'gdo_risk_resolution_store', __( 'The risk resolution could not be stored safely.', 'global-doctor-onboarding' ) );
+		}
 		return 1 === $updated ? true : new WP_Error( 'gdo_risk_resolution_conflict', __( 'The risk signal changed before it could be resolved.', 'global-doctor-onboarding' ) );
 	}
 }

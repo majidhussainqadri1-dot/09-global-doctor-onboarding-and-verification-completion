@@ -24,6 +24,7 @@ final class GDO_Privacy {
 		global $wpdb;
 		$per = 20;
 		$offset = ( max( 1, absint( $page ) ) - 1 ) * $per;
+		$wpdb->last_error = '';
 		$apps = $wpdb->get_results( $wpdb->prepare(
 			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE user_id=%d ORDER BY version ASC LIMIT %d OFFSET %d',
 			$user->ID, $per, $offset
@@ -46,7 +47,9 @@ final class GDO_Privacy {
 				array( 'name'=>'Recommendation', 'value'=>wp_json_encode( array( 'decision'=>$app->recommended_decision, 'reason'=>$app->recommendation_reason, 'at'=>$app->recommendation_at ) ) ),
 				array( 'name'=>'File 00 claim status', 'value'=>wp_json_encode( array( 'claim_version'=>$app->claim_version, 'status'=>$app->claim_status, 'acknowledged_at'=>$app->claim_ack_at ) ) ),
 			);
-			foreach ( GDO_Evidence::records( $app->id ) as $record ) {
+			$evidence_rows = GDO_Evidence::records_checked( $app->id );
+			if ( is_wp_error( $evidence_rows ) ) { return array( 'data'=>$data, 'done'=>false ); }
+			foreach ( $evidence_rows as $record ) {
 				$rows[] = array( 'name'=>'Credential evidence metadata', 'value'=>wp_json_encode( array(
 					'type'=>$record->document_type, 'version'=>$record->version, 'status'=>$record->status,
 					'review_note'=>$record->review_note, 'registry_result'=>$record->registry_result,
@@ -62,6 +65,7 @@ final class GDO_Privacy {
 				'Quality sample' => 'SELECT original_decision,status,outcome,reason,created_at,completed_at FROM ' . GDO_Schema::table( 'quality_samples' ) . ' WHERE application_id=%d',
 			);
 			foreach ( $queries as $label => $sql ) {
+				$wpdb->last_error = '';
 				$items = $wpdb->get_results( $wpdb->prepare( $sql, $app->id ), ARRAY_A );
 				if ( null === $items || ! empty( $wpdb->last_error ) ) {
 					return array( 'data'=>$data, 'done'=>false );
@@ -96,6 +100,7 @@ final class GDO_Privacy {
 		}
 		global $wpdb;
 		$limit = 10;
+		$wpdb->last_error = '';
 		$apps = $wpdb->get_results( $wpdb->prepare(
 			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE user_id=%d AND legal_hold=0 ORDER BY id ASC LIMIT %d',
 			$user->ID, $limit
@@ -103,6 +108,7 @@ final class GDO_Privacy {
 		if ( null === $apps || ! empty( $wpdb->last_error ) ) {
 			return array( 'items_removed'=>false, 'items_retained'=>true, 'messages'=>array( 'Erasure is paused because application records could not be read safely.' ), 'done'=>false );
 		}
+		$wpdb->last_error = '';
 		$held_raw = $wpdb->get_var( $wpdb->prepare(
 			'SELECT COUNT(*) FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE user_id=%d AND legal_hold=1',
 			$user->ID
@@ -115,7 +121,9 @@ final class GDO_Privacy {
 		$retained = $held > 0;
 		$messages = $held ? array( 'One or more doctor-verification records remain under a documented legal hold.' ) : array();
 		foreach ( $apps as $app ) {
+			$wpdb->last_error = '';
 			$current = GDO_Application::get( $app->id );
+			if ( null === $current && ! empty( $wpdb->last_error ) ) { $retained = true; $messages[] = 'Erasure is paused because the current application state could not be read safely.'; continue; }
 			if ( $current && GDO_State::public_verified( $current->state ) ) {
 				if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 					$retained = true;
@@ -147,7 +155,9 @@ final class GDO_Privacy {
 			}
 
 			$deletion_failed = false;
-			foreach ( GDO_Evidence::records( $app->id, false ) as $record ) {
+			$evidence_rows = GDO_Evidence::records_checked( $app->id, false );
+			if ( is_wp_error( $evidence_rows ) ) { $retained = true; $messages[] = 'Erasure is paused because credential evidence inventory could not be read safely.'; continue; }
+			foreach ( $evidence_rows as $record ) {
 				if ( ! empty( $record->deleted_at ) ) {
 					$updated = $wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'id'=>absint( $record->id ) ), array( '%d' ), array( '%d' ) );
 					if ( false === $updated ) {
@@ -196,12 +206,13 @@ final class GDO_Privacy {
 				$messages[] = 'Application anonymization is paused because a database transaction could not be started safely.';
 				continue;
 			}
+			$wpdb->last_error = '';
 			$locked_app = $wpdb->get_row( $wpdb->prepare(
 				'SELECT id,user_id FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d AND user_id=%d FOR UPDATE',
 				absint( $app->id ), $user->ID
 			) );
 			$now = current_time( 'mysql', true );
-			$db_ok = (bool) $locked_app;
+			$db_ok = (bool) $locked_app && empty( $wpdb->last_error );
 			$db_ok = $db_ok && false !== $wpdb->update( GDO_Schema::table( 'consents' ), array( 'user_id'=>0, 'purpose'=>'retained-accountability-record', 'retention_notice'=>'anonymized', 'withdrawn_at'=>$now ), array( 'application_id'=>$app->id ) );
 			$db_ok = $db_ok && false !== $wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'application_id'=>$app->id ) );
 			$db_ok = $db_ok && false !== $wpdb->update( GDO_Schema::table( 'access_log' ), array( 'reviewer_id'=>0, 'purpose_code'=>'anonymized' ), array( 'application_id'=>$app->id, 'reviewer_id'=>$user->ID ) );

@@ -92,7 +92,9 @@ final class GDO_Notifications {
 		);
 		$inserted = $wpdb->insert( GDO_Schema::table( 'outbox' ), $data, array( '%s','%s','%d','%s','%s','%d','%s','%s' ) );
 		if ( 1 !== $inserted ) {
+			$wpdb->last_error = '';
 			$existing = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_uuid=%s', $event_uuid ) ) );
+			if ( ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_notification_outbox_query', __( 'The notification queue state could not be verified safely.', 'global-doctor-onboarding' ) ); }
 			if ( ! $existing ) {
 				return new WP_Error( 'gdo_notification_outbox', __( 'The notification event could not be queued.', 'global-doctor-onboarding' ) );
 			}
@@ -272,7 +274,8 @@ final class GDO_Notifications {
 					? self::deliver_claim( $payload )
 					: self::deliver_notification( $row->event_type, $row->recipient_user_id, $payload );
 			} catch ( Throwable $e ) {
-				$result = new WP_Error( 'gdo_outbox_exception', $e->getMessage() );
+				GDO_Membership_Adapter::audit( 'doctor_verification_outbox_provider_exception', array( 'event_uuid'=>$row->event_uuid, 'event_type'=>$row->event_type, 'exception_class'=>get_class( $e ), 'exception_digest'=>hash( 'sha256', $e->getMessage() ) ) );
+				$result = new WP_Error( 'gdo_outbox_exception', __( 'Notification provider processing failed.', 'global-doctor-onboarding' ) );
 			}
 			$attempts = absint( $row->attempts ) + 1;
 			if ( true === $result ) {
@@ -291,7 +294,7 @@ final class GDO_Notifications {
 				++$summary['delivered'];
 				continue;
 			}
-			$error = is_wp_error( $result ) ? $result->get_error_code() . ': ' . $result->get_error_message() : 'Provider returned no explicit success.';
+			$error = is_wp_error( $result ) ? sanitize_key( $result->get_error_code() ) : 'provider_no_explicit_success';
 			if ( 'doctor_professional_claim' === $row->event_type && ! empty( $payload['application_id'] ) ) {
 				$claim_marked = $wpdb->update( GDO_Schema::table( 'applications' ), array( 'claim_status'=>'failed', 'claim_last_error'=>sanitize_textarea_field( $error ), 'updated_at'=>current_time( 'mysql', true ) ), array( 'id'=>absint( $payload['application_id'] ) ), array( '%s','%s','%s' ), array( '%d' ) );
 				if ( false === $claim_marked ) {

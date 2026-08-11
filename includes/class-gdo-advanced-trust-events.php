@@ -68,10 +68,11 @@ final class GDO_Advanced_Trust_Events {
         if ( ! $application_id || ! in_array( $result, array( 'revoked','expired','not_matched' ), true ) ) {
             return;
         }
+        global $wpdb;
+        $wpdb->last_error = '';
         $app = GDO_Application::get( $application_id );
-        if ( ! $app ) {
-            return;
-        }
+        if ( null === $app && ! empty( $wpdb->last_error ) ) { GDO_Membership_Adapter::audit( 'doctor_continuous_verification_application_read_failed', array( 'application_id'=>$application_id, 'result'=>$result ) ); return; }
+        if ( ! $app ) { return; }
         GDO_Membership_Adapter::audit( 'doctor_continuous_verification_attention_required', array(
             'application_id'=>$application_id,
             'result'=>$result,

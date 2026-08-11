@@ -28,6 +28,21 @@ final class GDO_Evidence {
         ) );
     }
 
+    public static function records_checked( $application_id, $active_only = false ) {
+        global $wpdb;
+        $wpdb->last_error = '';
+        $rows = self::records( $application_id, $active_only );
+        if ( null === $rows || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_evidence_records_query', __( 'Credential evidence records could not be read safely.', 'global-doctor-onboarding' ) ); }
+        return $rows;
+    }
+    public static function current_checked( $application_id, $type ) {
+        global $wpdb;
+        $wpdb->last_error = '';
+        $row = self::current( $application_id, $type );
+        if ( null === $row && ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_evidence_current_query', __( 'Current credential evidence could not be read safely.', 'global-doctor-onboarding' ) ); }
+        return $row;
+    }
+
     private static function normalize_upload( array $file, $type, $trusted_internal_path = '' ) {
         if ( empty( $file['tmp_name'] ) || ! isset( $file['error'], $file['size'], $file['name'] ) ) {
             return new WP_Error( 'gdo_missing_upload', __( 'A required credential file is missing.', 'global-doctor-onboarding' ) );
@@ -476,6 +491,10 @@ final class GDO_Evidence {
             'UPDATE ' . GDO_Schema::table( 'evidence' ) . ' SET status=%s,checklist_json=%s,findings_json=%s,review_note=%s,registry_result=%s,registry_source=%s,reviewer_id=%d,reviewed_at=%s,validity_from=NULLIF(%s,\'\'),validity_until=NULLIF(%s,\'\'),updated_at=%s WHERE id=%d AND status IN (\'pending_review\',\'more_information\',\'rejected\')',
             $data['status'], $data['checklist_json'], $data['findings_json'], $data['review_note'], $data['registry_result'], $data['registry_source'], $data['reviewer_id'], $data['reviewed_at'], $data['validity_from'], $data['validity_until'], $data['updated_at'], absint( $record->id )
         ) );
+        if ( false === $updated ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+            return new WP_Error( 'gdo_evidence_review_store_failed', __( 'The credential review could not be stored safely.', 'global-doctor-onboarding' ) );
+        }
         if ( 1 !== $updated ) {
             if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return new WP_Error( 'gdo_evidence_review_conflict', __( 'The credential review changed. Reload before recording another decision.', 'global-doctor-onboarding' ) );
@@ -501,8 +520,12 @@ final class GDO_Evidence {
         $reviewer_id = absint( $reviewer_id );
         $purpose = sanitize_textarea_field( $purpose );
         $mode = sanitize_key( $mode );
+        $wpdb->last_error = '';
         $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . " WHERE id=%d AND retention_state='active' AND deleted_at IS NULL", $evidence_id ) );
+        if ( null === $record && ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_evidence_grant_evidence_query', __( 'Credential evidence could not be read safely for access grant.', 'global-doctor-onboarding' ) ); }
+        $wpdb->last_error = '';
         $app = $record ? GDO_Application::get( $record->application_id ) : null;
+        if ( $record && null === $app && ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_evidence_grant_application_query', __( 'Credential application could not be read safely for access grant.', 'global-doctor-onboarding' ) ); }
         if ( ! $record || ! $app || strlen( $purpose ) < 10 || absint( $app->user_id ) === $reviewer_id || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::recent_step_up( $reviewer_id ) || ! in_array( $mode, array( 'view','download' ), true ) ) {
             if ( $record ) {
                 GDO_Audit::access( $record->application_id, $evidence_id, $reviewer_id, $purpose, 'grant_denied' );
@@ -520,7 +543,8 @@ final class GDO_Evidence {
         $session = function_exists( 'wp_get_session_token' ) ? (string) wp_get_session_token() : '';
         $session_digest = hash( 'sha256', $reviewer_id . '|' . $session );
         $expires = gmdate( 'Y-m-d H:i:s', time() + 300 );
-        $wpdb->query( $wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'access_grants' ) . ' WHERE reviewer_id=%d AND (expires_at<%s OR used_at IS NOT NULL)', $reviewer_id, current_time( 'mysql', true ) ) );
+        $cleaned = $wpdb->query( $wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'access_grants' ) . ' WHERE reviewer_id=%d AND (expires_at<%s OR used_at IS NOT NULL)', $reviewer_id, current_time( 'mysql', true ) ) );
+        if ( false === $cleaned ) { return new WP_Error( 'gdo_evidence_grant_cleanup_failed', __( 'Expired credential access grants could not be cleaned safely.', 'global-doctor-onboarding' ) ); }
         $ok = $wpdb->insert( GDO_Schema::table( 'access_grants' ), array(
             'grant_hash'=>$hash, 'application_id'=>absint( $app->id ), 'evidence_id'=>$evidence_id,
             'reviewer_id'=>$reviewer_id, 'purpose_code'=>self::purpose_code( $purpose ),

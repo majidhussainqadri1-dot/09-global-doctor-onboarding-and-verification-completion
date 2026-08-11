@@ -165,10 +165,14 @@ final class GDO_Application {
 		$inserted = $wpdb->insert( GDO_Schema::table( 'applications' ), $data, $formats );
 		if ( 1 !== $inserted ) {
 			$wpdb->query( 'ROLLBACK' );
+			$wpdb->last_error = '';
 			$existing = self::latest_for_user( $user_id );
+			if ( ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_application_create_recovery_query', __( 'The application creation result could not be verified safely.', 'global-doctor-onboarding' ) ); }
 			return $existing && absint( $existing->version ) === absint( $version ) ? $existing : new WP_Error( 'gdo_application_create', __( 'A private doctor application could not be created.', 'global-doctor-onboarding' ) );
 		}
+		$wpdb->last_error = '';
 		$app = self::get( $wpdb->insert_id );
+		if ( null === $app && ! empty( $wpdb->last_error ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'gdo_application_create_reload_query', __( 'The newly created application could not be reloaded safely.', 'global-doctor-onboarding' ) ); }
 		$audit = $app ? GDO_Audit::transition( $app->id, $user_id, 'none', 'draft', 'application_created', 'Applicant created a private doctor application.' ) : new WP_Error( 'gdo_application_create', __( 'The private application could not be loaded.', 'global-doctor-onboarding' ) );
 		if ( is_wp_error( $audit ) || false === $wpdb->query( 'COMMIT' ) ) {
 			$wpdb->query( 'ROLLBACK' );
@@ -228,6 +232,7 @@ final class GDO_Application {
 			'UPDATE ' . GDO_Schema::table( 'applications' ) . ' SET profile_json=%s,profile_fingerprint=%s,identity_fingerprint=%s,jurisdiction=%s,policy_version=%s,row_version=row_version+1,updated_at=%s WHERE id=%d AND row_version=%d',
 			wp_json_encode( $profile, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ), self::fingerprint( $profile ), GDO_Risk::identity_fingerprint( $profile ), $jurisdiction, GDO_Policy::VERSION, current_time( 'mysql', true ), absint( $application_id ), absint( $expected_row_version )
 		) );
+		if ( false === $updated ) { return new WP_Error( 'gdo_draft_store_failed', __( 'The draft application could not be stored safely.', 'global-doctor-onboarding' ) ); }
 		return 1 === $updated ? true : new WP_Error( 'gdo_concurrent_change', __( 'The application changed. Reload and try again.', 'global-doctor-onboarding' ) );
 	}
 
@@ -241,6 +246,7 @@ final class GDO_Application {
 		if ( ! hash_equals( (string) $text['version'], (string) $app->consent_version ) ) {
 			return false;
 		}
+		$wpdb->last_error = '';
 		$row = $wpdb->get_row( $wpdb->prepare(
 			'SELECT consent_version,wording_hash,accepted_at,withdrawn_at FROM ' . GDO_Schema::table( 'consents' ) . ' WHERE application_id=%d AND user_id=%d AND consent_version=%s LIMIT 1',
 			absint( $app->id ),
@@ -331,6 +337,10 @@ final class GDO_Application {
 			$user_id,
 			absint( $app->row_version )
 		) );
+		if ( false === $updated ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_consent_link_store', __( 'Consent could not be linked because the application write failed.', 'global-doctor-onboarding' ) );
+		}
 		if ( 1 !== $updated ) {
 			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
 			return new WP_Error( 'gdo_consent_link', __( 'Consent could not be linked to the current application state.', 'global-doctor-onboarding' ) );

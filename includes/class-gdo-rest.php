@@ -62,7 +62,11 @@ final class GDO_REST {
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
-		return rest_ensure_response( GDO_API::application_edit_model( GDO_Application::get( $app->id ), get_current_user_id() ) );
+		$wpdb->last_error = '';
+		$fresh = GDO_Application::get( $app->id );
+		if ( null === $fresh && ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_application_autosave_reload_failed', __( 'The saved application could not be reloaded safely.', 'global-doctor-onboarding' ), array( 'status'=>503 ) ); }
+		if ( ! $fresh ) { return new WP_Error( 'gdo_application_autosave_reload_missing', __( 'The saved application is temporarily unavailable.', 'global-doctor-onboarding' ), array( 'status'=>503 ) ); }
+		return rest_ensure_response( GDO_API::application_edit_model( $fresh, get_current_user_id() ) );
 	}
 
 	public function health() {

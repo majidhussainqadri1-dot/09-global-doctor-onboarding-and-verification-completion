@@ -179,9 +179,12 @@ final class GDO_Membership_Adapter {
 		$allowed = $reviewer_id && $reviewer_id !== $applicant_id && self::can( 'sabri_verify_doctors', $reviewer_id );
 		if ( $allowed && $application_id ) {
 			global $wpdb;
+			$wpdb->last_error = '';
 			$app = GDO_Application::get( $application_id );
+			if ( null === $app && ! empty( $wpdb->last_error ) ) { $allowed = false; }
+			$wpdb->last_error = '';
 			$profile = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'reviewer_profiles' ) . " WHERE user_id=%d AND status='active'", $reviewer_id ) );
-			if ( ! $app || ! $profile || absint( $app->user_id ) !== $applicant_id ) {
+			if ( ! empty( $wpdb->last_error ) || ! $app || ! $profile || absint( $app->user_id ) !== $applicant_id ) {
 				$allowed = false;
 			} else {
 				$jurisdictions = json_decode( $profile->jurisdictions_json, true );
@@ -206,8 +209,9 @@ final class GDO_Membership_Adapter {
 		if ( ! $application_id || ! self::reviewer_scope_allows( $reviewer_id, $applicant_id, $application_id ) ) {
 			return false;
 		}
+		$wpdb->last_error = '';
 		$app = GDO_Application::get( $application_id );
-		if ( ! $app || absint( $app->user_id ) !== $applicant_id ) {
+		if ( ! empty( $wpdb->last_error ) || ! $app || absint( $app->user_id ) !== $applicant_id ) {
 			return false;
 		}
 
@@ -228,10 +232,12 @@ final class GDO_Membership_Adapter {
 		// Appeals are independently assigned and never inherit the original case
 		// reviewer/finalizer relationship.
 		if ( 'appeal_pending' === $app->state ) {
+			$wpdb->last_error = '';
 			$appeal_reviewer = absint( $wpdb->get_var( $wpdb->prepare(
 				'SELECT assigned_reviewer_id FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE application_id=%d AND status='open' ORDER BY id DESC LIMIT 1",
 				$application_id
 			) ) );
+			if ( ! empty( $wpdb->last_error ) ) { return false; }
 			if ( $appeal_reviewer && $appeal_reviewer === $reviewer_id ) {
 				return true;
 			}

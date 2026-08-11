@@ -182,7 +182,11 @@ final class GDO_Advanced_Trust_Hardening {
     public static function schedule_reverification( $application_id, $reason = 'periodic', $when = 0, $preserve_failures = true ) {
         global $wpdb;
         $application_id = absint( $application_id );
-        if ( ! $application_id || ! GDO_Application::get( $application_id ) ) { return false; }
+        if ( ! $application_id ) { return false; }
+        $wpdb->last_error = '';
+        $application = GDO_Application::get( $application_id );
+        if ( null === $application && ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_reverification_application_query', __( 'Professional application state could not be read safely for reverification scheduling.', 'global-doctor-onboarding' ) ); }
+        if ( ! $application ) { return false; }
         $table = GDO_Advanced_Trust::table( 'monitor_state' );
         $when = $when ? absint( $when ) : time() + DAY_IN_SECONDS;
         $wpdb->last_error = '';

@@ -19,6 +19,7 @@ final class GDO_Rate_Limiter {
         if ( false === $ok ) {
             return false;
         }
+        $wpdb->last_error = '';
         $raw_hits = $wpdb->get_var( $wpdb->prepare( "SELECT hits FROM {$table} WHERE bucket_hash=%s", $hash ) );
         if ( null === $raw_hits || ! empty( $wpdb->last_error ) ) {
             return false;

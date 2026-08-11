@@ -5,6 +5,7 @@ final class GDO_Audit {
 	public static function transition( $application_id, $actor_id, $from, $to, $reason_code, $reason_text, $trace_id = '' ) {
 		global $wpdb;
 		$table = GDO_Schema::table( 'transitions' );
+		$wpdb->last_error = '';
 		$previous_raw = $wpdb->get_var( $wpdb->prepare( "SELECT event_hash FROM {$table} WHERE application_id=%d ORDER BY id DESC LIMIT 1 FOR UPDATE", absint( $application_id ) ) );
 		if ( ! empty( $wpdb->last_error ) ) {
 			return new WP_Error( 'gdo_audit_chain_read_failed', __( 'The verification audit chain could not be verified before writing.', 'global-doctor-onboarding' ) );

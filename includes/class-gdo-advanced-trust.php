@@ -540,7 +540,9 @@ final class GDO_Advanced_Trust {
             return new WP_Error( 'gdo_jurisdiction_rule_empty', __( 'Jurisdiction rules cannot be empty.', 'global-doctor-onboarding' ) );
         }
         $now = self::now();
+        $wpdb->last_error = '';
         $existing = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::table( 'jurisdiction_rules' ) . ' WHERE jurisdiction=%s AND rule_version=%s LIMIT 1', $jurisdiction, $version ) );
+        if ( null === $existing && ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_jurisdiction_rule_query', __( 'Jurisdiction-rule state could not be read safely.', 'global-doctor-onboarding' ) ); }
         $data = array(
             'status'=>$status,
             'rules_json'=>wp_json_encode( $rules, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ),
@@ -809,7 +811,8 @@ final class GDO_Advanced_Trust {
         if(!self::can_manage()){return new WP_Error('gdo_conflict_forbidden',__('Conflict resolution requires privileged authorization and step-up.','global-doctor-onboarding'));}
         global $wpdb; $id=absint($conflict_id); $actor=get_current_user_id();
         $updated=$wpdb->update(self::table('reviewer_conflicts'),array('status'=>'resolved','resolved_by'=>$actor,'resolved_at'=>self::now()),array('id'=>$id,'status'=>'active'),array('%s','%d','%s'),array('%d','%s'));
-        if(1!==$updated){return new WP_Error('gdo_conflict_resolve',__('The active reviewer conflict could not be resolved.','global-doctor-onboarding'));}
+        if(false===$updated){return new WP_Error('gdo_conflict_resolve_store',__('The reviewer conflict resolution could not be stored safely.','global-doctor-onboarding'));}
+        if(1!==$updated){return new WP_Error('gdo_conflict_resolve',__('The active reviewer conflict could not be resolved because its state changed.','global-doctor-onboarding'));}
         GDO_Membership_Adapter::audit('doctor_reviewer_conflict_resolved',array('conflict_id'=>$id,'actor_id'=>$actor)); return true;
     }
 

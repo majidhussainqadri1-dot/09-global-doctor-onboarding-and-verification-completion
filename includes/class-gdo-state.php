@@ -93,6 +93,10 @@ final class GDO_State {
             "UPDATE {$table} SET " . implode( ',', $sets ) . ' WHERE id=%d AND row_version=%d',
             $values
         ) );
+        if ( false === $updated ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+            return new WP_Error( 'gdo_transition_store_failed', __( 'The application state could not be stored safely.', 'global-doctor-onboarding' ) );
+        }
         if ( 1 !== $updated ) {
             if ( $manage_transaction ) {
                 $wpdb->query( 'ROLLBACK' );

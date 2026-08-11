@@ -37,6 +37,7 @@ final class GDO_Quality {
 			'status'=>'completed', 'outcome'=>$outcome, 'reason'=>$reason, 'auditor_id'=>absint( $auditor_id ),
 			'completed_at'=>current_time( 'mysql', true ), 'updated_at'=>current_time( 'mysql', true ),
 		), array( 'id'=>absint( $sample_id ), 'status'=>'pending' ), array( '%s','%s','%s','%d','%s','%s' ), array( '%d','%s' ) );
+		if ( false === $updated ) { return new WP_Error( 'gdo_quality_store_failed', __( 'The quality sample completion could not be stored safely.', 'global-doctor-onboarding' ) ); }
 		return 1 === $updated ? true : new WP_Error( 'gdo_quality_conflict', __( 'The quality sample is no longer pending.', 'global-doctor-onboarding' ) );
 	}
 

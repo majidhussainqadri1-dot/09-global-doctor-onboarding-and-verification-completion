@@ -150,7 +150,9 @@ final class GDO_Migration {
 			}
 			foreach ( $users as $user_id ) {
 				$user_id = absint( $user_id );
+				$wpdb->last_error = '';
 				$app = GDO_Application::latest_for_user( $user_id );
+				if ( null === $app && ! empty( $wpdb->last_error ) ) { throw new RuntimeException( 'Legacy File 09 application inventory could not be read safely.' ); }
 				if ( ! $app ) {
 					$profile = self::legacy_profile( $user_id );
 					$now = current_time( 'mysql', true );
@@ -219,17 +221,22 @@ final class GDO_Migration {
 	private static function store_legacy_evidence( $app, $row, $type, $plain, $source ) {
 		global $wpdb;
 		$source_sha256 = hash( 'sha256', $plain );
+		$wpdb->last_error = '';
 		$existing = absint( $wpdb->get_var( $wpdb->prepare(
 			'SELECT id FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE application_id=%d AND document_type=%s AND source_sha256=%s AND deleted_at IS NULL LIMIT 1',
 			absint( $app->id ), $type, $source_sha256
 		) ) );
+		if ( ! empty( $wpdb->last_error ) ) { throw new RuntimeException( 'Legacy credential duplicate state could not be read safely.' ); }
 		if ( $existing ) {
 			if ( is_file( $source ) && ( ! @unlink( $source ) || is_file( $source ) ) ) {
 				GDO_Membership_Adapter::audit( 'doctor_legacy_source_cleanup_pending', array( 'application_id'=>absint( $app->id ), 'legacy_document_id'=>absint( $row->id ) ) );
 			}
 			return;
 		}
-		$version = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT MAX(version) FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE application_id=%d AND document_type=%s', $app->id, $type ) ) ) + 1;
+		$wpdb->last_error = '';
+		$version_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT MAX(version) FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE application_id=%d AND document_type=%s', $app->id, $type ) );
+		if ( ! empty( $wpdb->last_error ) ) { throw new RuntimeException( 'Legacy credential version state could not be read safely.' ); }
+		$version = absint( $version_raw ) + 1;
 		$meta = array( 'application_uuid'=>$app->application_uuid, 'application_version'=>$app->version, 'user_id'=>$app->user_id, 'document_type'=>$type, 'document_version'=>$version );
 		$encrypted = GDO_Crypto::encrypt( $plain, $meta );
 		if ( is_wp_error( $encrypted ) ) {
