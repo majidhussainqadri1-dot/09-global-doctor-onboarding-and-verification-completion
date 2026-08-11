@@ -1,20 +1,100 @@
 {
-  "message": "fix(file09): keep privacy eraser retryable until selected applications finish",
+  "message": "docs(file09): synchronize R16 repository evidence",
   "changes": [
     {
-      "path": "includes/class-gdo-privacy.php",
-      "old": "\t\t$removed = false;\n\t\t$retained = $held > 0;",
-      "new": "\t\t$removed = false;\n\t\t$completed_apps = 0;\n\t\t$retained = $held > 0;"
+      "path": "STATUS.md",
+      "old": "R1–R11 are preserved historical 80-round reviews. R12–R15 are separate fresh **10-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings.",
+      "new": "R1–R11 are preserved historical 80-round reviews. R12–R16 are separate fresh **10-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings."
     },
     {
-      "path": "includes/class-gdo-privacy.php",
-      "old": "\t\t\t$removed = true;\n\t\t\t$retained = true;\n\t\t\t$messages[] = 'Personal credential and Advanced Trust data were erased or anonymized; minimal accountability evidence was retained.';",
-      "new": "\t\t\t$removed = true;\n\t\t\t++$completed_apps;\n\t\t\t$retained = true;\n\t\t\t$messages[] = 'Personal credential and Advanced Trust data were erased or anonymized; minimal accountability evidence was retained.';"
+      "path": "STATUS.md",
+      "old": "| R14 | 10 | 6 | 4 |\n| **R15** | **10** | **6** | **4** |",
+      "new": "| R14 | 10 | 6 | 4 |\n| R15 | 10 | 6 | 4 |\n| **R16** | **10** | **9** | **1** |"
     },
     {
-      "path": "includes/class-gdo-privacy.php",
-      "old": "\t\treturn array( 'items_removed'=>$removed, 'items_retained'=>$retained, 'messages'=>array_values( array_unique( $messages ) ), 'done'=>count( $apps ) < $limit );",
-      "new": "\t\treturn array( 'items_removed'=>$removed, 'items_retained'=>$retained, 'messages'=>array_values( array_unique( $messages ) ), 'done'=>count( $apps ) < $limit && $completed_apps === count( $apps ) );"
+      "path": "STATUS.md",
+      "old": "- Installable release allowlist remains **62 entries**; R12–R15 ledger/test files are repository QA evidence and intentionally not packaged.\n\n## Completion truth",
+      "new": "- Installable release allowlist remains **62 entries**; R12–R15 ledger/test files are repository QA evidence and intentionally not packaged.\n\n## Sixteenth fresh 10-round corrective assurance\n\n- Frozen R16 baseline: `4707d31cbd5ed8f419166d2f796bee315449e172`.\n- Defect-bearing rounds: **01, 02, 03, 04, 05, 06, 08, 09, 10**.\n- Clean round: **07**.\n- R16 corrects Advanced Trust application-read DB uncertainty; decision derivative failure propagation; duplicate submit side effects; post-commit lifecycle failure observability; accepted-claim/passport/monitor sequencing; unsupported/degraded provider manual-attention semantics; durable pre-unlink resumable erasure checkpointing; and retry-safe WordPress privacy-erasure completion.\n- Permanent ledger: `REVIEW-10-ROUNDS-RC6-R16.md`.\n- Permanent executable gate: `tests/ten-round-audit-r16.py` — required result **10 PASS / 0 FAIL**.\n- Installable release allowlist remains **62 entries**; R16 ledger/test are repository QA evidence and intentionally not packaged.\n\n## Completion truth"
+    },
+    {
+      "path": "STATUS.md",
+      "old": "- R15 ten-round repository review/fix: **complete at source-review level**\n- Coded RC6/R15 candidate: **complete at repository-candidate level**\n- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R15 source/evidence changes**",
+      "new": "- R16 ten-round repository review/fix: **complete at source-review level**\n- Coded RC6/R16 candidate: **complete at repository-candidate level**\n- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R16 source/evidence changes**"
+    },
+    {
+      "path": "STATUS.md",
+      "old": "## Authoritative RC6/R15 repository gate",
+      "new": "## Authoritative RC6/R16 repository gate"
+    },
+    {
+      "path": "STATUS.md",
+      "old": "all R1–R11 80-round executable gates plus the R12, R13, R14 and R15 ten-round gates",
+      "new": "all R1–R11 80-round executable gates plus the R12, R13, R14, R15 and R16 ten-round gates"
+    },
+    {
+      "path": "STATUS.md",
+      "old": "All earlier workflow runs/artifacts, including the R14 exact-head artifact from `ca76893...`, are historical after R15 source changes and must not be represented as the current corrected package.",
+      "new": "All earlier workflow runs/artifacts, including the R15 exact-head artifact from `4707d31...`, are historical after R16 source changes and must not be represented as the current corrected package."
+    },
+    {
+      "path": "STATUS.md",
+      "old": "This repository status does not claim RC6/R15 staging or production deployment.",
+      "new": "This repository status does not claim RC6/R16 staging or production deployment."
+    },
+    {
+      "path": "README.md",
+      "old": "| Fresh 10-round review R14 | 6 defect-bearing corrected; 4 clean |\n| **Fresh 10-round review R15** | **6 defect-bearing corrected; 4 clean; exact-head gate required** |",
+      "new": "| Fresh 10-round review R14 | 6 defect-bearing corrected; 4 clean |\n| Fresh 10-round review R15 | 6 defect-bearing corrected; 4 clean |\n| **Fresh 10-round review R16** | **9 defect-bearing corrected; 1 clean; exact-head gate required** |"
+    },
+    {
+      "path": "README.md",
+      "old": "| Exact-head automated QA | Must pass on the final exact RC6/R15 commit |",
+      "new": "| Exact-head automated QA | Must pass on the final exact RC6/R16 commit |"
+    },
+    {
+      "path": "README.md",
+      "old": "R12–R15 supersede it only as current repository review evidence, not as historical evidence.",
+      "new": "R12–R16 supersede it only as current repository review evidence, not as historical evidence."
+    },
+    {
+      "path": "README.md",
+      "old": "`REVIEW-10-ROUNDS-RC6-R14.md`, `REVIEW-10-ROUNDS-RC6-R15.md`, `SECURITY-PRIVACY.md`",
+      "new": "`REVIEW-10-ROUNDS-RC6-R14.md`, `REVIEW-10-ROUNDS-RC6-R15.md`, `REVIEW-10-ROUNDS-RC6-R16.md`, `SECURITY-PRIVACY.md`"
+    },
+    {
+      "path": "README.md",
+      "old": "the R12, R13, R14 and R15 ten-round gates",
+      "new": "the R12, R13, R14, R15 and R16 ten-round gates"
+    },
+    {
+      "path": "README.md",
+      "old": "The permanent R15 ledger is `REVIEW-10-ROUNDS-RC6-R15.md`; the executable gate is `tests/ten-round-audit-r15.py` and must report **10 PASS / 0 FAIL**. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced.",
+      "new": "The permanent R15 ledger is `REVIEW-10-ROUNDS-RC6-R15.md`; the executable gate is `tests/ten-round-audit-r15.py` and must report **10 PASS / 0 FAIL**. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced.\n\n## Sixteenth fresh 10-round corrective assurance (R16)\n\nR16 froze the green R15 exact head `4707d31cbd5ed8f419166d2f796bee315449e172` and performed ten new sequential review → fix → review controls. Defects were established in rounds **01, 02, 03, 04, 05, 06, 08, 09 and 10**; round **07** was clean. Each established defect was corrected before the next numbered round advanced.\n\nR16 makes Advanced Trust application reads DB-fail-visible; propagates post-decision derivative failures; removes duplicate submit side effects; records post-commit lifecycle failure attention; keeps passport issuance downstream of accepted File 00 claim while independently healing monitoring; preserves unsupported/degraded primary-source states as manual attention; checkpoints resumable erasure before physical unlink; and keeps WordPress privacy erasure retryable until every selected application is complete.\n\nThe permanent R16 ledger is `REVIEW-10-ROUNDS-RC6-R16.md`; the executable gate is `tests/ten-round-audit-r16.py` and must report **10 PASS / 0 FAIL**. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced."
+    },
+    {
+      "path": "RELEASE-MANIFEST-1.3.0.md",
+      "old": "It additionally preserves all repository corrective assurance evidence through R15.",
+      "new": "It additionally preserves all repository corrective assurance evidence through R16."
+    },
+    {
+      "path": "RELEASE-MANIFEST-1.3.0.md",
+      "old": "`tests/ten-round-audit-r14.py` and `tests/ten-round-audit-r15.py`",
+      "new": "`tests/ten-round-audit-r14.py`, `tests/ten-round-audit-r15.py` and `tests/ten-round-audit-r16.py`"
+    },
+    {
+      "path": "RELEASE-MANIFEST-1.3.0.md",
+      "old": "- Repository review: R1–R11 historical 80-round series preserved; R12–R15 fresh 10-round corrective reviews preserved; R15 is the current repository review candidate",
+      "new": "- Repository review: R1–R11 historical 80-round series preserved; R12–R16 fresh 10-round corrective reviews preserved; R16 is the current repository review candidate"
+    },
+    {
+      "path": "RELEASE-MANIFEST-1.3.0.md",
+      "old": "- Staging acceptance, live deployment and operational acceptance remain false until externally evidenced.\n",
+      "new": "- Staging acceptance, live deployment and operational acceptance remain false until externally evidenced.\n\n## Sixteenth fresh 10-round corrective assurance — R16\n\n- Frozen baseline: `4707d31cbd5ed8f419166d2f796bee315449e172`.\n- R16: **10 rounds; 9 defect-bearing; 1 clean; post-correction target 10 PASS / 0 FAIL**.\n- Defect-bearing rounds: `01,02,03,04,05,06,08,09,10`; clean round: `07`.\n- Permanent ledger: `REVIEW-10-ROUNDS-RC6-R16.md`.\n- Executable gate: `tests/ten-round-audit-r16.py`.\n- R16 corrections harden application-read DB truth, derivative lifecycle failure propagation, submit idempotency, accepted-claim/passport/monitor sequencing, degraded provider truth, and crash/retry-safe resumable privacy erasure.\n- R16 ledger/test remain repository QA evidence outside the installable allowlist; the allowlist remains **62 entries**.\n- Staging acceptance, live deployment and operational acceptance remain false until externally evidenced.\n"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "old": "# Changelog\n\n",
+      "new": "# Changelog\n\n## Sixteenth fresh 10-round corrective assurance — R16\n\n- Froze the green R15 exact head `4707d31cbd5ed8f419166d2f796bee315449e172` and performed a new independent 10-round sequential corrective review.\n- Corrected **9** defect-bearing rounds (`01,02,03,04,05,06,08,09,10`); round `07` was clean.\n- Hardened Advanced Trust application DB reads and propagated professional-decision derivative lifecycle failures.\n- Removed duplicate post-submit trust side effects and made post-commit lifecycle failures explicitly auditable/operator-visible.\n- Aligned passport issuance with accepted File 00 professional claims while keeping monitor scheduling independently recoverable.\n- Preserved unsupported/degraded primary-source states as fail-safe manual attention rather than clean monitoring.\n- Added durable `erasure_pending` checkpoints before resumable-upload physical unlink and made WordPress privacy erasure retry until selected application work is actually complete.\n- Added permanent R16 ledger/executable gate/release-lock/workflow evidence while keeping the installable allowlist at 62 entries.\n- External staging/live/operational gates remain false.\n\n"
     }
   ]
 }
