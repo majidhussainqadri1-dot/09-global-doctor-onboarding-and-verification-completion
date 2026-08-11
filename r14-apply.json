@@ -1,10 +1,25 @@
 {
-  "message": "fix(file09): close registration validity acceptance gap",
+  "message": "fix(file09): operationalize appeal deadlines",
   "changes": [
     {
-      "path": "includes/class-gdo-evidence.php",
-      "old": "            if ( 'license' === $type && ( empty( $record->validity_until ) || strtotime( $record->validity_until . ' 23:59:59 UTC' ) <= time() ) ) {\n                return false;\n            }",
-      "new": "            if ( in_array( $type, array( 'license', 'registration', 'professional_registration' ), true ) && ( empty( $record->validity_until ) || strtotime( $record->validity_until . ' 23:59:59 UTC' ) <= time() ) ) {\n                return false;\n            }"
+      "path": "includes/class-gdo-operations.php",
+      "old": "\t\t\t'open_critical_risks' => self::count_query( \"SELECT COUNT(*) FROM \" . GDO_Schema::table( 'risk_signals' ) . \" WHERE severity='critical' AND status IN ('open','reviewing')\", 'gdo_health_critical_risks' ),\n\t\t);",
+      "new": "\t\t\t'open_critical_risks' => self::count_query( \"SELECT COUNT(*) FROM \" . GDO_Schema::table( 'risk_signals' ) . \" WHERE severity='critical' AND status IN ('open','reviewing')\", 'gdo_health_critical_risks' ),\n\t\t\t'overdue_appeals' => self::count_query( $wpdb->prepare(\n\t\t\t\t\"SELECT COUNT(*) FROM \" . GDO_Schema::table( 'appeals' ) . \" WHERE status='open' AND deadline_at IS NOT NULL AND deadline_at<%s\",\n\t\t\t\tcurrent_time( 'mysql', true )\n\t\t\t), 'gdo_health_overdue_appeals' ),\n\t\t);"
+    },
+    {
+      "path": "includes/class-gdo-operations.php",
+      "old": "\t\t$open_critical_risks = is_wp_error( $counts['open_critical_risks'] ) ? 0 : $counts['open_critical_risks'];\n\t\t$checks['dead_letters'] = $dead ? 'warn' : 'pass';\n\t\t$checks['stale_claims'] = $stale_claims ? 'warn' : 'pass';\n\t\t$checks['critical_risks'] = $open_critical_risks ? 'warn' : 'pass';",
+      "new": "\t\t$open_critical_risks = is_wp_error( $counts['open_critical_risks'] ) ? 0 : $counts['open_critical_risks'];\n\t\t$overdue_appeals = is_wp_error( $counts['overdue_appeals'] ) ? 0 : $counts['overdue_appeals'];\n\t\t$checks['dead_letters'] = $dead ? 'warn' : 'pass';\n\t\t$checks['stale_claims'] = $stale_claims ? 'warn' : 'pass';\n\t\t$checks['critical_risks'] = $open_critical_risks ? 'warn' : 'pass';\n\t\t$checks['appeal_deadlines'] = $overdue_appeals ? 'warn' : 'pass';"
+    },
+    {
+      "path": "includes/class-gdo-operations.php",
+      "old": "\t\t\t'open_critical_risks'=>$open_critical_risks, 'checked_at'=>gmdate( 'c' ),",
+      "new": "\t\t\t'open_critical_risks'=>$open_critical_risks, 'overdue_appeals'=>$overdue_appeals, 'checked_at'=>gmdate( 'c' ),"
+    },
+    {
+      "path": "includes/class-gdo-admin.php",
+      "old": "\t\t\tif ( $appeal && empty( $appeal->assigned_reviewer_id ) ) {",
+      "new": "\t\t\tif ( $appeal && ! empty( $appeal->deadline_at ) ) {\n\t\t\t\t$appeal_deadline = strtotime( $appeal->deadline_at . ' UTC' );\n\t\t\t\t$appeal_overdue = $appeal_deadline && $appeal_deadline < time();\n\t\t\t\techo '<p class=\"description\">' . esc_html( sprintf( $appeal_overdue ? __( 'Appeal review deadline: %s UTC — OVERDUE; prioritize resolution without prejudicing the applicant.', 'global-doctor-onboarding' ) : __( 'Appeal review deadline: %s UTC.', 'global-doctor-onboarding' ), $appeal->deadline_at ) ) . '</p>';\n\t\t\t}\n\t\t\tif ( $appeal && empty( $appeal->assigned_reviewer_id ) ) {"
     }
   ]
 }
