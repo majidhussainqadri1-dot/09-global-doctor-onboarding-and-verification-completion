@@ -1,15 +1,10 @@
 {
-  "message": "fix(file09): require current registration validity",
+  "message": "fix(file09): close registration validity acceptance gap",
   "changes": [
     {
       "path": "includes/class-gdo-evidence.php",
-      "old": "            if ( 'license' === $record->document_type ) {\n                $accepted_registry = array( 'verified','active','matched' );",
-      "new": "            if ( in_array( sanitize_key( $record->document_type ), array( 'license', 'registration', 'professional_registration' ), true ) ) {\n                $accepted_registry = array( 'verified','active','matched' );"
-    },
-    {
-      "path": "includes/class-gdo-evidence.php",
-      "old": "            } elseif ( 'license' === $type ) {\n                return new WP_Error( 'gdo_evidence_ceiling_license_validity', __( 'A verified license requires an explicit current validity end date.', 'global-doctor-onboarding' ) );",
-      "new": "            } elseif ( in_array( $type, array( 'license', 'registration', 'professional_registration' ), true ) ) {\n                return new WP_Error( 'gdo_evidence_ceiling_license_validity', __( 'A verified license or professional registration requires an explicit current validity end date.', 'global-doctor-onboarding' ) );"
+      "old": "            if ( 'license' === $type && ( empty( $record->validity_until ) || strtotime( $record->validity_until . ' 23:59:59 UTC' ) <= time() ) ) {\n                return false;\n            }",
+      "new": "            if ( in_array( $type, array( 'license', 'registration', 'professional_registration' ), true ) && ( empty( $record->validity_until ) || strtotime( $record->validity_until . ' 23:59:59 UTC' ) <= time() ) ) {\n                return false;\n            }"
     }
   ]
 }
