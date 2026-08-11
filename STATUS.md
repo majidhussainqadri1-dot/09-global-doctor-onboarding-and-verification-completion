@@ -61,3 +61,11 @@ Repository HEAD / Deployed Version / DB Version / Migration State / Live Verific
 ## Historical review evidence
 
 R1–R9 ledgers and executable gates remain preserved as historical assurance evidence. Their package counts and exact-head results certify only their corresponding historical source heads. R10 establishes the current repository gate above them.
+
+## Eleventh fresh 80-round corrective assurance (R11)
+- Frozen R11 baseline: `91d9a590e18e02030e27ed558ad2147981332ed3`.
+- Eleventh fresh 80-round repository review: **17 defect-bearing rounds / 63 clean rounds**.
+- R11 defect-bearing rounds: **04–20**; each established defect was corrected before the review advanced.
+- R11 executable gate: `tests/eighty-round-audit-r11.py` — target **80 PASS / 0 FAIL** on exact current HEAD.
+- Current deterministic release allowlist: **62-entry** RC6 package truth.
+- Repository maturity remains: Specified=true; Coded=true candidate; Packaged/Automated-QA Green only after the final exact-head workflow succeeds; **Staging Accepted=false; Live Deployed=false; Operationally Accepted=false**.

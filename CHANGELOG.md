@@ -165,3 +165,7 @@
 - Reviewed frozen exact-head baseline `f40228d29ffa92e8d27ea84f9b1c1ae4a63ff9b2` through 80 independent controls.
 - Corrected 15 defect-bearing rounds (04–18): runtime mutation dependency completeness, privileged owner-command reauthorization, DB-uncertainty truth, reviewer queue/risk fail-closed UX, passport cache safety, risk writes and reviewer-calibration writes/metrics.
 - Added `REVIEW-80-ROUNDS-RC6-R8.md` and `tests/eighty-round-audit-r8.py`; staging/live/operational remain false.
+
+### Eleventh fresh 80-round corrective assurance
+- Added R11 80-round audit/ledger and 62-entry release evidence.
+- Hardened DB error-state isolation, write-failure semantics, privacy/evidence inventory, migration/reviewer reads, outbox provider-error minimization and repository generated-cache hygiene.

@@ -73,3 +73,6 @@ The ten fresh 80-round review ledgers are preserved separately so later correcti
 No previous green R1–R9 run is accepted as proof for the R10-corrected source. The final exact HEAD must pass the complete PHP 7.4/8.3 workflow, all R1–R10 executable review gates, deterministic double build, **61-entry** package parity and generated exact-head SPDX SBOM before repository package/QA status can be called green.
 
 External Hostinger staging, real provider failure modes, real applicant/reviewer lifecycle journeys, private storage/key/scanner checks, two fresh staging review→fix→full-retest cycles, backup/restore, rollback and explicit Founder acceptance remain mandatory before any live/operational claim.
+
+## Eleventh fresh 80-round corrective assurance (R11)
+R11 froze the previously green R10 exact head `91d9a590e18e02030e27ed558ad2147981332ed3` and performed another independent 80-round source review. It established and corrected 17 repository defects in rounds 04–20; rounds 01–03 and 21–80 were clean after correction. The RC6 release allowlist is now 62-entry. Repository QA remains distinct from Hostinger staging and live truth.

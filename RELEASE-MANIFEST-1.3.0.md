@@ -80,3 +80,10 @@ RC6 underwent a ninth independent 80-control repository review against frozen ex
 ## Tenth fresh 80-round corrective assurance — R10
 
 RC6 underwent a tenth independent 80-control repository review against frozen exact-head baseline `ec3ca2dd715e05b66cf29c42f2f996c80987fcd7`: **19 defect-bearing rounds corrected; 61 clean rounds**. `REVIEW-80-ROUNDS-RC6-R10.md` is the immutable ledger and `tests/eighty-round-audit-r10.py` is mandatory alongside R1–R9. The current deterministic release allowlist is **61-entry**. R10 closes fail-visible database-uncertainty gaps in verification projection, private application REST/autosave, draft/consent/submission, privileged reviewer/evidence/appeal reads, evidence upload/decrypt/key rotation, state transition, claim issuance and completeness; requires current privileged step-up for health access; and makes post-decision quality-sampling failure observable. Repository package/QA is green only after the authoritative exact-final-head PHP 7.4/8.3 workflow passes all ten 80-round gates, deterministic double build, 61-entry source/package parity and generated exact-head SPDX SBOM. Staging accepted, live deployed and operationally accepted remain false until external evidence exists.
+
+## Eleventh fresh 80-round / RC6 release evidence
+- Frozen baseline: `91d9a590e18e02030e27ed558ad2147981332ed3`.
+- R11: **80 rounds; 17 defect-bearing; 63 clean; post-correction target 80 PASS / 0 FAIL**.
+- Defect-bearing rounds: `04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20`.
+- Exact release allowlist: **62-entry** package.
+- Staging acceptance, live deployment and operational acceptance remain false until externally evidenced.
