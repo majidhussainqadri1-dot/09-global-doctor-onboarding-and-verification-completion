@@ -16,6 +16,21 @@ jobs:
         with:
           ref: codex/file09-1.3.0-rc6-80-round-review
           fetch-depth: 0
+      - name: Align correction script with exact audit source
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/scripts/file09_r11_correct.py')
+          s=p.read_text()
+          start=s.index("rep('includes/class-gdo-audit.php'")
+          end=s.index("rep('includes/class-gdo-rate-limiter.php'")
+          block="""rep('includes/class-gdo-audit.php',
+              "\\t\\tglobal $wpdb;\\n\\t\\t$table = GDO_Schema::table( 'transitions' );\\n\\t\\t$previous_raw = $wpdb->get_var",
+              "\\t\\tglobal $wpdb;\\n\\t\\t$table = GDO_Schema::table( 'transitions' );\\n\\t\\t$wpdb->last_error = '';\\n\\t\\t$previous_raw = $wpdb->get_var")
+          """
+          p.write_text(s[:start]+block+s[end:])
+          PY
       - name: Apply deterministic R11 corrections
         run: python3 .github/scripts/file09_r11_correct.py
       - name: Remove generated and temporary review artifacts
