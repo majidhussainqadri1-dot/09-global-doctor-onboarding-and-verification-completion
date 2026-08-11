@@ -1,0 +1,107 @@
+ext_sha256 );
++            if ( is_wp_error( $proof ) ) {
++                return $proof;
++            }
++        } elseif ( $was_pending ) {
++            // The source file was verified before the durable pending state was
++            // first written. Missing-on-retry therefore represents an
++            // interrupted post-unlink finalization, not an unexplained active
++            // evidence disappearance.
++            $proof = hash( 'sha256', 'pending-delete-recovery|' . $id . '|' . $storage_name . '|' . $ciphertext_sha256 );
++        } else {
++            return new WP_Error( 'gdo_delete_interrupted_before_unlink', __( 'Credential deletion entered its durable pending state but the source file changed before deletion. Retry or reconcile before finalization.', 'global-doctor-onboarding' ) );
++        }
++        if ( ! is_string( $proof ) || ! preg_match( '/^[a-f0-9]{64}$/', $proof ) ) {
++            return new WP_Error( 'gdo_delete_proof_invalid', __( 'Credential deletion did not produce a valid durable proof.', 'global-doctor-onboarding' ) );
++        }
++
++        $wpdb->last_error = '';
++        $finalized = $wpdb->update(
++            GDO_Schema::table( 'evidence' ),
++            array(
++                'user_id'=>0, 'retention_state'=>$final_state, 'deletion_proof'=>$proof, 'deleted_at'=>$now,
++                'storage_name'=>'deleted-' . $id, 'original_name'=>'erased', 'source_sha256'=>'', 'ciphertext_sha256'=>'',
++                'content_hmac'=>'', 'key_id'=>'', 'scan_reference'=>null, 'checklist_json'=>null, 'findings_json'=>null,
++                'review_note'=>null, 'registry_source'=>null, 'reviewer_id'=>null, 'reviewed_at'=>null,
++                'validity_from'=>null, 'validity_until'=>null, 'updated_at'=>$now,
++            ),
++            array( 'id'=>$id, 'retention_state'=>$pending_state, 'storage_name'=>$storage_name )
++        );
++        if ( false === $finalized ) {
++            return new WP_Error( 'gdo_delete_finalize_store_failed', __( 'Credential deletion completed physically but its durable final proof could not be stored; the record remains pending for safe retry.', 'global-doctor-onboarding' ) );
++        }
++        if ( 1 !== (int) $finalized ) {
++            return new WP_Error( 'gdo_delete_finalize_conflict', __( 'Credential deletion proof could not be finalized because the record changed concurrently.', 'global-doctor-onboarding' ) );
++        }
++        return $proof;
++    }
++
+     public static function decrypt_record( $record ) {
+         global $wpdb;
+         $wpdb->last_error = '';
+--- a/includes/class-gdo-notifications.php
++++ b/includes/class-gdo-notifications.php
+@@ -352,6 +352,7 @@
+ 		if ( strlen( $reason ) < 20 ) {
+ 			return new WP_Error( 'gdo_outbox_replay_reason', __( 'A reason of at least 20 characters is required.', 'global-doctor-onboarding' ) );
+ 		}
++		$wpdb->last_error = '';
+ 		$row = $wpdb->get_row( $wpdb->prepare(
+ 			'SELECT id,event_uuid,status FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE id=%d LIMIT 1',
+ 			absint( $event_id )
+@@ -362,6 +363,7 @@
+ 		if ( ! $row || 'dead' !== sanitize_key( $row->status ) || ! self::valid_uuid( $row->event_uuid ) ) {
+ 			return new WP_Error( 'gdo_outbox_replay_conflict', __( 'The dead-letter event is no longer available for replay.', 'global-doctor-onboarding' ) );
+ 		}
++		$wpdb->last_error = '';
+ 		$updated = $wpdb->update(
+ 			GDO_Schema::table( 'outbox' ),
+ 			array( 'status'=>'pending', 'available_at'=>current_time( 'mysql', true ), 'dead_at'=>null, 'last_error'=>null ),
+@@ -369,7 +371,10 @@
+ 			array( '%s','%s','%s','%s' ),
+ 			array( '%d','%s' )
+ 		);
+-		if ( 1 !== $updated ) {
++		if ( false === $updated ) {
++			return new WP_Error( 'gdo_outbox_replay_store_failed', __( 'The dead-letter replay state could not be stored safely.', 'global-doctor-onboarding' ) );
++		}
++		if ( 1 !== (int) $updated ) {
+ 			return new WP_Error( 'gdo_outbox_replay_conflict', __( 'The dead-letter event is no longer available for replay.', 'global-doctor-onboarding' ) );
+ 		}
+ 		GDO_Membership_Adapter::audit( 'doctor_verification_outbox_replayed', array( 'event_id'=>absint( $event_id ), 'event_uuid'=>(string) $row->event_uuid, 'actor_id'=>absint( $actor_id ), 'reason'=>$reason ) );
+--- a/includes/class-gdo-operations.php
++++ b/includes/class-gdo-operations.php
+@@ -10,9 +10,11 @@
+ 		$core_schema_ready = absint( get_option( 'gdo_schema_version', 0 ) ) === GDO_SCHEMA_VERSION;
+ 		$advanced_schema_ready = ! class_exists( 'GDO_Advanced_Trust_Hardening' )
+ 			|| absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) === GDO_Advanced_Trust_Hardening::SCHEMA_VERSION;
++		$schedules_ready = self::required_schedules_ready();
+ 		return ! self::safe_mode()
+ 			&& $core_schema_ready
+ 			&& $advanced_schema_ready
++			&& $schedules_ready
+ 			&& defined( 'GDO_CLAIM_SIGNING_KEY' )
+ 			&& strlen( (string) GDO_CLAIM_SIGNING_KEY ) >= 32
+ 			&& GDO_Membership_Adapter::available()
+@@ -25,6 +27,12 @@
+ 		if ( ! function_exists( 'wp_get_scheduled_event' ) ) { return false; }
+ 		$event = wp_get_scheduled_event( $hook, array() );
+ 		return is_object( $event ) && isset( $event->schedule ) && $recurrence === $event->schedule;
++	}
++
++	private static function required_schedules_ready() {
++		return self::recurring_schedule_ready( 'gdo_daily_retention', 'daily' )
++			&& self::recurring_schedule_ready( 'gdo_notification_outbox', 'hourly' )
++			&& self::recurring_schedule_ready( 'gdo_trust_continuous_monitor', 'daily' );
+ 	}
+ 
+ 	private static function count_query( $sql, $error_code ) {
+@@ -46,9 +54,9 @@
+ 		$checks['private_storage'] = is_wp_error( GDO_Storage::health() ) ? 'fail' : 'pass';
+ 		$checks['schema_version'] = absint( get_option( 'gdo_schema_version', 0 ) ) === GDO_SCHEMA_VERSION ? 'pass' : 'fail';
+ 		$checks['advanced_trust_schema'] = ! class_exists( 'GDO_Advanced_Trust_Hardening' ) || absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) === GDO_Advanced_Trust_Hardening::SCHEMA_VERSION ? 'pass' : 'fail';
+-		$checks['retention_cron'] = self::recurring_schedule_ready( 'gdo_daily_retention', 'daily' ) ? 'pass' : 'warn';
+-		$checks['outbox_cron'] = self::recurring_schedule_ready( 'gdo_notification_outbox', 'hourly' ) ? 'pass' : 'warn';
+-		$checks['trust_monitor_cron'] = self::recurring_schedule_ready( 'gdo_trust_continuous_monitor', 'daily' ) ? 'pass' : 'warn';
++		$checks['retention_cron'] = self::recurring_schedule_ready( 'gdo_daily_retention', 'daily' ) ? 'pass' : 'fail';
++		$checks['outbox_cron'] = self::recurring_schedule_r
