@@ -8,7 +8,7 @@ Candidate branch: `codex/file09-1.3.0-rc6-80-round-review`
 
 ## Repository assurance history
 
-R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh **10-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings.
+R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh **10-round** corrective reviews, and R19 is a fresh **20-round** corrective review; each later review freezes the last green exact-head baseline and does not renumber earlier findings.
 
 **Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected, 63 clean, final 80/80 PASS on its own exact historical head.
 
@@ -31,7 +31,8 @@ R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh
 | R15 | 10 | 6 | 4 |
 | R16 | 10 | 9 | 1 |
 | R17 | 10 | 7 | 3 |
-| **R18** | **10** | **7** | **3** |
+| R18 | 10 | 7 | 3 |
+| **R19** | **20** | **5** | **15** |
 
 ## Twelfth fresh 10-round corrective assurance
 
@@ -101,13 +102,23 @@ R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh
 - Permanent executable gate: `tests/ten-round-audit-r18.py` — required result **10 PASS / 0 FAIL**.
 - Installable release allowlist remains **62 entries**; R18 ledger/test files are repository QA evidence and intentionally not packaged.
 
+## Nineteenth fresh 20-round corrective assurance
+
+- Frozen R19 baseline: `634bae9795bf6cb744eda333cfdf2a770868c133`.
+- Defect-bearing rounds: **05, 06, 08, 09, 19**.
+- Clean rounds: **01, 02, 03, 04, 07, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20**.
+- R19 corrects evidence-quota DB uncertainty and encrypted orphan/COMMIT reconciliation; crash-safe resumable session/chunk/finalize COMMIT ambiguity; legal-hold serialization through irreversible native evidence deletion in both WordPress privacy erasure and ordinary retention; and permanent R19 twenty-round release evidence.
+- Permanent ledger: `REVIEW-20-ROUNDS-RC6-R19.md`.
+- Permanent executable gate: `tests/twenty-round-audit-r19.py` — required result **20 PASS / 0 FAIL**.
+- Installable release allowlist remains **62 entries**; R19 ledger/test files are repository QA evidence and intentionally not packaged.
+
 ## Completion truth
 
 - Latest central + File 09 plan trace: **candidate complete**
 - Advanced Trust 24 approved amendment trace: **candidate complete**
-- R18 ten-round repository review/fix: **complete at source-review level**
-- Coded RC6/R18 candidate: **complete at repository-candidate level**
-- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R18 source/evidence changes**
+- R19 twenty-round repository review/fix: **complete at source-review level**
+- Coded RC6/R19 candidate: **complete at repository-candidate level**
+- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R19 source/evidence changes**
 - Deterministic package: **GREEN only when that same exact-head workflow completes the double-build, 62-entry package parity and generated exact-head SPDX 2.3 SBOM verification**
 - Staging accepted: **false**
 - Live deployed: **false**
@@ -119,17 +130,17 @@ Staging accepted: false
 Live deployed: false
 Operationally accepted: false
 
-## Authoritative RC6/R18 repository gate
+## Authoritative RC6/R19 repository gate
 
-The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12, R13, R14, R15, R16, R17 and R18 ten-round gates**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
+The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12, R13, R14, R15, R16, R17 and R18 ten-round gates and the R19 twenty-round gate**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
 
-All earlier workflow runs/artifacts are historical after R18 source changes and must not be represented as the current corrected package.
+All earlier workflow runs/artifacts are historical after R19 source/evidence changes and must not be represented as the current corrected package.
 
 ## External gates still pending
 
 Hostinger staging must verify core schema 6 + Advanced Trust schema 2 migration, current File 00/File 02 and companion contracts, provider unavailable/mismatch/revoked/expired paths, issuer/rule governance, no provider auto-decision, conflict/dual-review routing, passport issue/supersession/expiry/revocation/public-safe output, chunk interruption/resume/race/hash/malware path, secure-room one-time authorization/no-download behavior, privacy export/erasure/retention interaction, real applicant/reviewer/more-info/resubmission/appeal/renewal/suspension/revocation journeys, mobile/RTL/accessibility/weak-network journeys, backup/restore/rollback, companion integrations and **two fresh staging review → fix → full-retest cycles** before explicit Founder acceptance.
 
-Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status remain separate facts. This repository status does not claim RC6/R18 staging or production deployment.
+Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status remain separate facts. This repository status does not claim RC6/R19 staging or production deployment.
 
 ## Historical compact compatibility rows
 

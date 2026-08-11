@@ -1,5 +1,25 @@
 # Changelog
 
+## Nineteenth fresh 20-round corrective assurance — R19
+
+- Froze the green R18 exact head `634bae9795bf6cb744eda333cfdf2a770868c133` and performed a new independent 20-round sequential corrective review.
+- Corrected **5** defect-bearing rounds (`05,06,08,09,19`); **15** rounds were clean.
+- Made evidence quota database uncertainty explicit rather than reporting false quota exhaustion, checked encrypted orphan cleanup failures, and reconciled ambiguous evidence COMMIT outcomes before any physical deletion.
+- Made resumable upload session-create, chunk-append and finalization-claim COMMIT ambiguity authoritative-state reconciled rather than speculatively unlinking or truncating private bytes.
+- Kept legal-hold/application eligibility row locks through irreversible native evidence deletion in both WordPress privacy erasure and ordinary retention.
+- Added permanent R19 twenty-round ledger, executable gate, release-lock metadata, current status documentation and authoritative workflow wiring; temporary R19 corrective plumbing is removed before final exact-head assurance.
+- External Hostinger staging, live deployment and operational acceptance remain false and require separate evidence.
+
+## Eighteenth fresh 10-round corrective assurance — R18
+
+- Froze the green R17 exact head `67a3e999fa44e527bc4a795759a1b48cb8e7766d` and performed a new independent 10-round sequential corrective review.
+- Corrected **7** defect-bearing rounds (`01,02,06,07,08,09,10`); rounds `03,04,05` were clean.
+- Preserved active-passport verification errors instead of triggering replacement issuance.
+- Made professional-claim acknowledgement terminal CAS/idempotent and fail-visible; claim delivery no longer mistakes acknowledgement `WP_Error` for success.
+- Added legal-hold pre-delete serialization, atomic stale migration-lock CAS and File00 identity dependency/public-truth separation.
+- Added permanent R18 ledger/executable/release evidence.
+- External staging/live/operational gates remain false.
+
 ## Seventeenth fresh 10-round corrective assurance — R17
 
 - Froze the green R16 exact head `66e43bcb42904a381728509144cd0a1e6c77c6ac` and performed a new independent 10-round sequential corrective review.
