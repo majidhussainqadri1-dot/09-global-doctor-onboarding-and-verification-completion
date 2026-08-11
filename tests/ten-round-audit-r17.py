@@ -44,7 +44,7 @@ c(5,'Resumable finalize preserves retry on application DB uncertainty',
   and finalize_upload.index("'finalizing','open'") < finalize_upload.index('gdo_upload_application_changed'))
 
 matrix=trust[trust.index('private static function public_matrix_for_app'):trust.index('public static function public_card_shortcode')]
-passport=hard[hard.index('public static function issue_passport'):hard.index('public static function revoke_passport')]
+passport=hard[hard.index('public static function issue_passport'):]
 c(6,'Public verification and passport distinguish unavailable truth',
   has(matrix, "'data_available'=>true", "$matrix['data_available'] = false", "verification_record_for_user")
   and has(trust, 'Professional verification status is temporarily unavailable.')
