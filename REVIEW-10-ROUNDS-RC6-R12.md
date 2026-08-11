@@ -33,6 +33,10 @@ This R12 review does not reuse R1–R11 counts. Each round reviewed the correcte
 | **R09** | Retention still used an unchecked evidence inventory, while orphan-file deletion failure could be audited yet return overall success. | Retention uses checked evidence inventory; orphan cleanup accumulates deletion failures and returns false when cleanup is incomplete. |
 | **R10** | The R12 source corrections were not yet represented by a permanent executable gate/review ledger/release lock, the authoritative workflow did not run R12, and the temporary apply workflow had to remain absent. | Added `tests/ten-round-audit-r12.py`, this permanent ledger, R12 release-lock fields, and authoritative workflow wiring; temporary corrective workflow remains removed. |
 
+## QA-harness compatibility corrections
+
+These are **not additional product defects and are not added to the ten defect-bearing rounds**. While integrating R12 into the complete historical regression chain, older tests were found to couple historical truth to obsolete document/table/package wording. The historical R2 gate was satisfied by preserving its compact three-column status aliases; R5/R6 release-count wording was preserved explicitly as historical `56-entry`/`57-entry` aliases; and the R9 historical submission assertion was corrected to require the stronger current `GDO_Evidence::records_checked()` inventory rather than the superseded unchecked `records()` call. The temporary harness-fix workflow self-deleted after applying that test correction.
+
 ## Executable acceptance
 
 `tests/ten-round-audit-r12.py` is the permanent R12 regression gate. It must report:
