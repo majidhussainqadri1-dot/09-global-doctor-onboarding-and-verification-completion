@@ -64,7 +64,7 @@ check(8, 'Notification outbox isolates DB reads and stale failed delivery cannot
       and has(notify, "'claim_version'=>$payload_claim_version", 'doctor_professional_claim_failure_not_current'))
 
 check(9, 'Retention uses checked evidence inventory and orphan-cleanup deletion failure propagates instead of false success',
-      has(retention, 'GDO_Evidence::records_checked( $app->id, false )', 'if ( is_wp_error( $evidence_rows ) ) { return $evidence_rows; }')
+      has(retention, 'GDO_Evidence::records_checked( $app->id, false )', "$wpdb->query( 'ROLLBACK' ); return $evidence_rows;")
       and has(retention, '$cleanup_ok = true;', '$cleanup_ok = false;', 'return $cleanup_ok;'))
 
 check(10, 'R12 QA/release evidence is permanent, executable, authoritative-workflow wired, and temporary apply workflow removed',
