@@ -140,26 +140,52 @@ final class GDO_Claims {
 
 	public static function acknowledge( $application_id, $claim_version, $status, $reason = '' ) {
 		global $wpdb;
+		$application_id = absint( $application_id );
+		$claim_version = absint( $claim_version );
 		$status = sanitize_key( $status );
-		if ( ! in_array( $status, array( 'accepted','rejected' ), true ) ) {
+		if ( ! in_array( $status, array( 'accepted','rejected' ), true ) || ! $application_id || ! $claim_version ) {
 			return false;
 		}
+		$table = GDO_Schema::table( 'applications' );
+		$wpdb->last_error = '';
+		$current = $wpdb->get_row( $wpdb->prepare( "SELECT claim_status FROM {$table} WHERE id=%d AND claim_version=%d LIMIT 1", $application_id, $claim_version ) );
+		if ( null === $current && ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_claim_ack_query_failed', __( 'The professional claim acknowledgement state could not be read safely.', 'global-doctor-onboarding' ) );
+		}
+		if ( ! $current ) { return false; }
+		$current_status = sanitize_key( $current->claim_status );
+		if ( $status === $current_status ) { return true; }
+		if ( 'pending' !== $current_status ) { return false; }
+
+		$wpdb->last_error = '';
 		$updated = $wpdb->update(
-			GDO_Schema::table( 'applications' ),
+			$table,
 			array(
 				'claim_status'=>$status, 'claim_ack_at'=>current_time( 'mysql', true ),
 				'claim_last_error'=>sanitize_textarea_field( $reason ), 'updated_at'=>current_time( 'mysql', true ),
 			),
-			array( 'id'=>absint( $application_id ), 'claim_version'=>absint( $claim_version ) ),
+			array( 'id'=>$application_id, 'claim_version'=>$claim_version, 'claim_status'=>'pending' ),
 			array( '%s','%s','%s','%s' ),
-			array( '%d','%d' )
+			array( '%d','%d','%s' )
 		);
+		if ( false === $updated || ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_claim_ack_store_failed', __( 'The professional claim acknowledgement could not be stored safely.', 'global-doctor-onboarding' ) );
+		}
 		if ( 1 === $updated ) {
-			GDO_Membership_Adapter::audit( 'doctor_professional_claim_acknowledged', array( 'application_id'=>absint( $application_id ), 'claim_version'=>absint( $claim_version ), 'status'=>$status ) );
-			do_action( 'gdo_professional_claim_acknowledged', absint( $application_id ), absint( $claim_version ), $status );
+			GDO_Membership_Adapter::audit( 'doctor_professional_claim_acknowledged', array( 'application_id'=>$application_id, 'claim_version'=>$claim_version, 'status'=>$status ) );
+			do_action( 'gdo_professional_claim_acknowledged', $application_id, $claim_version, $status );
 			return true;
 		}
-		return false;
+
+		// A concurrent duplicate may have won the compare-and-set. Re-read so
+		// identical at-least-once delivery converges without replaying side effects,
+		// while a conflicting terminal acknowledgement remains denied.
+		$wpdb->last_error = '';
+		$after = $wpdb->get_var( $wpdb->prepare( "SELECT claim_status FROM {$table} WHERE id=%d AND claim_version=%d LIMIT 1", $application_id, $claim_version ) );
+		if ( null === $after && ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_claim_ack_recheck_failed', __( 'The professional claim acknowledgement could not be revalidated safely.', 'global-doctor-onboarding' ) );
+		}
+		return $status === sanitize_key( (string) $after );
 	}
 
 	public static function canonical_json( array $value ) {
