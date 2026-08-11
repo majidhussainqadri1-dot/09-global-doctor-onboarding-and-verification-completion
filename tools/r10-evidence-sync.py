@@ -35,4 +35,11 @@ def release_integrity(s):
     if "release lock R10 mismatch" in s: raise SystemExit('release-integrity R10 already present')
     return s.replace(anchor,block+anchor,1)
 edit('tests/release-integrity.py',release_integrity)
-print('R10 evidence synchronization applied')
+
+def r10_gate(s):
+    old="c(33,'Core migration remains locked/idempotent with physical postconditions',has(migration,'gdo_schema_migration_lock','gdo_migration_lock','SHOW COLUMNS'))"
+    new="c(33,'Core migration remains locked/idempotent with delegated physical postconditions',has(migration,\"const LOCK_OPTION = 'gdo_schema_migration_lock'\",'gdo_migration_locked','GDO_Schema::verify_installation()'))"
+    if old not in s: raise SystemExit('R10 migration assertion anchor missing')
+    return s.replace(old,new,1)
+edit('tests/eighty-round-audit-r10.py',r10_gate)
+print('R10 evidence synchronization and harness semantic repair applied')
