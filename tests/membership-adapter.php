@@ -5,7 +5,7 @@ define( 'SMC_CONTRACT_VERSION', '1.2.0' );
 define( 'SMC_CF01_CONTRACT_VERSION', '1.0.0' );
 define( 'SA_PROFESSIONAL_REAUTH_VERSION', '1.0.0' );
 $GLOBALS['gdo_current_user']=7; $GLOBALS['gdo_user_caps']=array('smc_review_verification'=>true);
-function absint($v){return abs((int)$v);} function sanitize_key($v){return preg_replace('/[^a-z0-9_-]/','',strtolower((string)$v));} function wp_generate_uuid4(){return '123e4567-e89b-42d3-a456-426614174000';} function get_current_user_id(){return 7;} function user_can($u,$c){return !empty($GLOBALS['gdo_user_caps'][$c]);} function apply_filters($h,$v){return $v;} function do_action(){} function __($v){return $v;} function smc_get_profile($u){return array('display_name'=>'Doctor Candidate');}
+function absint($v){return abs((int)$v);} function sanitize_key($v){return preg_replace('/[^a-z0-9_-]/','',strtolower((string)$v));} function wp_generate_uuid4(){return '123e4567-e89b-42d3-a456-426614174000';} function get_current_user_id(){return 7;} function user_can($u,$c){return !empty($GLOBALS['gdo_user_caps'][$c]);} function apply_filters($h,$v){return $v;} function do_action(){} function __($v){return $v;} function smc_get_profile($u){return array('display_name'=>'Doctor Candidate');} function is_wp_error($v){return $v instanceof WP_Error;}
 final class WP_Error{public function __construct($c='',$m=''){}}
 final class SMC_Contracts{public static $assertion=array(); public static function assertions($u){return self::$assertion;}}
 final class SMC_CF01_Contract{public static $assertion=array(); public static function membership_assertion($u,$c){return self::$assertion;}}
