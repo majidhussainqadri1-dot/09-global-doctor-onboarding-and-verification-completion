@@ -8,6 +8,17 @@ defined( 'ABSPATH' ) || exit;
  * derivative provider signal into an owner state mutation.
  */
 final class GDO_Advanced_Trust_Events {
+    private static function observe_result( $result, $application_id, $operation ) {
+        if ( ! is_wp_error( $result ) ) { return true; }
+        GDO_Membership_Adapter::audit( 'doctor_advanced_trust_lifecycle_side_effect_failed', array(
+            'application_id'=>absint( $application_id ),
+            'operation'=>substr( sanitize_key( $operation ), 0, 80 ),
+            'error_code'=>substr( sanitize_key( $result->get_error_code() ), 0, 100 ),
+        ) );
+        do_action( 'gdo_advanced_trust_lifecycle_attention', absint( $application_id ), sanitize_key( $operation ), $result->get_error_code() );
+        return false;
+    }
+
     public static function hooks() {
         add_action( 'gdo_canonical_audit_event', array( __CLASS__, 'audit_fact' ), 20, 2 );
         add_action( 'gdo_continuous_verification_adverse_result', array( __CLASS__, 'adverse_monitor_result' ), 10, 3 );
@@ -32,14 +43,14 @@ final class GDO_Advanced_Trust_Events {
                 return;
             }
             if ( in_array( $to, array( 'verified','reinstated','expired','suspended','revoked','rejected','withdrawn' ), true ) ) {
-                GDO_Advanced_Trust_Hardening::application_decided( $application_id, $to );
+                self::observe_result( GDO_Advanced_Trust_Hardening::application_decided( $application_id, $to ), $application_id, 'decision_' . $to );
                 if ( 'expired' === $to ) {
-                    GDO_Advanced_Trust_Hardening::event_reverification( $application_id, 'expired', $context );
+                    self::observe_result( GDO_Advanced_Trust_Hardening::event_reverification( $application_id, 'expired', $context ), $application_id, 'reverification_expired' );
                 }
                 return;
             }
             if ( in_array( $to, array( 'renewal_due','appeal_pending','more_information','resubmitted','under_review' ), true ) ) {
-                GDO_Advanced_Trust_Hardening::event_reverification( $application_id, $to, $context );
+                self::observe_result( GDO_Advanced_Trust_Hardening::event_reverification( $application_id, $to, $context ), $application_id, 'reverification_' . $to );
                 return;
             }
         }
@@ -55,11 +66,11 @@ final class GDO_Advanced_Trust_Events {
         );
         if ( isset( $direct[ $event ] ) ) {
             if ( 'submitted' === $direct[ $event ] ) {
-                GDO_Advanced_Trust_Hardening::application_submitted( $application_id );
+                self::observe_result( GDO_Advanced_Trust_Hardening::application_submitted( $application_id ), $application_id, 'submission' );
             } else {
-                GDO_Advanced_Trust_Hardening::application_decided( $application_id, $direct[ $event ] );
+                self::observe_result( GDO_Advanced_Trust_Hardening::application_decided( $application_id, $direct[ $event ] ), $application_id, 'decision_' . $direct[ $event ] );
                 if ( 'expired' === $direct[ $event ] ) {
-                    GDO_Advanced_Trust_Hardening::event_reverification( $application_id, 'expired', $context );
+                    self::observe_result( GDO_Advanced_Trust_Hardening::event_reverification( $application_id, 'expired', $context ), $application_id, 'reverification_expired' );
                 }
             }
         }
