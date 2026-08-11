@@ -31,7 +31,10 @@ final class GDO_Migration {
 			if ( ! update_option( 'gdo_schema_version', GDO_SCHEMA_VERSION, false ) && absint( get_option( 'gdo_schema_version', 0 ) ) !== GDO_SCHEMA_VERSION ) {
 				throw new RuntimeException( 'File 09 schema version could not be persisted.' );
 			}
-			update_option( 'gdo_last_migration', array( 'from'=>$current, 'to'=>GDO_SCHEMA_VERSION, 'completed_at'=>gmdate( 'c' ) ), false );
+			$migration_evidence = array( 'from'=>$current, 'to'=>GDO_SCHEMA_VERSION, 'completed_at'=>gmdate( 'c' ) );
+			if ( ! update_option( 'gdo_last_migration', $migration_evidence, false ) && $migration_evidence !== (array) get_option( 'gdo_last_migration', array() ) ) {
+				throw new RuntimeException( 'File 09 last-migration evidence could not be persisted.' );
+			}
 			GDO_Membership_Adapter::audit( 'doctor_verification_schema_migrated', array( 'from'=>$current, 'to'=>GDO_SCHEMA_VERSION ) );
 			return true;
 		} catch ( Throwable $e ) {
@@ -60,11 +63,12 @@ final class GDO_Migration {
 		}
 		$last_id = 0;
 		do {
+			$wpdb->last_error = '';
 			$rows = $wpdb->get_results( $wpdb->prepare(
 				"SELECT id,profile_json,identity_fingerprint,terms_version,consent_version FROM {$table} WHERE id>%d ORDER BY id ASC LIMIT 500",
 				$last_id
 			) );
-			if ( null === $rows ) {
+			if ( null === $rows || ! empty( $wpdb->last_error ) ) {
 				throw new RuntimeException( 'File 09 application backfill query failed.' );
 			}
 			if ( ! $rows ) {
@@ -138,11 +142,12 @@ final class GDO_Migration {
 		$checkpoint = absint( get_option( 'gdo_legacy_migration_user_checkpoint', 0 ) );
 		$migrated_users = 0;
 		do {
+			$wpdb->last_error = '';
 			$users = $wpdb->get_col( $wpdb->prepare(
 				"SELECT DISTINCT user_id FROM {$legacy} WHERE user_id>%d ORDER BY user_id ASC LIMIT 25",
 				$checkpoint
 			) );
-			if ( null === $users ) {
+			if ( null === $users || ! empty( $wpdb->last_error ) ) {
 				throw new RuntimeException( 'Legacy File 09 user migration query failed.' );
 			}
 			if ( ! $users ) {
@@ -171,8 +176,9 @@ final class GDO_Migration {
 					if ( 1 !== $inserted ) {
 						throw new RuntimeException( 'Legacy File 09 application quarantine insert failed.' );
 					}
+					$wpdb->last_error = '';
 					$app = GDO_Application::get( $wpdb->insert_id );
-					if ( ! $app ) {
+					if ( ! empty( $wpdb->last_error ) || ! $app ) {
 						throw new RuntimeException( 'Legacy File 09 quarantine application could not be reloaded.' );
 					}
 					$audit = GDO_Audit::transition( $app->id, 0, 'legacy', 'legacy_review_required', 'legacy_quarantine', 'Legacy File 09 data requires independent re-review and credential migration.' );
@@ -181,11 +187,12 @@ final class GDO_Migration {
 				}
 				$last_document_id = 0;
 				do {
+					$wpdb->last_error = '';
 					$rows = $wpdb->get_results( $wpdb->prepare(
 						"SELECT * FROM {$legacy} WHERE user_id=%d AND id>%d ORDER BY id ASC LIMIT 100",
 						$user_id, $last_document_id
 					) );
-					if ( null === $rows ) {
+					if ( null === $rows || ! empty( $wpdb->last_error ) ) {
 						throw new RuntimeException( 'Legacy File 09 credential migration query failed.' );
 					}
 					foreach ( $rows as $row ) {
@@ -230,8 +237,9 @@ final class GDO_Migration {
 		if ( $existing ) {
 			if ( is_file( $source ) && ( ! @unlink( $source ) || is_file( $source ) ) ) {
 				GDO_Membership_Adapter::audit( 'doctor_legacy_source_cleanup_pending', array( 'application_id'=>absint( $app->id ), 'legacy_document_id'=>absint( $row->id ) ) );
+				throw new RuntimeException( 'Legacy credential source cleanup is still pending.' );
 			}
-			return;
+			return true;
 		}
 		$wpdb->last_error = '';
 		$version_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT MAX(version) FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE application_id=%d AND document_type=%s', $app->id, $type ) );
@@ -240,12 +248,12 @@ final class GDO_Migration {
 		$meta = array( 'application_uuid'=>$app->application_uuid, 'application_version'=>$app->version, 'user_id'=>$app->user_id, 'document_type'=>$type, 'document_version'=>$version );
 		$encrypted = GDO_Crypto::encrypt( $plain, $meta );
 		if ( is_wp_error( $encrypted ) ) {
-			return;
+			throw new RuntimeException( 'Legacy credential encryption failed: ' . $encrypted->get_error_code() );
 		}
 		$storage = wp_generate_uuid4() . '.gdo2';
 		$stored = GDO_Storage::atomic_write( $storage, $encrypted['bytes'] );
 		if ( is_wp_error( $stored ) ) {
-			return;
+			throw new RuntimeException( 'Legacy credential private storage failed: ' . $stored->get_error_code() );
 		}
 		$now = current_time( 'mysql', true );
 		$data = array(
@@ -259,24 +267,27 @@ final class GDO_Migration {
 		$formats = array( '%d','%d','%s','%s','%d','%s','%s','%s','%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' );
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			GDO_Storage::delete_verified( $storage, $stored['sha256'] );
-			return;
+			throw new RuntimeException( 'Legacy credential transaction could not be started.' );
 		}
 		$inserted = $wpdb->insert( GDO_Schema::table( 'evidence' ), $data, $formats );
-		if ( 1 !== $inserted || ! hash_equals( $stored['sha256'], hash_file( 'sha256', GDO_Storage::path( $storage ) ) ) ) {
+		$stored_hash = hash_file( 'sha256', GDO_Storage::path( $storage ) );
+		if ( 1 !== $inserted || ! is_string( $stored_hash ) || 64 !== strlen( $stored_hash ) || ! hash_equals( (string) $stored['sha256'], $stored_hash ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			GDO_Storage::delete_verified( $storage, $stored['sha256'] );
-			return;
+			throw new RuntimeException( 'Legacy credential database/hash commit preparation failed.' );
 		}
 		if ( false === $wpdb->query( 'COMMIT' ) ) {
-			$wpdb->query( 'ROLLBACK' );
-			GDO_Storage::delete_verified( $storage, $stored['sha256'] );
-			return;
+			// COMMIT failure is outcome-ambiguous. Preserve both the newly written
+			// private object and the legacy source so the next migration run can
+			// reconcile by source digest instead of risking an orphaned DB row.
+			throw new RuntimeException( 'Legacy credential commit outcome is uncertain and requires safe retry/reconciliation.' );
 		}
 		if ( ! @unlink( $source ) || is_file( $source ) ) {
 			GDO_Membership_Adapter::audit( 'doctor_legacy_source_cleanup_pending', array( 'application_id'=>absint( $app->id ), 'legacy_document_id'=>absint( $row->id ), 'evidence_id'=>absint( $wpdb->insert_id ) ) );
-		} else {
-			GDO_Membership_Adapter::audit( 'doctor_legacy_credential_migrated', array( 'application_id'=>absint( $app->id ), 'legacy_document_id'=>absint( $row->id ), 'source_digest'=>$source_sha256 ) );
+			throw new RuntimeException( 'Legacy credential migrated but source cleanup is pending; checkpoint advancement was stopped.' );
 		}
+		GDO_Membership_Adapter::audit( 'doctor_legacy_credential_migrated', array( 'application_id'=>absint( $app->id ), 'legacy_document_id'=>absint( $row->id ), 'source_digest'=>$source_sha256 ) );
+		return true;
 	}
 
 }

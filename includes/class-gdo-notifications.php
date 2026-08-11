@@ -251,6 +251,7 @@ final class GDO_Notifications {
 			$values[] = sanitize_text_field( $event_uuid );
 		}
 		$values[] = max( 1, min( 100, absint( $limit ) ) );
+		$wpdb->last_error = '';
 		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} WHERE {$where} ORDER BY id ASC LIMIT %d", $values ) );
 		if ( null === $rows || ! empty( $wpdb->last_error ) ) {
 			return new WP_Error( 'gdo_outbox_query_failed', __( 'Pending notification events could not be read safely.', 'global-doctor-onboarding' ) );
@@ -296,9 +297,22 @@ final class GDO_Notifications {
 			}
 			$error = is_wp_error( $result ) ? sanitize_key( $result->get_error_code() ) : 'provider_no_explicit_success';
 			if ( 'doctor_professional_claim' === $row->event_type && ! empty( $payload['application_id'] ) ) {
-				$claim_marked = $wpdb->update( GDO_Schema::table( 'applications' ), array( 'claim_status'=>'failed', 'claim_last_error'=>sanitize_textarea_field( $error ), 'updated_at'=>current_time( 'mysql', true ) ), array( 'id'=>absint( $payload['application_id'] ) ), array( '%s','%s','%s' ), array( '%d' ) );
+				$payload_claim_version = ! empty( $payload['claim']['claim_version'] ) ? absint( $payload['claim']['claim_version'] ) : 0;
+				if ( ! $payload_claim_version ) {
+					return new WP_Error( 'gdo_claim_failure_version_missing', __( 'A failed professional claim event is missing its immutable claim version.', 'global-doctor-onboarding' ) );
+				}
+				$claim_marked = $wpdb->update(
+					GDO_Schema::table( 'applications' ),
+					array( 'claim_status'=>'failed', 'claim_last_error'=>sanitize_textarea_field( $error ), 'updated_at'=>current_time( 'mysql', true ) ),
+					array( 'id'=>absint( $payload['application_id'] ), 'claim_version'=>$payload_claim_version ),
+					array( '%s','%s','%s' ),
+					array( '%d','%d' )
+				);
 				if ( false === $claim_marked ) {
 					return new WP_Error( 'gdo_claim_failure_persist_failed', __( 'Claim delivery failed but its application status could not be persisted safely.', 'global-doctor-onboarding' ) );
+				}
+				if ( 0 === $claim_marked ) {
+					GDO_Membership_Adapter::audit( 'doctor_professional_claim_failure_not_current', array( 'application_id'=>absint( $payload['application_id'] ), 'claim_version'=>$payload_claim_version, 'event_uuid'=>$row->event_uuid ) );
 				}
 			}
 			$terminal = $attempts >= absint( apply_filters( 'gdo_outbox_max_attempts', 7, $row->event_type ) );

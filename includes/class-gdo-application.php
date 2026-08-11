@@ -395,7 +395,11 @@ final class GDO_Application {
 		// Evidence is read only after the application row has been locked.
 		// stage_upload() now takes the same row lock before replacing evidence, so
 		// the immutable submission hash and the credential set cannot diverge.
-		$evidence_records = GDO_Evidence::records( $app->id, true );
+		$evidence_records = GDO_Evidence::records_checked( $app->id, true );
+		if ( is_wp_error( $evidence_records ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'gdo_submit_evidence_query', __( 'The immutable credential snapshot could not be read safely for submission.', 'global-doctor-onboarding' ) );
+		}
 		$evidence = array();
 		foreach ( $evidence_records as $record ) {
 			$evidence[ $record->document_type ] = array(

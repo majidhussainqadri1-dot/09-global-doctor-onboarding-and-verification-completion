@@ -208,7 +208,9 @@ final class GDO_Retention {
 				continue;
 			}
 			$failed = false;
-			foreach ( GDO_Evidence::records( $app->id, false ) as $record ) {
+			$evidence_rows = GDO_Evidence::records_checked( $app->id, false );
+			if ( is_wp_error( $evidence_rows ) ) { return $evidence_rows; }
+			foreach ( $evidence_rows as $record ) {
 				if ( empty( $record->deleted_at ) && ! self::delete_record( $record, 'retention_deleted', $now ) ) {
 					$failed = true;
 				}
@@ -313,6 +315,7 @@ final class GDO_Retention {
 		}
 		$known = array_fill_keys( array_map( 'strval', $known_rows ), true );
 		$cutoff = time() - absint( apply_filters( 'gdo_orphan_grace_hours', 24 ) ) * HOUR_IN_SECONDS;
+		$cleanup_ok = true;
 		foreach ( new DirectoryIterator( $dir ) as $file ) {
 			if ( $file->isDot() || ! $file->isFile() || $file->isLink() ) {
 				continue;
@@ -325,10 +328,11 @@ final class GDO_Retention {
 				if ( @unlink( $file->getPathname() ) ) {
 					GDO_Membership_Adapter::audit( 'doctor_credential_orphan_removed', array( 'storage_digest'=>hash( 'sha256', $name ) ) );
 				} else {
+					$cleanup_ok = false;
 					GDO_Membership_Adapter::audit( 'doctor_credential_orphan_remove_failed', array( 'storage_digest'=>hash( 'sha256', $name ) ) );
 				}
 			}
 		}
-		return true;
+		return $cleanup_ok;
 	}
 }

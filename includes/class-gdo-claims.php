@@ -156,6 +156,7 @@ final class GDO_Claims {
 		);
 		if ( 1 === $updated ) {
 			GDO_Membership_Adapter::audit( 'doctor_professional_claim_acknowledged', array( 'application_id'=>absint( $application_id ), 'claim_version'=>absint( $claim_version ), 'status'=>$status ) );
+			do_action( 'gdo_professional_claim_acknowledged', absint( $application_id ), absint( $claim_version ), $status );
 			return true;
 		}
 		return false;

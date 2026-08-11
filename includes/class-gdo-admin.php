@@ -156,7 +156,8 @@ final class GDO_Admin {
 
 	private function render_application_row( $app, $reviewer, $manager ) {
 		global $wpdb;
-		$evidence = GDO_Evidence::records( $app->id, true );
+		$evidence = GDO_Evidence::records_checked( $app->id, true );
+		if ( is_wp_error( $evidence ) ) { wp_die( esc_html__( 'Credential evidence could not be read safely for this review.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
 		$wpdb->last_error = '';
 		$risks = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'risk_signals' ) . ' WHERE application_id=%d ORDER BY created_at DESC', $app->id ) );
 		if ( null === $risks || ! empty( $wpdb->last_error ) ) { wp_die( esc_html__( 'Professional risk signals could not be read safely for this review.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
@@ -421,8 +422,15 @@ final class GDO_Admin {
 		}
 		if ( 'verified' === $decision ) { $until = $normalized_until; }
 		$profile = json_decode( $app->profile_json, true );
+		if ( ! is_array( $profile ) ) {
+			$this->rollback_die( __( 'The immutable professional profile snapshot is unreadable and cannot be finalized safely.', 'global-doctor-onboarding' ), 503 );
+		}
+		$evidence_records = GDO_Evidence::records_checked( $id, true );
+		if ( is_wp_error( $evidence_records ) ) {
+			$this->rollback_die( __( 'The immutable credential snapshot could not be read safely for final decision.', 'global-doctor-onboarding' ), 503 );
+		}
 		$evidence = array();
-		foreach ( GDO_Evidence::records( $id, true ) as $record ) {
+		foreach ( $evidence_records as $record ) {
 			$evidence[ $record->document_type ] = array( 'version'=>absint( $record->version ), 'content_hmac'=>$record->content_hmac, 'status'=>$record->status, 'validity_until'=>$record->validity_until, 'expires_at'=>$record->expires_at );
 		}
 		$snapshot = array( 'schema'=>GDO_SCHEMA_VERSION, 'application_uuid'=>$app->application_uuid, 'application_version'=>absint( $app->version ), 'profile'=>$profile, 'evidence'=>$evidence, 'verified_until'=>$until, 'policy_version'=>GDO_Policy::VERSION, 'recommender_id'=>absint( $app->recommender_id ), 'finalizer_id'=>$finalizer, 'captured_at'=>current_time( 'mysql', true ) );
