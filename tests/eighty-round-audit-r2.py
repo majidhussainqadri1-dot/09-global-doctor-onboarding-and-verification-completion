@@ -109,7 +109,7 @@ check(68,'Public transparency fixed-window/cohort suppression',has(trust,'PUBLIC
 check(69,'Advanced REST check is case-bound',hard.count('reviewer_case_allows') >= 1 and trust.count('reviewer_case_allows') >= 1)
 check(70,'REST provider errors are structured',has(hard,"'ok'=>false",'rest_value'))
 check(71,'Privacy export covers Advanced Trust',has(privacy,'privacy_export_rows','GDO_Advanced_Trust::privacy_export_rows'))
-check(72,'Native privacy anonymization is transactionally grouped',has(privacy,'START TRANSACTION','FOR UPDATE','gdo_privacy_anonymization_commit_reconciled','SELECT user_id,profile_json,approved_snapshot_json'))
+check(72,'Native privacy anonymization is transactionally grouped',has(privacy,'START TRANSACTION','FOR UPDATE','doctor_privacy_anonymization_commit_reconciled','SELECT user_id,profile_json,approved_snapshot_json'))
 check(73,'Previously-deleted evidence must detach user identity or erasure stops',has(privacy,'previously deleted credential record could not be detached'))
 check(74,'Advanced Trust privacy erasure is application-scoped and inventory-fail-closed',has(hard,'privacy_erase_application','gdo_privacy_upload_inventory'))
 check(75,'Advanced Trust retention DB failures are observable',has(retention,'database_anonymization_failed','upload_inventory_failed'))
