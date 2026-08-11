@@ -98,7 +98,13 @@ final class GDO_Policy {
 			$result['reason_code'] = 'professional_age_not_met';
 			return $result;
 		}
+		global $wpdb;
+		$wpdb->last_error = '';
 		$latest = GDO_Application::latest_for_user( $user_id );
+		if ( ! empty( $wpdb->last_error ) ) {
+			$result['reason_code'] = 'database_unavailable';
+			return $result;
+		}
 		if ( $latest && in_array( $latest->state, array( 'submitted','under_review','more_information','resubmitted','recommended','appeal_pending' ), true ) ) {
 			$result['reason_code'] = 'active_application_exists';
 			$result['application_id'] = absint( $latest->id );
