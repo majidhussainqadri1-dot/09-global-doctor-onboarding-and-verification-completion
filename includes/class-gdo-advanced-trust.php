@@ -1056,10 +1056,17 @@ final class GDO_Advanced_Trust {
         if(in_array($decision,array('verified','reinstated'),true)){self::ensure_passport($app->id);self::schedule_reverification($app->id,'verified',time()+30*DAY_IN_SECONDS,false);}elseif(in_array($decision,array('suspended','revoked','expired','rejected','withdrawn'),true)){self::revoke_passports_for_application($app->id,$decision);self::schedule_reverification($app->id,$decision,time()+HOUR_IN_SECONDS,true);}
     }
     public static function command_center( $user_id ) {
+        global $wpdb;
+        $wpdb->last_error = '';
         $app = GDO_Application::latest_for_user( absint( $user_id ) );
+        if ( ! $app && ! empty( $wpdb->last_error ) ) {
+            return new WP_Error( 'gdo_command_center_application_query', __( 'Professional application state could not be read safely.', 'global-doctor-onboarding' ) );
+        }
         if ( ! $app ) { return array( 'application'=>null, 'next_action'=>'start_application' ); }
         $complete = GDO_Application::completeness( $app );
-        global $wpdb;
+        if ( ! empty( $complete['query_error'] ) ) {
+            return new WP_Error( 'gdo_command_center_completeness_query', __( 'Professional application completeness could not be verified safely.', 'global-doctor-onboarding' ) );
+        }
         $wpdb->last_error = '';
         $checks = $wpdb->get_results( $wpdb->prepare( 'SELECT check_type,status,checked_at,expires_at FROM ' . self::table( 'credential_checks' ) . ' WHERE application_id=%d ORDER BY id DESC LIMIT 50', $app->id ), ARRAY_A );
         if ( null === $checks || ! empty( $wpdb->last_error ) ) {
