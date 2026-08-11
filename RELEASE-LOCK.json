@@ -52,5 +52,9 @@
   "third_clean_rounds": 67,
   "third_defect_rounds": 13,
   "third_review_baseline": "f1901a2326ddf1189b90a5f34f8bbcc7e6eb0361",
-  "third_review_rounds": 80
+  "third_review_rounds": 80,
+  "twelfth_clean_rounds": 0,
+  "twelfth_defect_rounds": 10,
+  "twelfth_review_baseline": "0df40731282a4dc905a12b37e5fa5aa4604dc68a",
+  "twelfth_review_rounds": 10
 }
