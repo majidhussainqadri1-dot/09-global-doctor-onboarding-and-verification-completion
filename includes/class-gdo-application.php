@@ -476,9 +476,38 @@ final class GDO_Application {
 		$event = 1 !== $updated
 			? new WP_Error( 'gdo_submit_update', __( 'The application submission could not be stored.', 'global-doctor-onboarding' ) )
 			: GDO_Notifications::queue( 'doctor_application_submitted', $user_id, array( 'application_id'=>$app->id, 'version'=>$app->version, 'submission_hash'=>$submission_hash ), false );
-		if ( 1 !== $updated || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( 1 !== $updated || is_wp_error( $event ) ) {
 			$wpdb->query( 'ROLLBACK' );
-			return is_wp_error( $event ) ? $event : new WP_Error( 'gdo_submit_commit', __( 'The application submission could not be committed.', 'global-doctor-onboarding' ) );
+			return is_wp_error( $event ) ? $event : new WP_Error( 'gdo_submit_update', __( 'The application submission could not be stored.', 'global-doctor-onboarding' ) );
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			// The server may have committed even when COMMIT acknowledgement is
+			// lost. Reconcile the immutable submission and its durable outbox fact
+			// so committed submissions still execute required post-commit effects.
+			$wpdb->last_error = '';
+			$committed_app = $wpdb->get_row( $wpdb->prepare(
+				'SELECT state,submission_hash FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d AND user_id=%d LIMIT 1',
+				$app->id, $user_id
+			) );
+			$app_read_error = ! empty( $wpdb->last_error );
+			$wpdb->last_error = '';
+			$outbox_id = absint( $wpdb->get_var( $wpdb->prepare(
+				'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_uuid=%s LIMIT 1',
+				$event
+			) ) );
+			$outbox_read_error = ! empty( $wpdb->last_error );
+			if ( $app_read_error || $outbox_read_error ) {
+				return new WP_Error( 'gdo_submit_commit_uncertain', __( 'The application submission commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) );
+			}
+			$committed = $committed_app
+				&& sanitize_key( $committed_app->state ) === $to
+				&& hash_equals( (string) $committed_app->submission_hash, (string) $submission_hash )
+				&& $outbox_id > 0;
+			if ( ! $committed ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'gdo_submit_commit', __( 'The application submission could not be committed.', 'global-doctor-onboarding' ) );
+			}
+			GDO_Membership_Adapter::audit( 'doctor_application_submission_commit_reconciled', array( 'application_id'=>$app->id, 'submission_hash'=>$submission_hash, 'event_uuid'=>$event ) );
 		}
 		GDO_Audit::publish_transition( $result );
 		GDO_Notifications::process( 1, $event );
