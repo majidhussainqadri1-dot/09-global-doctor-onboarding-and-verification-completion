@@ -1,41 +1,71 @@
 {
-  "round": "R09",
+  "round": "R10",
   "replacements": [
     {
-      "path": "includes/class-gdo-membership-adapter.php",
+      "path": "RELEASE-LOCK.json",
       "count": 1,
-      "old": "\tpublic static function identity_assurance_current( $user_id ) {\n\t\t$base = self::base_assertion( $user_id );\n\t\treturn $base\n\t\t\t&& ! empty( $base['application_exists'] )\n\t\t\t&& 'approved' === sanitize_key( $base['status'] )\n\t\t\t&& ! empty( $base['approved'] )\n\t\t\t&& ! empty( $base['identity_documents_current'] )\n\t\t\t&& ! empty( $base['email_verified'] )\n\t\t\t&& ! empty( $base['phone_verified'] )\n\t\t\t&& ! empty( $base['two_factor_ready'] );\n\t}",
-      "new": "\tpublic static function identity_assurance_current_checked( $user_id ) {\n\t\t$user_id = absint( $user_id );\n\t\tif ( ! self::available() || ! $user_id ) {\n\t\t\treturn new WP_Error( 'gdo_identity_dependency_unavailable', __( 'Current File 00 identity assurance is temporarily unavailable.', 'global-doctor-onboarding' ) );\n\t\t}\n\t\ttry {\n\t\t\t$base = SMC_Contracts::assertions( $user_id );\n\t\t} catch ( Throwable $e ) {\n\t\t\tunset( $e );\n\t\t\treturn new WP_Error( 'gdo_identity_assertion_unavailable', __( 'Current File 00 identity assurance could not be read safely.', 'global-doctor-onboarding' ) );\n\t\t}\n\t\tif ( ! self::valid_base_assertion( $base, $user_id ) ) {\n\t\t\treturn new WP_Error( 'gdo_identity_assertion_invalid', __( 'Current File 00 identity assurance returned an invalid contract response.', 'global-doctor-onboarding' ) );\n\t\t}\n\t\treturn ! empty( $base['application_exists'] )\n\t\t\t&& 'approved' === sanitize_key( $base['status'] )\n\t\t\t&& ! empty( $base['approved'] )\n\t\t\t&& ! empty( $base['identity_documents_current'] )\n\t\t\t&& ! empty( $base['email_verified'] )\n\t\t\t&& ! empty( $base['phone_verified'] )\n\t\t\t&& ! empty( $base['two_factor_ready'] );\n\t}\n\n\tpublic static function identity_assurance_current( $user_id ) {\n\t\t$checked = self::identity_assurance_current_checked( $user_id );\n\t\treturn is_wp_error( $checked ) ? false : (bool) $checked;\n\t}"
+      "old": "  \"seventeenth_clean_rounds\": 3,\n  \"seventeenth_defect_rounds\": 7,\n  \"seventeenth_review_baseline\": \"66e43bcb42904a381728509144cd0a1e6c77c6ac\",\n  \"seventeenth_review_rounds\": 10,",
+      "new": "  \"seventeenth_clean_rounds\": 3,\n  \"seventeenth_defect_rounds\": 7,\n  \"seventeenth_review_baseline\": \"66e43bcb42904a381728509144cd0a1e6c77c6ac\",\n  \"seventeenth_review_rounds\": 10,\n  \"eighteenth_clean_rounds\": 3,\n  \"eighteenth_defect_rounds\": 7,\n  \"eighteenth_review_baseline\": \"67a3e999fa44e527bc4a795759a1b48cb8e7766d\",\n  \"eighteenth_review_rounds\": 10,"
     },
     {
-      "path": "includes/class-gdo-advanced-trust.php",
+      "path": ".github/workflows/file09-rc2-final.yml",
       "count": 1,
-      "old": "        $identity = GDO_Membership_Adapter::identity_assurance_current( $app->user_id );\n        $matrix['identity'] = (bool) $identity;",
-      "new": "        $identity = GDO_Membership_Adapter::identity_assurance_current_checked( $app->user_id );\n        if ( is_wp_error( $identity ) ) {\n            $matrix['current_status'] = false;\n            $matrix['data_available'] = false;\n            return $matrix;\n        }\n        $matrix['identity'] = (bool) $identity;"
+      "old": "          python3 tests/ten-round-audit-r17.py",
+      "new": "          python3 tests/ten-round-audit-r17.py\n          python3 tests/ten-round-audit-r18.py"
     },
     {
-      "path": "includes/class-gdo-advanced-trust.php",
+      "path": "STATUS.md",
       "count": 1,
-      "old": "        $verified_expiry=self::current_verification_expiry($app);$approved_snapshot=$app?GDO_Application::stored_approved_snapshot($app):array();if(!$app||!$approved_snapshot||empty($approved_snapshot['captured_at'])||!GDO_State::public_verified($app->state)||!GDO_Membership_Adapter::identity_assurance_current($app->user_id)||!$verified_expiry){$wpdb->query('ROLLBACK');return new WP_Error('gdo_passport_not_eligible',__('A current verified application, intact approved snapshot, explicit future validity date, and current identity assurance are required for a professional passport.','global-doctor-onboarding'));}",
-      "new": "        $verified_expiry=self::current_verification_expiry($app);$approved_snapshot=$app?GDO_Application::stored_approved_snapshot($app):array();$identity=$app?GDO_Membership_Adapter::identity_assurance_current_checked($app->user_id):false;if(is_wp_error($identity)){$wpdb->query('ROLLBACK');return new WP_Error('gdo_passport_identity_unavailable',__('Current identity assurance is temporarily unavailable for professional passport issuance.','global-doctor-onboarding'),array('status'=>503));}if(!$app||!$approved_snapshot||empty($approved_snapshot['captured_at'])||!GDO_State::public_verified($app->state)||!$identity||!$verified_expiry){$wpdb->query('ROLLBACK');return new WP_Error('gdo_passport_not_eligible',__('A current verified application, intact approved snapshot, explicit future validity date, and current identity assurance are required for a professional passport.','global-doctor-onboarding'));}"
+      "old": "R1–R11 are preserved historical 80-round reviews. R12–R17 are separate fresh **10-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings.",
+      "new": "R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh **10-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings."
     },
     {
-      "path": "includes/class-gdo-advanced-trust.php",
+      "path": "STATUS.md",
       "count": 1,
-      "old": "        $verified_expiry=self::current_verification_expiry($app);$approved_snapshot=$app?GDO_Application::stored_approved_snapshot($app):array();$passport_issued=!empty($row['issued_at'])?strtotime($row['issued_at'].' UTC'):0;$snapshot_captured=!empty($approved_snapshot['captured_at'])?strtotime($approved_snapshot['captured_at'].' UTC'):0;if(!$app||!$approved_snapshot||!$passport_issued||!$snapshot_captured||$passport_issued<$snapshot_captured||absint($app->user_id)!==absint($row['user_id'])||!GDO_State::public_verified($app->state)||!GDO_Membership_Adapter::identity_assurance_current($row['user_id'])||!$verified_expiry){",
-      "new": "        $verified_expiry=self::current_verification_expiry($app);$approved_snapshot=$app?GDO_Application::stored_approved_snapshot($app):array();$passport_issued=!empty($row['issued_at'])?strtotime($row['issued_at'].' UTC'):0;$snapshot_captured=!empty($approved_snapshot['captured_at'])?strtotime($approved_snapshot['captured_at'].' UTC'):0;$identity=GDO_Membership_Adapter::identity_assurance_current_checked($row['user_id']);if(is_wp_error($identity)){return new WP_Error('gdo_passport_identity_unavailable',__('Current identity assurance is temporarily unavailable.','global-doctor-onboarding'),array('status'=>503));}if(!$app||!$approved_snapshot||!$passport_issued||!$snapshot_captured||$passport_issued<$snapshot_captured||absint($app->user_id)!==absint($row['user_id'])||!GDO_State::public_verified($app->state)||!$identity||!$verified_expiry){"
+      "old": "| **R17** | **10** | **7** | **3** |",
+      "new": "| R17 | 10 | 7 | 3 |\n| **R18** | **10** | **7** | **3** |"
     },
     {
-      "path": "includes/class-gdo-advanced-trust-hardening.php",
+      "path": "STATUS.md",
       "count": 1,
-      "old": "        $verified_expiry = GDO_Advanced_Trust::current_verification_expiry( $app );\n        $approved_snapshot = $app ? GDO_Application::stored_approved_snapshot( $app ) : array();\n        if ( ! $app || ! $approved_snapshot || empty( $approved_snapshot['captured_at'] ) || ! GDO_State::public_verified( $app->state ) || 'accepted' !== sanitize_key( $app->claim_status ) || ! GDO_Membership_Adapter::identity_assurance_current( $app->user_id ) || ! $verified_expiry ) {",
-      "new": "        $verified_expiry = GDO_Advanced_Trust::current_verification_expiry( $app );\n        $approved_snapshot = $app ? GDO_Application::stored_approved_snapshot( $app ) : array();\n        $identity = $app ? GDO_Membership_Adapter::identity_assurance_current_checked( $app->user_id ) : false;\n        if ( is_wp_error( $identity ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'gdo_passport_identity_unavailable', __( 'Current identity assurance is temporarily unavailable for professional passport issuance.', 'global-doctor-onboarding' ), array( 'status'=>503 ) ); }\n        if ( ! $app || ! $approved_snapshot || empty( $approved_snapshot['captured_at'] ) || ! GDO_State::public_verified( $app->state ) || 'accepted' !== sanitize_key( $app->claim_status ) || ! $identity || ! $verified_expiry ) {"
+      "old": "- Installable release allowlist remains **62 entries**; R17 ledger/test files are repository QA evidence and intentionally not packaged.\n\n## Completion truth",
+      "new": "- Installable release allowlist remains **62 entries**; R17 ledger/test files are repository QA evidence and intentionally not packaged.\n\n## Eighteenth fresh 10-round corrective assurance\n\n- Frozen R18 baseline: `67a3e999fa44e527bc4a795759a1b48cb8e7766d`.\n- Defect-bearing rounds: **01, 02, 06, 07, 08, 09, 10**.\n- Clean rounds: **03, 04, 05**.\n- R18 corrects active-passport error-to-reissuance fallthrough; terminal claim-acknowledgement CAS/idempotency; pre-delete legal-hold serialization; claim-delivery acknowledgement `WP_Error` handling; stale migration-lock CAS; File00 identity dependency/public-truth separation; and permanent R18 release evidence.\n- Permanent ledger: `REVIEW-10-ROUNDS-RC6-R18.md`.\n- Permanent executable gate: `tests/ten-round-audit-r18.py` — required result **10 PASS / 0 FAIL**.\n- Installable release allowlist remains **62 entries**; R18 ledger/test files are repository QA evidence and intentionally not packaged.\n\n## Completion truth"
     },
     {
-      "path": "includes/class-gdo-advanced-trust-hardening.php",
+      "path": "STATUS.md",
       "count": 1,
-      "old": "        $verified_expiry=GDO_Advanced_Trust::current_verification_expiry($app);$approved_snapshot=$app?GDO_Application::stored_approved_snapshot($app):array();$passport_issued=!empty($row['issued_at'])?strtotime($row['issued_at'].' UTC'):0;$snapshot_captured=!empty($approved_snapshot['captured_at'])?strtotime($approved_snapshot['captured_at'].' UTC'):0;\n        if(!$app||!$approved_snapshot||!$passport_issued||!$snapshot_captured||$passport_issued<$snapshot_captured||absint($app->user_id)!==absint($row['user_id'])||!GDO_State::public_verified($app->state)||'accepted'!==sanitize_key($app->claim_status)||!GDO_Membership_Adapter::identity_assurance_current($row['user_id'])||!$verified_expiry){return new WP_Error('gdo_passport_inactive',__('This professional verification passport is not active.','global-doctor-onboarding'),array('status'=>404));}",
-      "new": "        $verified_expiry=GDO_Advanced_Trust::current_verification_expiry($app);$approved_snapshot=$app?GDO_Application::stored_approved_snapshot($app):array();$passport_issued=!empty($row['issued_at'])?strtotime($row['issued_at'].' UTC'):0;$snapshot_captured=!empty($approved_snapshot['captured_at'])?strtotime($approved_snapshot['captured_at'].' UTC'):0;$identity=GDO_Membership_Adapter::identity_assurance_current_checked($row['user_id']);if(is_wp_error($identity)){return new WP_Error('gdo_passport_identity_unavailable',__('Current identity assurance is temporarily unavailable.','global-doctor-onboarding'),array('status'=>503));}\n        if(!$app||!$approved_snapshot||!$passport_issued||!$snapshot_captured||$passport_issued<$snapshot_captured||absint($app->user_id)!==absint($row['user_id'])||!GDO_State::public_verified($app->state)||'accepted'!==sanitize_key($app->claim_status)||!$identity||!$verified_expiry){return new WP_Error('gdo_passport_inactive',__('This professional verification passport is not active.','global-doctor-onboarding'),array('status'=>404));}"
+      "old": "- R17 ten-round repository review/fix: **complete at source-review level**\n- Coded RC6/R17 candidate: **complete at repository-candidate level**\n- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R17 source/evidence changes**",
+      "new": "- R18 ten-round repository review/fix: **complete at source-review level**\n- Coded RC6/R18 candidate: **complete at repository-candidate level**\n- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R18 source/evidence changes**"
+    },
+    {
+      "path": "STATUS.md",
+      "count": 1,
+      "old": "## Authoritative RC6/R17 repository gate\n\nThe authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12, R13, R14, R15, R16 and R17 ten-round gates**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.",
+      "new": "## Authoritative RC6/R18 repository gate\n\nThe authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12, R13, R14, R15, R16, R17 and R18 ten-round gates**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green."
+    },
+    {
+      "path": "README.md",
+      "count": 1,
+      "old": "| **Fresh 10-round review R17** | **7 defect-bearing corrected; 3 clean; exact-head gate required** |\n| Source candidate | `1.3.0`, core schema `6`, Advanced Trust schema `2`, contract `1.1.0`, RC6 candidate |\n| Exact-head automated QA | Must pass on the final exact RC6/R17 commit |",
+      "new": "| Fresh 10-round review R17 | 7 defect-bearing corrected; 3 clean |\n| **Fresh 10-round review R18** | **7 defect-bearing corrected; 3 clean; exact-head gate required** |\n| Source candidate | `1.3.0`, core schema `6`, Advanced Trust schema `2`, contract `1.1.0`, RC6 candidate |\n| Exact-head automated QA | Must pass on the final exact RC6/R18 commit |"
+    },
+    {
+      "path": "README.md",
+      "count": 1,
+      "old": "R12–R17 supersede it only as current repository review evidence, not as historical evidence.",
+      "new": "R12–R18 supersede it only as current repository review evidence, not as historical evidence."
+    },
+    {
+      "path": "README.md",
+      "count": 1,
+      "old": "`REVIEW-10-ROUNDS-RC6-R16.md`, `REVIEW-10-ROUNDS-RC6-R17.md`, `SECURITY-PRIVACY.md`",
+      "new": "`REVIEW-10-ROUNDS-RC6-R16.md`, `REVIEW-10-ROUNDS-RC6-R17.md`, `REVIEW-10-ROUNDS-RC6-R18.md`, `SECURITY-PRIVACY.md`"
+    },
+    {
+      "path": "README.md",
+      "count": 1,
+      "old": "the R12, R13, R14, R15, R16 and R17 ten-round gates, deterministic double build",
+      "new": "the R12, R13, R14, R15, R16, R17 and R18 ten-round gates, deterministic double build"
     }
   ]
 }
