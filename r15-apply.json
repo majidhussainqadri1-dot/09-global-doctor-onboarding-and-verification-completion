@@ -1,10 +1,10 @@
 {
-  "message": "fix(file09): make command-center database uncertainty explicit",
+  "message": "fix(file09): distinguish trust-check application DB failure",
   "changes": [
     {
-      "path": "includes/class-gdo-advanced-trust.php",
-      "old": "    public static function command_center( $user_id ) {\n        $app = GDO_Application::latest_for_user( absint( $user_id ) );\n        if ( ! $app ) { return array( 'application'=>null, 'next_action'=>'start_application' ); }\n        $complete = GDO_Application::completeness( $app );\n        global $wpdb;\n        $wpdb->last_error = '';",
-      "new": "    public static function command_center( $user_id ) {\n        global $wpdb;\n        $wpdb->last_error = '';\n        $app = GDO_Application::latest_for_user( absint( $user_id ) );\n        if ( ! $app && ! empty( $wpdb->last_error ) ) {\n            return new WP_Error( 'gdo_command_center_application_query', __( 'Professional application state could not be read safely.', 'global-doctor-onboarding' ) );\n        }\n        if ( ! $app ) { return array( 'application'=>null, 'next_action'=>'start_application' ); }\n        $complete = GDO_Application::completeness( $app );\n        if ( ! empty( $complete['query_error'] ) ) {\n            return new WP_Error( 'gdo_command_center_completeness_query', __( 'Professional application completeness could not be verified safely.', 'global-doctor-onboarding' ) );\n        }\n        $wpdb->last_error = '';"
+      "path": "includes/class-gdo-advanced-trust-hardening.php",
+      "old": "        $app_id = absint( $request['application_id'] ); $evidence_id = absint( $request['evidence_id'] );\n        $app = GDO_Application::get( $app_id ); $reviewer = get_current_user_id();\n        if ( ! $app || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer, $app->user_id, $app->id ) ) {\n            return new WP_Error( 'gdo_check_forbidden', __( 'The professional trust check is not authorized.', 'global-doctor-onboarding' ), array( 'status'=>403 ) );\n        }",
+      "new": "        global $wpdb;\n        $app_id = absint( $request['application_id'] ); $evidence_id = absint( $request['evidence_id'] );\n        $wpdb->last_error = '';\n        $app = GDO_Application::get( $app_id ); $reviewer = get_current_user_id();\n        if ( ! $app && ! empty( $wpdb->last_error ) ) {\n            return new WP_Error( 'gdo_check_application_query', __( 'The professional application could not be read safely for this trust check.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );\n        }\n        if ( ! $app || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer, $app->user_id, $app->id ) ) {\n            return new WP_Error( 'gdo_check_forbidden', __( 'The professional trust check is not authorized.', 'global-doctor-onboarding' ), array( 'status'=>403 ) );\n        }"
     }
   ]
 }
