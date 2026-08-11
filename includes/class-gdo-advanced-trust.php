@@ -385,16 +385,14 @@ final class GDO_Advanced_Trust {
                 $matrix['qualification'] = $matrix['qualification'] || $accepted;
                 $matrix['scope_status']['qualification'] = $accepted ? 'verified' : ( $pending ? 'pending' : $matrix['scope_status']['qualification'] );
             }
-            if ( in_array( $evidence->document_type, array( 'license','registration','professional_registration' ), true ) ) {
-                if ( $accepted ) {
-                    $matrix['license'] = true;
-                    $matrix['registration'] = true;
-                    $matrix['scope_status']['license'] = 'verified';
-                    $matrix['scope_status']['registration'] = 'verified';
-                } elseif ( $pending ) {
-                    $matrix['scope_status']['license'] = 'pending';
-                    $matrix['scope_status']['registration'] = 'pending';
-                }
+            $document_type = sanitize_key( $evidence->document_type );
+            if ( 'license' === $document_type ) {
+                $matrix['license'] = $matrix['license'] || $accepted;
+                $matrix['scope_status']['license'] = $accepted ? 'verified' : ( $pending ? 'pending' : $matrix['scope_status']['license'] );
+            }
+            if ( in_array( $document_type, array( 'registration','professional_registration' ), true ) ) {
+                $matrix['registration'] = $matrix['registration'] || $accepted;
+                $matrix['scope_status']['registration'] = $accepted ? 'verified' : ( $pending ? 'pending' : $matrix['scope_status']['registration'] );
             }
             if ( in_array( $evidence->document_type, array( 'institution','affiliation','employment' ), true ) ) {
                 $matrix['institution'] = $matrix['institution'] || $accepted;
