@@ -10,6 +10,8 @@ Candidate branch: `codex/file09-1.3.0-rc6-80-round-review`
 
 R1–R11 are preserved historical 80-round reviews. R12 is a separate fresh **10-round** corrective review against the last R11 green exact-head baseline; it does not reuse or renumber earlier rounds.
 
+**Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected, 63 clean, final 80/80 PASS on its own exact historical head.
+
 | Review | Review size | Defect-bearing rounds corrected | Clean rounds |
 |---|---:|---:|---:|
 | R1 | 80 | 49 | 31 |
