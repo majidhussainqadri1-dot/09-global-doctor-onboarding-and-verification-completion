@@ -148,3 +148,23 @@ The seventh fresh 80-control review is frozen in `REVIEW-80-ROUNDS-RC6-R7.md` an
 
 ## R8 corrective trace
 R8 maps File 09 authorization/privacy/reliability/operability requirements and F09-AT-08/09/15/20 controls to `GDO_Operations`, `GDO_Migration`, `GDO_Admin`, `GDO_Advanced_Trust_Hardening`, `GDO_Risk`, `GDO_Quality`, `tests/eighty-round-audit-r8.py`, `REVIEW-80-ROUNDS-RC6-R8.md`, exact-head CI and deterministic package/SBOM evidence. Frozen baseline: `f40228d29ffa92e8d27ea84f9b1c1ae4a63ff9b2`.
+
+
+## R9 — Ninth fresh 80-round corrective trace
+
+Frozen baseline: `75ea54ed5113bf7ee16e90443f17cc1b941933a9`. Defect-bearing rounds: `04–13`; clean rounds: `01–03, 14–80`.
+
+| R9 round | Requirement/control family | Corrected source/evidence | Permanent gate |
+|---|---|---|---|
+| 04 | F09-NFR-001 / reviewer authorization | `GDO_Evidence::review()` current actor + File00 capability + File02 step-up | `tests/eighty-round-audit-r9.py` |
+| 05 | F09-NFR-003/008 / DB reliability | explicit evidence/application review DB uncertainty | R9 gate |
+| 06 | F09-FR-008, F09-AT-23 | use-time download capability + grant/evidence/application DB checks | R9 gate |
+| 07 | F09-FR-006 / idempotency | idempotent submission COMMIT verification | R9 gate |
+| 08 | F09-FR-014 / appeal operability | appeal DB-failure visibility | R9 gate |
+| 09 | F09-NFR-003/008, File19 boundary | bounded outbox processing failure visibility | R9 gate |
+| 10 | F09-NFR-001 / recovery mutation | dead-letter replay current actor/capability/step-up | R9 gate |
+| 11 | F09-AT-06/07, F09-NFR-003 | continuous-monitor exclusive lease + stale-lease recovery | R9 gate |
+| 12 | F09-FR-016, F09-NFR-002 | atomic Advanced Trust DB privacy erasure | R9 gate |
+| 13 | DoD/release evidence | R9 ledger/test/lock/docs + 60-entry allowlist | R9 gate + authoritative workflow |
+
+R9 does not change canonical ownership. File 09 remains professional verification/evidence decision owner; File 00 identity, File 02 authentication/step-up, Files 03/07/26 public profile/search/ranking, File 08 clinic, File 19 notification transport, File 20 shell and File 24 security/privacy assurance remain native owners.

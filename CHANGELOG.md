@@ -1,5 +1,18 @@
 # Changelog
 
+## Ninth fresh 80-round corrective assurance — R9
+
+- Froze R8 exact-head candidate `75ea54ed5113bf7ee16e90443f17cc1b941933a9` and performed a new 80-control review rather than reusing earlier green evidence.
+- Corrected 10 defect-bearing rounds: `04,05,06,07,08,09,10,11,12,13`; 70 rounds were clean.
+- Reauthorized evidence review and dead-letter replay at their mutation-method boundaries with current File 00 capability + File 02 step-up.
+- Made evidence review/grant and appeal reads fail visibly on DB uncertainty; rechecked download capability at grant consumption.
+- Verified idempotent submission COMMIT and bounded outbox processing success.
+- Added continuous-monitor exclusive processing leases/stale-lease recovery and prevented stale monitor work from overwriting newer scheduling.
+- Made Advanced Trust database-side privacy erasure atomic with rollback/COMMIT verification.
+- Synchronized R9 ledger, executable gate, 60-entry release allowlist and current release/status evidence.
+- External staging/live/operational gates remain false.
+
+
 ## 1.3.0-RC6 — Eighty-Round Corrective Assurance — 2026-08-10
 
 ### Fifth fresh 80-round corrective review (R5)
