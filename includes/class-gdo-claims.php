@@ -108,8 +108,32 @@ final class GDO_Claims {
 			return $queued;
 		}
 		if ( $manage_transaction && false === $wpdb->query( 'COMMIT' ) ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'gdo_claim_commit_failed', __( 'The professional claim could not be committed.', 'global-doctor-onboarding' ) );
+			// A failed COMMIT acknowledgement does not prove that MySQL failed to
+			// durably commit. Reconcile both transaction-owned facts before retry.
+			$wpdb->last_error = '';
+			$claim_state = $wpdb->get_row( $wpdb->prepare(
+				'SELECT claim_version,claim_status FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d LIMIT 1',
+				$application_id
+			) );
+			$claim_read_error = ! empty( $wpdb->last_error );
+			$wpdb->last_error = '';
+			$outbox_id = absint( $wpdb->get_var( $wpdb->prepare(
+				'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_uuid=%s LIMIT 1',
+				$payload['event_id']
+			) ) );
+			$outbox_read_error = ! empty( $wpdb->last_error );
+			if ( $claim_read_error || $outbox_read_error ) {
+				return new WP_Error( 'gdo_claim_commit_uncertain', __( 'The professional claim commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) );
+			}
+			$committed = $claim_state
+				&& absint( $claim_state->claim_version ) === absint( $claim_version )
+				&& 'pending' === sanitize_key( $claim_state->claim_status )
+				&& $outbox_id > 0;
+			if ( ! $committed ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'gdo_claim_commit_failed', __( 'The professional claim could not be committed.', 'global-doctor-onboarding' ) );
+			}
+			GDO_Membership_Adapter::audit( 'doctor_professional_claim_commit_reconciled', array( 'application_id'=>$application_id, 'claim_version'=>$claim_version, 'event_id'=>$payload['event_id'] ) );
 		}
 		if ( $manage_transaction ) {
 			self::publish( $payload );
