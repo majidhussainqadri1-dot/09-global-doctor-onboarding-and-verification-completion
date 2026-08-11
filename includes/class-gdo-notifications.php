@@ -305,15 +305,13 @@ final class GDO_Notifications {
 				if ( ! $payload_claim_version ) {
 					return new WP_Error( 'gdo_claim_failure_version_missing', __( 'A failed professional claim event is missing its immutable claim version.', 'global-doctor-onboarding' ) );
 				}
-				$claim_marked = $wpdb->update(
-					GDO_Schema::table( 'applications' ),
-					array( 'claim_status'=>'failed', 'claim_last_error'=>sanitize_textarea_field( $error ), 'updated_at'=>current_time( 'mysql', true ) ),
-					array( 'id'=>absint( $payload['application_id'] ), 'claim_version'=>$payload_claim_version ),
-					array( '%s','%s','%s' ),
-					array( '%d','%d' )
-				);
-				if ( false === $claim_marked ) {
-					return new WP_Error( 'gdo_claim_failure_persist_failed', __( 'Claim delivery failed but its application status could not be persisted safely.', 'global-doctor-onboarding' ) );
+				$wpdb->last_error = '';
+				$claim_marked = $wpdb->query( $wpdb->prepare(
+					'UPDATE ' . GDO_Schema::table( 'applications' ) . " SET claim_status='pending',claim_last_error=%s,updated_at=%s WHERE id=%d AND claim_version=%d AND claim_status IN ('pending','failed')",
+					sanitize_textarea_field( $error ), current_time( 'mysql', true ), absint( $payload['application_id'] ), $payload_claim_version
+				) );
+				if ( false === $claim_marked || ! empty( $wpdb->last_error ) ) {
+					return new WP_Error( 'gdo_claim_failure_persist_failed', __( 'Claim delivery failed but its retryable application status could not be persisted safely.', 'global-doctor-onboarding' ) );
 				}
 				if ( 0 === $claim_marked ) {
 					GDO_Membership_Adapter::audit( 'doctor_professional_claim_failure_not_current', array( 'application_id'=>absint( $payload['application_id'] ), 'claim_version'=>$payload_claim_version, 'event_uuid'=>$row->event_uuid ) );

@@ -179,7 +179,9 @@ final class GDO_Claims {
 		if ( ! $current ) { return false; }
 		$current_status = sanitize_key( $current->claim_status );
 		if ( $status === $current_status ) { return true; }
-		if ( 'pending' !== $current_status ) { return false; }
+		// `failed` is a retryable transport state from historical/current outbox
+		// delivery attempts, not a terminal professional-claim decision.
+		if ( ! in_array( $current_status, array( 'pending','failed' ), true ) ) { return false; }
 
 		$wpdb->last_error = '';
 		$updated = $wpdb->update(
@@ -188,7 +190,7 @@ final class GDO_Claims {
 				'claim_status'=>$status, 'claim_ack_at'=>current_time( 'mysql', true ),
 				'claim_last_error'=>sanitize_textarea_field( $reason ), 'updated_at'=>current_time( 'mysql', true ),
 			),
-			array( 'id'=>$application_id, 'claim_version'=>$claim_version, 'claim_status'=>'pending' ),
+			array( 'id'=>$application_id, 'claim_version'=>$claim_version, 'claim_status'=>$current_status ),
 			array( '%s','%s','%s','%s' ),
 			array( '%d','%d','%s' )
 		);
