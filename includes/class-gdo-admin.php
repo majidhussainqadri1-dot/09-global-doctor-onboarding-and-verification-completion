@@ -355,7 +355,11 @@ final class GDO_Admin {
 		global $wpdb;
 		$id = absint( isset( $_POST['application_id'] ) ? $_POST['application_id'] : 0 );
 		check_admin_referer( 'gdo_request_more_info_' . $id );
+		$wpdb->last_error = '';
 		$app = GDO_Application::get( $id );
+		if ( null === $app && ! empty( $wpdb->last_error ) ) {
+			wp_die( esc_html__( 'The professional application could not be read safely for the information request.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
+		}
 		$reviewer = get_current_user_id();
 		$reason = sanitize_textarea_field( isset( $_POST['reason'] ) ? $_POST['reason'] : '' );
 		$due_date = sanitize_text_field( isset( $_POST['due_date'] ) ? $_POST['due_date'] : '' );
