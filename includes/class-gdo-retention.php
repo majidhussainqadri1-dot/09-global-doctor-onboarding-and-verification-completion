@@ -227,20 +227,21 @@ final class GDO_Retention {
 				$wpdb->query( 'ROLLBACK' );
 				continue;
 			}
-			if ( false === $wpdb->query( 'COMMIT' ) ) {
-				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'gdo_retention_predelete_commit', __( 'Retention eligibility could not be committed safely before deletion.', 'global-doctor-onboarding' ) );
-			}
-
+			// Keep the eligibility row lock through irreversible native evidence
+			// deletion so a legal-hold write and retention have one serialized order.
 			$failed = false;
 			$evidence_rows = GDO_Evidence::records_checked( $app->id, false );
-			if ( is_wp_error( $evidence_rows ) ) { return $evidence_rows; }
+			if ( is_wp_error( $evidence_rows ) ) { $wpdb->query( 'ROLLBACK' ); return $evidence_rows; }
 			foreach ( $evidence_rows as $record ) {
 				if ( empty( $record->deleted_at ) && ! self::delete_record( $record, 'retention_deleted', $now ) ) {
 					$failed = true;
 				}
 			}
-			if ( $failed ) { return new WP_Error( 'gdo_retention_evidence_delete', __( 'Credential evidence retention could not complete safely.', 'global-doctor-onboarding' ) ); }
+			if ( $failed ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'gdo_retention_evidence_delete', __( 'Credential evidence retention could not complete safely.', 'global-doctor-onboarding' ) ); }
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'gdo_retention_predelete_commit', __( 'Retention evidence-deletion checkpoint has an uncertain database commit and requires reconciliation.', 'global-doctor-onboarding' ) );
+			}
 			if ( class_exists( 'GDO_Advanced_Trust' ) && ! $this->retire_advanced_trust_for_application( $app, $now ) ) {
 				return new WP_Error( 'gdo_retention_advanced_trust', __( 'Advanced Trust retention could not complete safely.', 'global-doctor-onboarding' ) );
 			}
