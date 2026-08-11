@@ -1,10 +1,15 @@
 {
-  "message": "fix(file09): isolate credential quota DB state",
+  "message": "fix(file09): require current registration validity",
   "changes": [
     {
       "path": "includes/class-gdo-evidence.php",
-      "old": "    private static function quota_allows( $user_id, $new_size, $replacing_size = 0 ) {\n        global $wpdb;\n        $raw_used = $wpdb->get_var( $wpdb->prepare(\n",
-      "new": "    private static function quota_allows( $user_id, $new_size, $replacing_size = 0 ) {\n        global $wpdb;\n        $wpdb->last_error = '';\n        $raw_used = $wpdb->get_var( $wpdb->prepare(\n"
+      "old": "            if ( 'license' === $record->document_type ) {\n                $accepted_registry = array( 'verified','active','matched' );",
+      "new": "            if ( in_array( sanitize_key( $record->document_type ), array( 'license', 'registration', 'professional_registration' ), true ) ) {\n                $accepted_registry = array( 'verified','active','matched' );"
+    },
+    {
+      "path": "includes/class-gdo-evidence.php",
+      "old": "            } elseif ( 'license' === $type ) {\n                return new WP_Error( 'gdo_evidence_ceiling_license_validity', __( 'A verified license requires an explicit current validity end date.', 'global-doctor-onboarding' ) );",
+      "new": "            } elseif ( in_array( $type, array( 'license', 'registration', 'professional_registration' ), true ) ) {\n                return new WP_Error( 'gdo_evidence_ceiling_license_validity', __( 'A verified license or professional registration requires an explicit current validity end date.', 'global-doctor-onboarding' ) );"
     }
   ]
 }
