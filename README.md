@@ -17,22 +17,22 @@ This repository contains the canonical File 09 implementation candidate for the 
 | 80-round review R7 | 22 defect-bearing corrected; 58 clean |
 | 80-round review R8 | 15 defect-bearing corrected; 65 clean |
 | 80-round review R9 | 10 defect-bearing corrected; 70 clean |
-| Tenth fresh 80-round review R10 | 19 defect-bearing corrected; 61 clean; final exact-head gate required |
+| 80-round review R10 | 19 defect-bearing corrected; 61 clean |
+| 80-round review R11 | 17 defect-bearing corrected; 63 clean |
+| **Fresh 10-round review R12** | **10 defect-bearing corrected; 0 clean; exact-head gate required** |
 | Source candidate | `1.3.0`, core schema `6`, Advanced Trust schema `2`, contract `1.1.0`, RC6 candidate |
-| Exact-head automated QA | Must pass on the final exact RC6/R10 commit |
-| Deterministic package | 61-entry RC6 allowlist; exact-head workflow output only |
+| Exact-head automated QA | Must pass on the final exact RC6/R12 commit |
+| Deterministic package | 62-entry RC6 allowlist; exact-head workflow output only |
 | Hostinger-equivalent staging | Pending external execution |
 | Production/live/operational | Not authorized |
 
 File 09 owns doctor applications, private professional evidence, professional verification review/decision, renewal, suspension/revocation, appeal, signed professional-decision claims and File 09 professional-trust records. It does **not** own general identity, login, public profiles, directory/search ranking, clinics, notification transport or platform-wide security governance.
 
-Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, all `REVIEW-80-ROUNDS-RC6*.md` ledgers, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
+Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, all `REVIEW-80-ROUNDS-RC6*.md` ledgers, `REVIEW-10-ROUNDS-RC6-R12.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
 
-## 1.3.0 RC6 — Advanced Professional Trust + Ten Fresh 80-Round Corrective Assurance Cycles
+## 1.3.0 RC6 — Advanced Professional Trust assurance history
 
-RC6 preserves all 24 approved Advanced Professional Trust enhancements. R1–R9 remain immutable historical review evidence. R10 froze the R9 exact-head candidate `ec3ca2dd715e05b66cf29c42f2f996c80987fcd7` and performed a new independent source review rather than treating the prior green run as current proof.
-
-R10 corrected nineteen additional repository defects in rounds 04–22. The corrections principally close fail-visible database-uncertainty gaps in public verification projection, private application REST/autosave, draft creation/save, consent/submission, privileged application/reviewer/evidence/appeal reads, evidence replacement/decrypt/key rotation, state transition, professional claim issuance and completeness evaluation; require recent step-up for privileged health access; and make post-decision quality-sampling failure observable instead of silent.
+RC6 preserves all 24 approved Advanced Professional Trust enhancements. R1–R11 remain immutable historical review evidence. No previous green run is accepted as proof for later source: every later correction reopens exact-head source, QA and package evidence.
 
 The principal trust invariants remain:
 
@@ -68,11 +68,16 @@ File 09 exposes public-safe current verification facts only. Private application
 
 ## Assurance history and release law
 
-The ten fresh 80-round review ledgers are preserved separately so later correction never rewrites what an earlier review found. The current R10 executable gate is `tests/eighty-round-audit-r10.py`; the current immutable ledger is `REVIEW-80-ROUNDS-RC6-R10.md`.
+R1–R11 review ledgers and executable gates remain preserved as historical source assurance. Their exact-head runs/artifacts certify only their corresponding historical source heads.
 
-No previous green R1–R9 run is accepted as proof for the R10-corrected source. The final exact HEAD must pass the complete PHP 7.4/8.3 workflow, all R1–R10 executable review gates, deterministic double build, **61-entry** package parity and generated exact-head SPDX SBOM before repository package/QA status can be called green.
+The final exact HEAD must pass the complete PHP 7.4/8.3 workflow, all R1–R11 executable 80-round gates, the R12 ten-round gate, deterministic double build, **62-entry** package parity and generated exact-head SPDX SBOM before repository package/QA status can be called green.
 
 External Hostinger staging, real provider failure modes, real applicant/reviewer lifecycle journeys, private storage/key/scanner checks, two fresh staging review→fix→full-retest cycles, backup/restore, rollback and explicit Founder acceptance remain mandatory before any live/operational claim.
 
-## Eleventh fresh 80-round corrective assurance (R11)
-R11 froze the previously green R10 exact head `91d9a590e18e02030e27ed558ad2147981332ed3` and performed another independent 80-round source review. It established and corrected 17 repository defects in rounds 04–20; rounds 01–03 and 21–80 were clean after correction. The RC6 release allowlist is now 62-entry. Repository QA remains distinct from Hostinger staging and live truth.
+## Twelfth fresh 10-round corrective assurance (R12)
+
+R12 froze the previously green R11 exact head `0df40731282a4dc905a12b37e5fa5aa4604dc68a` and performed a new independent ten-round review. **Every one of the 10 rounds found a repository defect and was corrected before the next round advanced.**
+
+R12 corrected: reviewer/finalizer unchecked evidence/profile snapshot reads; passport issuance preceding explicit current professional-claim acknowledgement; unchecked immutable submission evidence inventory; frontend completeness/evidence DB uncertainty and repeated evidence reads; draft pre-read/post-write reload uncertainty; migration-evidence/backfill/quarantine read uncertainty; silent/ambiguous legacy credential migration failures; notification outbox stale DB state and stale-claim failure clobbering; retention unchecked evidence/orphan-cleanup false-success; and missing permanent R12 executable/release evidence.
+
+The permanent R12 ledger is `REVIEW-10-ROUNDS-RC6-R12.md`; the executable gate is `tests/ten-round-audit-r12.py` and must report **10 PASS / 0 FAIL**. The authoritative workflow remains `.github/workflows/file09-rc2-final.yml`. R12 QA files are repository evidence and are not added to the installable allowlist, which remains **62 entries**. Because package-owned PHP source changed, the final RC6 ZIP checksum/artifact must nevertheless be regenerated from the exact final HEAD.
