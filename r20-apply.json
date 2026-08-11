@@ -1,0 +1,16 @@
+{
+  "replacements": [
+    {
+      "path": "includes/class-gdo-claims.php",
+      "count": 1,
+      "old": "\t\t$current_status = sanitize_key( $current->claim_status );\n\t\tif ( $status === $current_status ) { return true; }\n\t\tif ( 'pending' !== $current_status ) { return false; }\n\n\t\t$wpdb->last_error = '';\n\t\t$updated = $wpdb->update(\n\t\t\t$table,\n\t\t\tarray(\n\t\t\t\t'claim_status'=>$status, 'claim_ack_at'=>current_time( 'mysql', true ),\n\t\t\t\t'claim_last_error'=>sanitize_textarea_field( $reason ), 'updated_at'=>current_time( 'mysql', true ),\n\t\t\t),\n\t\t\tarray( 'id'=>$application_id, 'claim_version'=>$claim_version, 'claim_status'=>'pending' ),\n\t\t\tarray( '%s','%s','%s','%s' ),\n\t\t\tarray( '%d','%d','%s' )\n\t\t);",
+      "new": "\t\t$current_status = sanitize_key( $current->claim_status );\n\t\tif ( $status === $current_status ) { return true; }\n\t\t// `failed` is a retryable transport state from historical/current outbox\n\t\t// delivery attempts, not a terminal professional-claim decision.\n\t\tif ( ! in_array( $current_status, array( 'pending','failed' ), true ) ) { return false; }\n\n\t\t$wpdb->last_error = '';\n\t\t$updated = $wpdb->update(\n\t\t\t$table,\n\t\t\tarray(\n\t\t\t\t'claim_status'=>$status, 'claim_ack_at'=>current_time( 'mysql', true ),\n\t\t\t\t'claim_last_error'=>sanitize_textarea_field( $reason ), 'updated_at'=>current_time( 'mysql', true ),\n\t\t\t),\n\t\t\tarray( 'id'=>$application_id, 'claim_version'=>$claim_version, 'claim_status'=>$current_status ),\n\t\t\tarray( '%s','%s','%s','%s' ),\n\t\t\tarray( '%d','%d','%s' )\n\t\t);"
+    },
+    {
+      "path": "includes/class-gdo-notifications.php",
+      "count": 1,
+      "old": "\t\t\t\t$claim_marked = $wpdb->update(\n\t\t\t\t\tGDO_Schema::table( 'applications' ),\n\t\t\t\t\tarray( 'claim_status'=>'failed', 'claim_last_error'=>sanitize_textarea_field( $error ), 'updated_at'=>current_time( 'mysql', true ) ),\n\t\t\t\t\tarray( 'id'=>absint( $payload['application_id'] ), 'claim_version'=>$payload_claim_version ),\n\t\t\t\t\tarray( '%s','%s','%s' ),\n\t\t\t\t\tarray( '%d','%d' )\n\t\t\t\t);\n\t\t\t\tif ( false === $claim_marked ) {\n\t\t\t\t\treturn new WP_Error( 'gdo_claim_failure_persist_failed', __( 'Claim delivery failed but its application status could not be persisted safely.', 'global-doctor-onboarding' ) );\n\t\t\t\t}\n\t\t\t\tif ( 0 === $claim_marked ) {",
+      "new": "\t\t\t\t$wpdb->last_error = '';\n\t\t\t\t$claim_marked = $wpdb->query( $wpdb->prepare(\n\t\t\t\t\t'UPDATE ' . GDO_Schema::table( 'applications' ) . \" SET claim_status='pending',claim_last_error=%s,updated_at=%s WHERE id=%d AND claim_version=%d AND claim_status IN ('pending','failed')\",\n\t\t\t\t\tsanitize_textarea_field( $error ), current_time( 'mysql', true ), absint( $payload['application_id'] ), $payload_claim_version\n\t\t\t\t) );\n\t\t\t\tif ( false === $claim_marked || ! empty( $wpdb->last_error ) ) {\n\t\t\t\t\treturn new WP_Error( 'gdo_claim_failure_persist_failed', __( 'Claim delivery failed but its retryable application status could not be persisted safely.', 'global-doctor-onboarding' ) );\n\t\t\t\t}\n\t\t\t\tif ( 0 === $claim_marked ) {"
+    }
+  ]
+}
