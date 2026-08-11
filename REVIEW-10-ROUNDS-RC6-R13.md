@@ -51,7 +51,7 @@ After R01–R09, the repository had no permanent R13 ledger, executable ten-roun
 
 ## Historical QA-harness compatibility corrections
 
-Two pre-R13 static gates encoded the old location of deletion-proof logic and failed after R04 deliberately centralized physical deletion and proof persistence in `GDO_Evidence::delete_record_safely()`. `tests/completion-security.py` and round 22 of `tests/review40-adversarial.py` were adapted to assert the stronger shared durable deletion primitive instead of requiring `delete_verified`/`deletion_proof` literals in the old caller files. These are historical test-contract adaptations, not additional R13 product/source defects. Temporary harness workflows were removed after applying the corrections.
+Three pre-R13 static gates encoded the old location of deletion-proof logic and failed after R04 deliberately centralized physical deletion and proof persistence in `GDO_Evidence::delete_record_safely()`. `tests/completion-security.py`, round 22 of `tests/review40-adversarial.py`, and round 53 of `tests/eighty-round-audit-r4.py` were adapted to assert the stronger shared durable deletion primitive instead of requiring `delete_verified`/`deletion_proof` literals in the old caller files. These are historical test-contract adaptations, not additional R13 product/source defects. Temporary harness workflows were removed after applying the corrections.
 
 ## Final exact-head gate
 
