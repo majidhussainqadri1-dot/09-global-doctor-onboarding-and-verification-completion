@@ -1,0 +1,55 @@
+{
+  "message": "fix(file09): fail visible on Advanced Trust application read uncertainty",
+  "changes": [
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "    private static function evidence_record( $application_id, $evidence_id ) {\n",
+      "new": "    private static function application_record( $application_id ) {\n        global $wpdb;\n        $wpdb->last_error = '';\n        $app = GDO_Application::get( absint( $application_id ) );\n        if ( ! $app && ! empty( $wpdb->last_error ) ) {\n            return new WP_Error( 'gdo_trust_application_query', __( 'Professional application state could not be read safely.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );\n        }\n        return $app;\n    }\n\n    private static function evidence_record( $application_id, $evidence_id ) {\n"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "    public static function primary_source_verify( $application_id, $evidence_id ) {\n        $app = GDO_Application::get( $application_id );\n        $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;",
+      "new": "    public static function primary_source_verify( $application_id, $evidence_id ) {\n        $app = self::application_record( $application_id );\n        if ( is_wp_error( $app ) ) { return $app; }\n        $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "    public static function authenticity_assessment( $application_id, $evidence_id ) {\n        $app = GDO_Application::get( $application_id );\n        $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;",
+      "new": "    public static function authenticity_assessment( $application_id, $evidence_id ) {\n        $app = self::application_record( $application_id );\n        if ( is_wp_error( $app ) ) { return $app; }\n        $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "    public static function equivalency_assessment( $application_id ) {\n        $app = GDO_Application::get( $application_id );\n        if ( ! $app ) { return new WP_Error( 'gdo_app_missing', __( 'Application not found.', 'global-doctor-onboarding' ) ); }",
+      "new": "    public static function equivalency_assessment( $application_id ) {\n        $app = self::application_record( $application_id );\n        if ( is_wp_error( $app ) ) { return $app; }\n        if ( ! $app ) { return new WP_Error( 'gdo_app_missing', __( 'Application not found.', 'global-doctor-onboarding' ) ); }"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "    public static function verify_affiliation( $application_id, $institution ) {\n        $app=GDO_Application::get($application_id);\n        if(!$app){return new WP_Error('gdo_app_missing',__('Application not found.','global-doctor-onboarding'));}",
+      "new": "    public static function verify_affiliation( $application_id, $institution ) {\n        $app=self::application_record($application_id);\n        if(is_wp_error($app)){return $app;}\n        if(!$app){return new WP_Error('gdo_app_missing',__('Application not found.','global-doctor-onboarding'));}"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "    public static function translation_assistance( $application_id, $evidence_id, $target_locale ) {\n        $app=GDO_Application::get($application_id); $record=$app?self::evidence_record($app->id,$evidence_id):null;",
+      "new": "    public static function translation_assistance( $application_id, $evidence_id, $target_locale ) {\n        $app=self::application_record($application_id); if(is_wp_error($app)){return $app;} $record=$app?self::evidence_record($app->id,$evidence_id):null;"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "    public static function ai_assistance( $application_id, $evidence_id ) {\n        $app=GDO_Application::get($application_id); $record=$app?self::evidence_record($app->id,$evidence_id):null;",
+      "new": "    public static function ai_assistance( $application_id, $evidence_id ) {\n        $app=self::application_record($application_id); if(is_wp_error($app)){return $app;} $record=$app?self::evidence_record($app->id,$evidence_id):null;"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "    public static function fraud_ring_scan( $application_id ) {\n        global $wpdb;\n        $app = GDO_Application::get( $application_id );\n        if ( ! $app ) { return new WP_Error( 'gdo_app_missing', __( 'Application not found.', 'global-doctor-onboarding' ) ); }",
+      "new": "    public static function fraud_ring_scan( $application_id ) {\n        global $wpdb;\n        $app = self::application_record( $application_id );\n        if ( is_wp_error( $app ) ) { return $app; }\n        if ( ! $app ) { return new WP_Error( 'gdo_app_missing', __( 'Application not found.', 'global-doctor-onboarding' ) ); }"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "        if($application_id){$app=GDO_Application::get($application_id);if(!$app||absint($app->user_id)!==$applicant_id){return new WP_Error('gdo_conflict_application',__('The conflict application does not match the applicant.','global-doctor-onboarding'));}}",
+      "new": "        if($application_id){$app=self::application_record($application_id);if(is_wp_error($app)){return $app;}if(!$app||absint($app->user_id)!==$applicant_id){return new WP_Error('gdo_conflict_application',__('The conflict application does not match the applicant.','global-doctor-onboarding'));}}"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "        $app = GDO_Application::get( $application_id );\n        $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;\n        if ( is_wp_error( $record ) ) { return $record; }\n        if ( ! $app || ! $record ) { return new WP_Error( 'gdo_room_not_found', __( 'The requested credential review room is unavailable.', 'global-doctor-onboarding' ) ); }",
+      "new": "        $app = self::application_record( $application_id );\n        if ( is_wp_error( $app ) ) { return $app; }\n        $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;\n        if ( is_wp_error( $record ) ) { return $record; }\n        if ( ! $app || ! $record ) { return new WP_Error( 'gdo_room_not_found', __( 'The requested credential review room is unavailable.', 'global-doctor-onboarding' ) ); }"
+    }
+  ]
+}
