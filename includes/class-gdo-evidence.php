@@ -807,11 +807,23 @@ final class GDO_Evidence {
         if ( $manage_transaction && false === $wpdb->query( 'COMMIT' ) ) {
             $wpdb->query( 'ROLLBACK' );
             $wpdb->last_error = '';
-            $committed = $wpdb->get_row( $wpdb->prepare( 'SELECT status,reviewer_id,reviewed_at FROM ' . GDO_Schema::table('evidence') . ' WHERE id=%d LIMIT 1', absint( $record->id ) ) );
+            $committed = $wpdb->get_row( $wpdb->prepare( 'SELECT status,checklist_json,findings_json,review_note,registry_result,registry_source,reviewer_id,reviewed_at,validity_from,validity_until,updated_at FROM ' . GDO_Schema::table('evidence') . ' WHERE id=%d LIMIT 1', absint( $record->id ) ) );
             if ( null === $committed && ! empty( $wpdb->last_error ) ) {
                 return new WP_Error( 'gdo_evidence_review_commit_uncertain', __( 'The credential review commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) );
             }
-            if ( ! $committed || sanitize_key( $committed->status ) !== $status || absint( $committed->reviewer_id ) !== absint( $reviewer_id ) || empty( $committed->reviewed_at ) ) {
+            $exact = $committed
+                && sanitize_key( $committed->status ) === $status
+                && hash_equals( (string) $data['checklist_json'], (string) $committed->checklist_json )
+                && hash_equals( (string) $data['findings_json'], (string) $committed->findings_json )
+                && hash_equals( (string) $data['review_note'], (string) $committed->review_note )
+                && hash_equals( (string) $data['registry_result'], (string) $committed->registry_result )
+                && hash_equals( (string) $data['registry_source'], (string) $committed->registry_source )
+                && absint( $committed->reviewer_id ) === absint( $reviewer_id )
+                && hash_equals( (string) $data['reviewed_at'], (string) $committed->reviewed_at )
+                && hash_equals( (string) ( $data['validity_from'] ?: '' ), (string) ( $committed->validity_from ?: '' ) )
+                && hash_equals( (string) ( $data['validity_until'] ?: '' ), (string) ( $committed->validity_until ?: '' ) )
+                && hash_equals( (string) $data['updated_at'], (string) $committed->updated_at );
+            if ( ! $exact ) {
                 return new WP_Error( 'gdo_evidence_review_commit', __( 'The credential review could not be committed.', 'global-doctor-onboarding' ) );
             }
             GDO_Membership_Adapter::audit( 'doctor_evidence_review_commit_reconciled', array( 'application_id'=>absint($record->application_id), 'evidence_id'=>absint($record->id), 'reviewer_id'=>absint($reviewer_id), 'status'=>$status ) );
