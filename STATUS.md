@@ -8,7 +8,7 @@ Candidate branch: `codex/file09-1.3.0-rc6-80-round-review`
 
 ## Repository assurance history
 
-R1–R11 are preserved historical 80-round reviews. R12–R15 are separate fresh **10-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings.
+R1–R11 are preserved historical 80-round reviews. R12–R16 are separate fresh **10-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings.
 
 **Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected, 63 clean, final 80/80 PASS on its own exact historical head.
 
@@ -28,7 +28,8 @@ R1–R11 are preserved historical 80-round reviews. R12–R15 are separate fresh
 | R12 | 10 | 10 | 0 |
 | R13 | 10 | 6 | 4 |
 | R14 | 10 | 6 | 4 |
-| **R15** | **10** | **6** | **4** |
+| R15 | 10 | 6 | 4 |
+| **R16** | **10** | **9** | **1** |
 
 ## Twelfth fresh 10-round corrective assurance
 
@@ -67,15 +68,24 @@ R1–R11 are preserved historical 80-round reviews. R12–R15 are separate fresh
 - R10 adds permanent R15 ledger, release-lock fields, executable gate and authoritative workflow invocation, then removes temporary R15 apply plumbing before final exact-head assurance.
 - Permanent ledger: `REVIEW-10-ROUNDS-RC6-R15.md`.
 - Permanent executable gate: `tests/ten-round-audit-r15.py` — required result **10 PASS / 0 FAIL**.
-- Installable release allowlist remains **62 entries**; R12–R15 ledger/test files are repository QA evidence and intentionally not packaged.
+
+## Sixteenth fresh 10-round corrective assurance
+
+- Frozen R16 baseline: `4707d31cbd5ed8f419166d2f796bee315449e172`.
+- Defect-bearing rounds: **01, 02, 03, 04, 05, 06, 08, 09, 10**.
+- Clean round: **07**.
+- R16 corrects Advanced Trust application-read DB uncertainty; decision derivative failure propagation; duplicate submit side effects; post-commit lifecycle failure observability; accepted-claim/passport/monitor sequencing; unsupported/degraded provider manual-attention semantics; durable pre-unlink resumable erasure checkpointing; and retry-safe WordPress privacy-erasure completion.
+- Permanent ledger: `REVIEW-10-ROUNDS-RC6-R16.md`.
+- Permanent executable gate: `tests/ten-round-audit-r16.py` — required result **10 PASS / 0 FAIL**.
+- Installable release allowlist remains **62 entries**; R12–R16 ledger/test files are repository QA evidence and intentionally not packaged.
 
 ## Completion truth
 
 - Latest central + File 09 plan trace: **candidate complete**
 - Advanced Trust 24 approved amendment trace: **candidate complete**
-- R15 ten-round repository review/fix: **complete at source-review level**
-- Coded RC6/R15 candidate: **complete at repository-candidate level**
-- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R15 source/evidence changes**
+- R16 ten-round repository review/fix: **complete at source-review level**
+- Coded RC6/R16 candidate: **complete at repository-candidate level**
+- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R16 source/evidence changes**
 - Deterministic package: **GREEN only when that same exact-head workflow completes the double-build, 62-entry package parity and generated exact-head SPDX 2.3 SBOM verification**
 - Staging accepted: **false**
 - Live deployed: **false**
@@ -87,21 +97,21 @@ Staging accepted: false
 Live deployed: false
 Operationally accepted: false
 
-## Authoritative RC6/R15 repository gate
+## Authoritative RC6/R16 repository gate
 
-The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12, R13, R14 and R15 ten-round gates**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
+The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12, R13, R14, R15 and R16 ten-round gates**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
 
-All earlier workflow runs/artifacts, including the R14 exact-head artifact from `ca76893...`, are historical after R15 source changes and must not be represented as the current corrected package.
+All earlier workflow runs/artifacts, including the R15 exact-head artifact from `4707d31...`, are historical after R16 source changes and must not be represented as the current corrected package.
 
 ## External gates still pending
 
 Hostinger staging must verify core schema 6 + Advanced Trust schema 2 migration, current File 00/File 02 and companion contracts, provider unavailable/mismatch/revoked/expired paths, issuer/rule governance, no provider auto-decision, conflict/dual-review routing, passport issue/supersession/expiry/revocation/public-safe output, chunk interruption/resume/race/hash/malware path, secure-room one-time authorization/no-download behavior, privacy export/erasure/retention interaction, real applicant/reviewer/more-info/resubmission/appeal/renewal/suspension/revocation journeys, mobile/RTL/accessibility/weak-network journeys, backup/restore/rollback, companion integrations and **two fresh staging review → fix → full-retest cycles** before explicit Founder acceptance.
 
-Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status remain separate facts. This repository status does not claim RC6/R15 staging or production deployment.
+Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status remain separate facts. This repository status does not claim RC6/R16 staging or production deployment.
 
 ## Historical compact compatibility rows
 
-These compact rows preserve the immutable historical three-column ledger shape consumed by earlier regression gates; they are not the current-status table and do not supersede R15.
+These compact rows preserve the immutable historical three-column ledger shape consumed by earlier regression gates; they are not the current-status table and do not supersede R16.
 
 | Review | Defect-bearing rounds corrected | Clean rounds |
 |---|---:|---:|
