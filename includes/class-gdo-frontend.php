@@ -115,6 +115,7 @@ final class GDO_Frontend {
 			wp_die( esc_html__( 'The application save could not start a safe database transaction.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
 		}
 		$new_files = array();
+		$preserve_new_files = false;
 		try {
 			$saved = GDO_Application::save_draft( $id, $user, $profile, absint( isset( $_POST['row_version'] ) ? $_POST['row_version'] : 0 ) );
 			if ( is_wp_error( $saved ) ) { throw new RuntimeException( $saved->get_error_message() ); }
@@ -131,7 +132,59 @@ final class GDO_Frontend {
 			}
 			$consent = GDO_Application::record_consent( $id, $user, ! empty( $_POST['consent'] ), false );
 			if ( is_wp_error( $consent ) ) { throw new RuntimeException( $consent->get_error_message() ); }
-			if ( false === $wpdb->query( 'COMMIT' ) ) { throw new RuntimeException( __( 'The application could not be committed.', 'global-doctor-onboarding' ) ); }
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				// Until authoritative reads prove non-commit, encrypted objects may be
+				// referenced by durable evidence rows and therefore must not be deleted.
+				$preserve_new_files = true;
+				$wpdb->last_error = '';
+				$committed_app = $wpdb->get_row( $wpdb->prepare(
+					'SELECT user_id,state,row_version,profile_fingerprint,consent_version,terms_version FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d LIMIT 1',
+					$id
+				) );
+				if ( ! empty( $wpdb->last_error ) ) {
+					throw new RuntimeException( 'Application save commit outcome is uncertain; application reconciliation read failed.' );
+				}
+				$expected_profile_fingerprint = GDO_Application::fingerprint( $profile );
+				$text = GDO_Application::consent_text();
+				$application_committed = $committed_app
+					&& absint( $committed_app->user_id ) === $user
+					&& in_array( sanitize_key( $committed_app->state ), array( 'draft','more_information' ), true )
+					&& absint( $committed_app->row_version ) === absint( $app->row_version ) + 1
+					&& hash_equals( $expected_profile_fingerprint, (string) $committed_app->profile_fingerprint )
+					&& hash_equals( (string) $text['version'], (string) $committed_app->consent_version )
+					&& hash_equals( (string) GDO_Policy::TERMS_VERSION, (string) $committed_app->terms_version );
+				$wpdb->last_error = '';
+				$active_consent = GDO_Application::active_consent( $id );
+				if ( ! empty( $wpdb->last_error ) ) {
+					throw new RuntimeException( 'Application save commit outcome is uncertain; consent reconciliation read failed.' );
+				}
+				$evidence_committed = true;
+				foreach ( $new_files as $record ) {
+					$wpdb->last_error = '';
+					$stored = $wpdb->get_row( $wpdb->prepare(
+						'SELECT application_id,document_type,version,storage_name,ciphertext_sha256 FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id=%d LIMIT 1',
+						absint( $record['id'] )
+					) );
+					if ( ! empty( $wpdb->last_error ) ) {
+						throw new RuntimeException( 'Application save commit outcome is uncertain; evidence reconciliation read failed.' );
+					}
+					if ( ! $stored
+						|| absint( $stored->application_id ) !== $id
+						|| sanitize_key( $stored->document_type ) !== sanitize_key( $record['document_type'] )
+						|| absint( $stored->version ) !== absint( $record['version'] )
+						|| ! hash_equals( (string) $record['storage_name'], (string) $stored->storage_name )
+						|| ! hash_equals( (string) $record['ciphertext_sha256'], (string) $stored->ciphertext_sha256 ) ) {
+						$evidence_committed = false;
+						break;
+					}
+				}
+				if ( ! $application_committed || ! $active_consent || ! $evidence_committed ) {
+					$preserve_new_files = false;
+					$wpdb->query( 'ROLLBACK' );
+					throw new RuntimeException( 'The application save transaction was not durably committed.' );
+				}
+				GDO_Membership_Adapter::audit( 'doctor_application_save_commit_reconciled', array( 'application_id'=>$id, 'user_id'=>$user, 'row_version'=>absint($committed_app->row_version), 'evidence_count'=>count($new_files) ) );
+			}
 			foreach ( $new_files as $record ) {
 				GDO_Membership_Adapter::audit( 'doctor_evidence_uploaded', array(
 					'application_id'=>absint( $record['application_id'] ), 'evidence_id'=>absint( $record['id'] ),
@@ -140,9 +193,14 @@ final class GDO_Frontend {
 			}
 		} catch ( Throwable $e ) {
 			$wpdb->query( 'ROLLBACK' );
-			foreach ( $new_files as $record ) { GDO_Storage::delete_verified( $record['storage_name'], $record['ciphertext_sha256'] ); }
-			GDO_Membership_Adapter::audit( 'doctor_application_save_failed', array( 'application_id'=>$id, 'error_class'=>get_class( $e ), 'error_digest'=>hash( 'sha256', $e->getMessage() ) ) );
-			wp_die( esc_html__( 'The private application could not be saved safely. No partial application change was accepted.', 'global-doctor-onboarding' ), '', array( 'response'=>503, 'back_link'=>true ) );
+			if ( ! $preserve_new_files ) {
+				foreach ( $new_files as $record ) { GDO_Storage::delete_verified( $record['storage_name'], $record['ciphertext_sha256'] ); }
+			}
+			GDO_Membership_Adapter::audit( 'doctor_application_save_failed', array( 'application_id'=>$id, 'error_class'=>get_class( $e ), 'error_digest'=>hash( 'sha256', $e->getMessage() ), 'commit_uncertain'=>$preserve_new_files ? 1 : 0 ) );
+			$message = $preserve_new_files
+				? __( 'The private application save outcome is uncertain. Encrypted evidence was preserved for reconciliation; do not repeat the upload until the application state is rechecked.', 'global-doctor-onboarding' )
+				: __( 'The private application could not be saved safely. No partial application change was accepted.', 'global-doctor-onboarding' );
+			wp_die( esc_html( $message ), '', array( 'response'=>503, 'back_link'=>true ) );
 		}
 		wp_safe_redirect( GDO_Plugin::application_url( array( 'saved'=>'1' ) ) ); exit;
 	}
@@ -203,10 +261,42 @@ final class GDO_Frontend {
 			'created_at'=>current_time( 'mysql', true ),
 		), array( '%s','%d','%d','%s','%s','%s','%s','%s','%s','%s' ) );
 		$event = is_wp_error( $result ) || 1 !== $inserted ? new WP_Error( 'gdo_appeal_not_ready', __( 'The appeal is not ready for notification.', 'global-doctor-onboarding' ) ) : GDO_Notifications::queue( 'doctor_verification_appeal', $app->user_id, array( 'application_id'=>$id, 'appeal_uuid'=>$appeal_uuid ), false );
-		if ( is_wp_error( $result ) || 1 !== $inserted || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( is_wp_error( $result ) || 1 !== $inserted || is_wp_error( $event ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			$error = is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : new WP_Error( 'gdo_appeal_commit', __( 'Appeal could not be filed.', 'global-doctor-onboarding' ) ) );
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->last_error = '';
+			$committed_app = $wpdb->get_row( $wpdb->prepare( 'SELECT state,row_version FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d LIMIT 1', $id ) );
+			$app_read_error = ! empty( $wpdb->last_error );
+			$wpdb->last_error = '';
+			$committed_appeal = $wpdb->get_row( $wpdb->prepare( 'SELECT application_id,user_id,status FROM ' . GDO_Schema::table( 'appeals' ) . ' WHERE appeal_uuid=%s LIMIT 1', $appeal_uuid ) );
+			$appeal_read_error = ! empty( $wpdb->last_error );
+			$wpdb->last_error = '';
+			$committed_hash = $wpdb->get_var( $wpdb->prepare( 'SELECT event_hash FROM ' . GDO_Schema::table( 'transitions' ) . ' WHERE application_id=%d AND trace_id=%s LIMIT 1', $id, $result['trace_id'] ) );
+			$audit_read_error = ! empty( $wpdb->last_error );
+			$wpdb->last_error = '';
+			$outbox_id = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_uuid=%s LIMIT 1', $event ) ) );
+			$outbox_read_error = ! empty( $wpdb->last_error );
+			if ( $app_read_error || $appeal_read_error || $audit_read_error || $outbox_read_error ) {
+				wp_die( esc_html__( 'The appeal commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
+			}
+			$committed = $committed_app
+				&& 'appeal_pending' === sanitize_key( $committed_app->state )
+				&& absint( $committed_app->row_version ) === absint( $app->row_version ) + 1
+				&& $committed_appeal
+				&& absint( $committed_appeal->application_id ) === $id
+				&& absint( $committed_appeal->user_id ) === get_current_user_id()
+				&& 'open' === sanitize_key( $committed_appeal->status )
+				&& is_string( $committed_hash )
+				&& hash_equals( (string) $result['event_hash'], $committed_hash )
+				&& $outbox_id > 0;
+			if ( ! $committed ) {
+				$wpdb->query( 'ROLLBACK' );
+				wp_die( esc_html__( 'Appeal could not be filed.', 'global-doctor-onboarding' ), '', array( 'response'=>409 ) );
+			}
+			GDO_Membership_Adapter::audit( 'doctor_appeal_commit_reconciled', array( 'application_id'=>$id, 'appeal_uuid'=>$appeal_uuid, 'event_uuid'=>$event, 'trace_id'=>$result['trace_id'] ) );
 		}
 		GDO_Audit::publish_transition( $result );
 		GDO_Notifications::process( 1, $event );
@@ -218,19 +308,49 @@ final class GDO_Frontend {
 		if ( ! GDO_Operations::mutation_allowed() ) { wp_die( esc_html__( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
 		$id = absint( isset( $_POST['application_id'] ) ? $_POST['application_id'] : 0 );
 		check_admin_referer( 'gdo_withdraw_application_' . $id );
+		global $wpdb;
+		$wpdb->last_error = '';
 		$app = GDO_Application::get( $id );
+		if ( null === $app && ! empty( $wpdb->last_error ) ) {
+			wp_die( esc_html__( 'The withdrawal application state could not be read safely.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
+		}
 		$reason = sanitize_textarea_field( isset( $_POST['reason'] ) ? $_POST['reason'] : '' );
 		if ( ! $app || absint( $app->user_id ) !== get_current_user_id() || strlen( $reason ) < 20 ) { wp_die( esc_html__( 'Invalid withdrawal.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) ); }
-		global $wpdb;
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			wp_die( esc_html__( 'The withdrawal could not start a safe database transaction.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
 		}
-		$result = GDO_State::transition( $id, 'withdrawn', get_current_user_id(), 'application_withdrawn', $reason, absint( isset( $_POST['row_version'] ) ? $_POST['row_version'] : 0 ), false );
+		$expected_row_version = absint( isset( $_POST['row_version'] ) ? $_POST['row_version'] : 0 );
+		$result = GDO_State::transition( $id, 'withdrawn', get_current_user_id(), 'application_withdrawn', $reason, $expected_row_version, false );
 		$event = is_wp_error( $result ) ? $result : GDO_Notifications::queue( 'doctor_application_withdrawn', $app->user_id, array( 'application_id'=>$id ), false );
-		if ( is_wp_error( $result ) || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( is_wp_error( $result ) || is_wp_error( $event ) ) {
 			$wpdb->query( 'ROLLBACK' );
-			$error = is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : new WP_Error( 'gdo_withdraw_commit', __( 'The application withdrawal could not be committed.', 'global-doctor-onboarding' ) ) );
+			$error = is_wp_error( $result ) ? $result : $event;
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->last_error = '';
+			$committed_app = $wpdb->get_row( $wpdb->prepare( 'SELECT state,row_version FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d LIMIT 1', $id ) );
+			$app_read_error = ! empty( $wpdb->last_error );
+			$wpdb->last_error = '';
+			$committed_hash = $wpdb->get_var( $wpdb->prepare( 'SELECT event_hash FROM ' . GDO_Schema::table( 'transitions' ) . ' WHERE application_id=%d AND trace_id=%s LIMIT 1', $id, $result['trace_id'] ) );
+			$audit_read_error = ! empty( $wpdb->last_error );
+			$wpdb->last_error = '';
+			$outbox_id = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_uuid=%s LIMIT 1', $event ) ) );
+			$outbox_read_error = ! empty( $wpdb->last_error );
+			if ( $app_read_error || $audit_read_error || $outbox_read_error ) {
+				wp_die( esc_html__( 'The withdrawal commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
+			}
+			$committed = $committed_app
+				&& 'withdrawn' === sanitize_key( $committed_app->state )
+				&& absint( $committed_app->row_version ) === $expected_row_version + 1
+				&& is_string( $committed_hash )
+				&& hash_equals( (string) $result['event_hash'], $committed_hash )
+				&& $outbox_id > 0;
+			if ( ! $committed ) {
+				$wpdb->query( 'ROLLBACK' );
+				wp_die( esc_html__( 'The application withdrawal could not be committed.', 'global-doctor-onboarding' ), '', array( 'response'=>409 ) );
+			}
+			GDO_Membership_Adapter::audit( 'doctor_withdraw_commit_reconciled', array( 'application_id'=>$id, 'event_uuid'=>$event, 'trace_id'=>$result['trace_id'] ) );
 		}
 		GDO_Audit::publish_transition( $result );
 		GDO_Notifications::process( 1, $event );
