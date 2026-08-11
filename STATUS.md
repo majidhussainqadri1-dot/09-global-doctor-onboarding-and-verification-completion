@@ -27,6 +27,8 @@ R9 defect-bearing rounds are **04, 05, 06, 07, 08, 09, 10, 11, 12, 13**. The per
 
 R9 corrects owner-command reviewer reauthorization, evidence/grant DB uncertainty, download-capability use-time recheck, idempotent submission COMMIT truth, appeal DB-failure visibility, bounded outbox error visibility, dead-letter replay reauthorization, continuous-monitor exclusive processing leases, atomic Advanced Trust DB erasure and current release-evidence drift.
 
+R9 corrective application also exposed QA-harness-only defects: one historical R5 token assertion had to follow the stronger processing-lease semantics; the R2/R7 historical gates were decoupled from obsolete current-status wording while preserving their historical truth; and the new R9 executable gate required one syntax repair plus semantic assertion repairs where the test had named stale/noncanonical tokens despite the underlying control being present. These harness repairs are not additional frozen-baseline File 09 product defects and are therefore not added to the ten R9 defect-bearing rounds.
+
 ## Completion truth
 
 - Latest central + File 09 plan trace: **candidate complete**
