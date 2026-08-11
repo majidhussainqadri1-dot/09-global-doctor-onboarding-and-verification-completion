@@ -74,7 +74,9 @@ checks.append(require(13,
     has(adv, 'requires_dual_review', 'smart_reviewer_candidates', 'reviewer_calibration') and 'reviewer_scope_allows' in adv,
     'Conflict, adaptive dual review, routing and calibration remain authority-narrowing'))
 checks.append(require(14,
-    has(adv, 'gdo_public_transparency_minimum_cohort', "'suppressed'=>true", "scope_status['license']", "scope_status['registration']"),
+    has(adv, 'gdo_public_transparency_minimum_cohort', "'suppressed'=>true", "$matrix['scope_status']['license']", "$matrix['scope_status']['registration']")
+    and "if ( 'license' === $document_type )" in adv
+    and "in_array( $document_type, array( 'registration','professional_registration' ), true )" in adv,
     'Public transparency remains cohort-suppressed and License/Registration scope truth remains separate'))
 checks.append(require(15,
     has(membership, 'identity_assurance_current_checked', 'SA_Professional_Reauthentication', 'reviewer_case_allows', 'recent_step_up') and 'Read-only compatibility boundary to Files 00 and 02' in membership,
