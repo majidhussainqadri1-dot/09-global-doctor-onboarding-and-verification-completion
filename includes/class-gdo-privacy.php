@@ -118,6 +118,7 @@ final class GDO_Privacy {
 		}
 		$held = absint( $held_raw );
 		$removed = false;
+		$completed_apps = 0;
 		$retained = $held > 0;
 		$messages = $held ? array( 'One or more doctor-verification records remain under a documented legal hold.' ) : array();
 		foreach ( $apps as $app ) {
@@ -233,10 +234,11 @@ final class GDO_Privacy {
 			}
 			do_action( 'gdo_identity_projection_erased', $user->ID, $app->id );
 			$removed = true;
+			++$completed_apps;
 			$retained = true;
 			$messages[] = 'Personal credential and Advanced Trust data were erased or anonymized; minimal accountability evidence was retained.';
 		}
-		return array( 'items_removed'=>$removed, 'items_retained'=>$retained, 'messages'=>array_values( array_unique( $messages ) ), 'done'=>count( $apps ) < $limit );
+		return array( 'items_removed'=>$removed, 'items_retained'=>$retained, 'messages'=>array_values( array_unique( $messages ) ), 'done'=>count( $apps ) < $limit && $completed_apps === count( $apps ) );
 	}
 
 	public function policy() {
