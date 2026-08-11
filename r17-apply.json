@@ -1,30 +1,10 @@
 {
-  "message": "fix(file09): contain all trust assistance adapter exceptions",
+  "message": "fix(file09): preserve resumable finalize retry on application DB uncertainty",
   "changes": [
     {
       "path": "includes/class-gdo-advanced-trust.php",
-      "old": "        $request = (array) apply_filters( 'gdo_primary_source_request_minimized', $request, absint( $app->id ), absint( $record->id ), sanitize_text_field( $issuer->issuer_uuid ) );",
-      "new": "        try {\n            $request = (array) apply_filters( 'gdo_primary_source_request_minimized', $request, absint( $app->id ), absint( $record->id ), sanitize_text_field( $issuer->issuer_uuid ) );\n        } catch ( Throwable $e ) {\n            unset( $e );\n            return self::record_check( $app->id, $record->id, 'primary_source', $issuer->adapter_key ? $issuer->adapter_key : 'configured', 'provider_unavailable', 0, array( 'issuer_uuid'=>$issuer->issuer_uuid ), array( 'reason'=>'request_filter_exception' ) );\n        }"
-    },
-    {
-      "path": "includes/class-gdo-advanced-trust.php",
-      "old": "        $result = apply_filters( 'gdo_credential_equivalency_assessment', null, $request );\n        if ( ! is_array($result) ) { $result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'no_equivalency_adapter')); }",
-      "new": "        try {\n            $result = apply_filters( 'gdo_credential_equivalency_assessment', null, $request );\n        } catch ( Throwable $e ) {\n            unset( $e );\n            $result = array( 'status'=>'manual_review_required', 'facts'=>$request, 'explanation'=>array( 'reason'=>'provider_exception' ) );\n        }\n        if ( ! is_array($result) ) { $result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'no_equivalency_adapter')); }"
-    },
-    {
-      "path": "includes/class-gdo-advanced-trust.php",
-      "old": "        $result=apply_filters('gdo_institutional_affiliation_verification',null,$request);\n        if(!is_array($result)){$result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'no_affiliation_adapter'));}",
-      "new": "        try {\n            $result=apply_filters('gdo_institutional_affiliation_verification',null,$request);\n        } catch ( Throwable $e ) {\n            unset( $e );\n            $result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'provider_exception'));\n        }\n        if(!is_array($result)){$result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'no_affiliation_adapter'));}"
-    },
-    {
-      "path": "includes/class-gdo-advanced-trust.php",
-      "old": "        $result=apply_filters('gdo_credential_translation_assistance',null,$payload);\n        if(!is_array($result)){$result=array('status'=>'unavailable','translation'=>'','provider'=>'unconfigured');}",
-      "new": "        try {\n            $result=apply_filters('gdo_credential_translation_assistance',null,$payload);\n        } catch ( Throwable $e ) {\n            unset( $e );\n            $result=array('status'=>'unavailable','translation'=>'','provider'=>'exception');\n        }\n        if(!is_array($result)){$result=array('status'=>'unavailable','translation'=>'','provider'=>'unconfigured');}"
-    },
-    {
-      "path": "includes/class-gdo-advanced-trust.php",
-      "old": "        $result=apply_filters('gdo_ai_evidence_assistance',null,$payload);\n        if(!is_array($result)){$result=array('status'=>'unavailable','provider'=>'unconfigured','hints'=>array());}",
-      "new": "        try {\n            $result=apply_filters('gdo_ai_evidence_assistance',null,$payload);\n        } catch ( Throwable $e ) {\n            unset( $e );\n            $result=array('status'=>'unavailable','provider'=>'exception','hints'=>array());\n        }\n        if(!is_array($result)){$result=array('status'=>'unavailable','provider'=>'unconfigured','hints'=>array());}"
+      "old": "        $app=GDO_Application::get($row->application_id);if(!$app||absint($app->user_id)!==$uid||!in_array($app->state,array('draft','more_information'),true)){$state=self::set_upload_session_state($row->upload_uuid,'finalizing','failed');return is_wp_error($state)?$state:new WP_Error('gdo_upload_application_changed',__('The application changed before the upload could be finalized.','global-doctor-onboarding'));}",
+      "new": "        $app=self::application_record($row->application_id);if(is_wp_error($app)){$state=self::set_upload_session_state($row->upload_uuid,'finalizing','open');return is_wp_error($state)?$state:$app;}if(!$app||absint($app->user_id)!==$uid||!in_array($app->state,array('draft','more_information'),true)){$state=self::set_upload_session_state($row->upload_uuid,'finalizing','failed');return is_wp_error($state)?$state:new WP_Error('gdo_upload_application_changed',__('The application changed before the upload could be finalized.','global-doctor-onboarding'));}"
     }
   ]
 }
