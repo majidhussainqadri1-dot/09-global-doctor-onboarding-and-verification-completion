@@ -186,17 +186,51 @@ final class GDO_Migration {
 						'created_at'=>$now, 'updated_at'=>$now,
 					);
 					$formats = array( '%s','%d','%d','%s','%s','%s','%s','%d','%s','%s','%s','%s','%s','%s','%s','%s' );
+					if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+						throw new RuntimeException( 'Legacy File 09 application quarantine transaction could not start.' );
+					}
 					$inserted = $wpdb->insert( GDO_Schema::table( 'applications' ), $data, $formats );
 					if ( 1 !== $inserted ) {
+						$wpdb->query( 'ROLLBACK' );
 						throw new RuntimeException( 'Legacy File 09 application quarantine insert failed.' );
 					}
 					$wpdb->last_error = '';
 					$app = GDO_Application::get( $wpdb->insert_id );
 					if ( ! empty( $wpdb->last_error ) || ! $app ) {
+						$wpdb->query( 'ROLLBACK' );
 						throw new RuntimeException( 'Legacy File 09 quarantine application could not be reloaded.' );
 					}
 					$audit = GDO_Audit::transition( $app->id, 0, 'legacy', 'legacy_review_required', 'legacy_quarantine', 'Legacy File 09 data requires independent re-review and credential migration.' );
-					if ( is_wp_error( $audit ) ) { throw new RuntimeException( $audit->get_error_message() ); }
+					if ( is_wp_error( $audit ) ) { $wpdb->query( 'ROLLBACK' ); throw new RuntimeException( $audit->get_error_message() ); }
+					if ( false === $wpdb->query( 'COMMIT' ) ) {
+						$wpdb->last_error = '';
+						$committed_app = $wpdb->get_row( $wpdb->prepare(
+							'SELECT id,user_id,version,state FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE application_uuid=%s LIMIT 1',
+							$data['application_uuid']
+						) );
+						$app_read_error = ! empty( $wpdb->last_error );
+						$wpdb->last_error = '';
+						$committed_hash = $wpdb->get_var( $wpdb->prepare(
+							'SELECT event_hash FROM ' . GDO_Schema::table( 'transitions' ) . ' WHERE application_id=%d AND trace_id=%s LIMIT 1',
+							$app->id, $audit['trace_id']
+						) );
+						$audit_read_error = ! empty( $wpdb->last_error );
+						if ( $app_read_error || $audit_read_error ) {
+							throw new RuntimeException( 'Legacy File 09 quarantine commit outcome is uncertain and requires reconciliation.' );
+						}
+						$committed = $committed_app
+							&& absint( $committed_app->id ) === absint( $app->id )
+							&& absint( $committed_app->user_id ) === $user_id
+							&& 1 === absint( $committed_app->version )
+							&& 'legacy_review_required' === sanitize_key( $committed_app->state )
+							&& is_string( $committed_hash )
+							&& hash_equals( (string) $audit['event_hash'], $committed_hash );
+						if ( ! $committed ) {
+							$wpdb->query( 'ROLLBACK' );
+							throw new RuntimeException( 'Legacy File 09 quarantine application and audit were not committed atomically.' );
+						}
+						GDO_Membership_Adapter::audit( 'doctor_legacy_quarantine_commit_reconciled', array( 'application_id'=>$app->id, 'user_id'=>$user_id, 'trace_id'=>$audit['trace_id'] ) );
+					}
 					GDO_Audit::publish_transition( $audit );
 				}
 				$last_document_id = 0;
