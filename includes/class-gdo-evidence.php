@@ -866,7 +866,18 @@ final class GDO_Evidence {
         if ( 1 !== $ok ) {
             return new WP_Error( 'gdo_evidence_grant_store', __( 'Credential access grant could not be stored.', 'global-doctor-onboarding' ) );
         }
-        GDO_Audit::access( $app->id, $evidence_id, $reviewer_id, $purpose, 'grant_issued' );
+        $access_audit = GDO_Audit::access( $app->id, $evidence_id, $reviewer_id, $purpose, 'grant_issued' );
+        if ( is_wp_error( $access_audit ) ) {
+            // Never return an unaudited credential capability. The generated
+            // token remains secret on this path; remove its unusable row as
+            // compensation and surface any cleanup uncertainty.
+            $removed = $wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'grant_hash'=>$hash, 'reviewer_id'=>$reviewer_id ), array( '%s','%d' ) );
+            if ( 1 !== $removed ) {
+                GDO_Membership_Adapter::audit( 'doctor_evidence_grant_audit_compensation_failed', array( 'application_id'=>absint($app->id), 'evidence_id'=>$evidence_id, 'reviewer_id'=>$reviewer_id ) );
+                return new WP_Error( 'gdo_evidence_grant_audit_cleanup', __( 'Credential access was not granted because its audit record failed and cleanup requires reconciliation.', 'global-doctor-onboarding' ) );
+            }
+            return $access_audit;
+        }
         return array( 'token'=>$token, 'expires_at'=>$expires, 'mode'=>$mode );
     }
 

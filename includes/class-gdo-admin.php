@@ -537,7 +537,12 @@ final class GDO_Admin {
 			GDO_Audit::access( $record->application_id, $record->id, get_current_user_id(), 'render', 'failed' );
 			wp_die( esc_html( $bytes->get_error_message() ), '', array( 'response'=>500 ) );
 		}
-		GDO_Audit::access( $record->application_id, $record->id, get_current_user_id(), 'professional_review', 'served' );
+		$served_audit = GDO_Audit::access( $record->application_id, $record->id, get_current_user_id(), 'professional_review', 'served' );
+		if ( is_wp_error( $served_audit ) ) {
+			// Confidential credential bytes must never leave the server unless the
+			// access itself has a durable audit record.
+			wp_die( esc_html( $served_audit->get_error_message() ), '', array( 'response'=>503 ) );
+		}
 		while ( ob_get_level() ) { ob_end_clean(); }
 		nocache_headers();
 		header( 'Cache-Control: private, no-store, max-age=0' );
