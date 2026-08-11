@@ -27,18 +27,19 @@ This repository contains the canonical File 09 implementation candidate for the 
 | Fresh 10-round review R17 | 7 defect-bearing corrected; 3 clean |
 | Fresh 10-round review R18 | 7 defect-bearing corrected; 3 clean |
 | Fresh 20-round review R19 | 5 defect-bearing corrected; 15 clean |
-| **Fresh 20-round review R20** | **20/20 complete: 10 defect-bearing corrected; 10 clean** |
+| Fresh 20-round review R20 | 20/20 complete: 10 defect-bearing corrected; 10 clean |
+| **Fresh 20-round review R21** | **20/20 complete: 8 defect-bearing corrected; 12 clean** |
 | Source candidate | `1.3.0`, core schema `6`, Advanced Trust schema `2`, contract `1.1.0`, RC6 candidate |
-| Exact-head automated QA | Must pass on the final exact RC6/R20 commit |
+| Exact-head automated QA | Must pass on the final exact RC6/R21 commit |
 | Deterministic package | 62-entry RC6 allowlist; exact-head workflow output only |
 | Hostinger-equivalent staging | Pending external execution |
 | Production/live/operational | Not authorized |
 
-**Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected; 63 clean; its own exact-head result was 80/80 PASS. R12–R18 ten-round reviews and R19 twenty-round review supersede it only as current repository review evidence, not as historical evidence.
+**Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected; 63 clean; its own exact-head result was 80/80 PASS. R12–R18 ten-round reviews and R19–R21 twenty-round reviews supersede it only as current repository review evidence, not as historical evidence.
 
 File 09 owns doctor applications, private professional evidence, professional verification review/decision, renewal, suspension/revocation, appeal, signed professional-decision claims and File 09 professional-trust records. It does **not** own general identity, login, public profiles, directory/search ranking, clinics, notification transport or platform-wide security governance.
 
-Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, all `REVIEW-80-ROUNDS-RC6*.md` ledgers, `REVIEW-10-ROUNDS-RC6-R12.md`, `REVIEW-10-ROUNDS-RC6-R13.md`, `REVIEW-10-ROUNDS-RC6-R14.md`, `REVIEW-10-ROUNDS-RC6-R15.md`, `REVIEW-10-ROUNDS-RC6-R16.md`, `REVIEW-10-ROUNDS-RC6-R17.md`, `REVIEW-10-ROUNDS-RC6-R18.md`, `REVIEW-20-ROUNDS-RC6-R19.md`, `REVIEW-20-ROUNDS-RC6-R20.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
+Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, all `REVIEW-80-ROUNDS-RC6*.md` ledgers, `REVIEW-10-ROUNDS-RC6-R12.md`, `REVIEW-10-ROUNDS-RC6-R13.md`, `REVIEW-10-ROUNDS-RC6-R14.md`, `REVIEW-10-ROUNDS-RC6-R15.md`, `REVIEW-10-ROUNDS-RC6-R16.md`, `REVIEW-10-ROUNDS-RC6-R17.md`, `REVIEW-10-ROUNDS-RC6-R18.md`, `REVIEW-20-ROUNDS-RC6-R19.md`, `REVIEW-20-ROUNDS-RC6-R20.md`, `REVIEW-20-ROUNDS-RC6-R21.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
 
 ## 1.3.0 RC6 — Advanced Professional Trust assurance history
 

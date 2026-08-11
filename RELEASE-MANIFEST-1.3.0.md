@@ -10,7 +10,7 @@ Review baseline: `6d5c2850dbf86ce954e0c2fdef8adf36d2dbf1f1`
 
 ## Scope
 
-RC6 preserves the complete prior File 09 application/evidence/review/decision/renewal/suspension/revocation/appeal/privacy implementation and all 24 approved **Advanced Professional Trust & Verification Extensions 2026**. It additionally preserves all repository corrective assurance evidence through the completed R20 sequential twenty-round review.
+RC6 preserves the complete prior File 09 application/evidence/review/decision/renewal/suspension/revocation/appeal/privacy implementation and all 24 approved **Advanced Professional Trust & Verification Extensions 2026**. It additionally preserves all repository corrective assurance evidence through the completed R21 sequential twenty-round review.
 
 The RC6 corrective layer fixes lifecycle-state drift, issuer/rule governance, monitoring retry/backoff, passport validity/supersession/read semantics, resumable-upload concurrency, viewing-room grant duplication, REST object authorization, provider-data minimization, Advanced Trust privacy/retention coverage, schema/index migration and release/plan evidence drift.
 
@@ -30,13 +30,13 @@ The RC6 corrective layer fixes lifecycle-state drift, issuer/rule governance, mo
 
 `tools/build-release.py` builds `global-doctor-onboarding-09-1.3.0-RC6.zip` twice using the exact **62-entry** release allowlist. `tools/verify-release.py` requires identical entry order, fixed ZIP timestamps, source/package SHA-256 parity and an exact-head generated SPDX 2.3 SBOM whose package identity is `1.3.0-RC6`.
 
-The exact-head source gate runs all legacy suites, Advanced Trust gates, the preserved R1–R11 executable review gates and `tests/ten-round-audit-r12.py`, `tests/ten-round-audit-r13.py`, `tests/ten-round-audit-r14.py`, `tests/ten-round-audit-r15.py` and `tests/ten-round-audit-r16.py` on PHP 7.4 and PHP 8.3. No earlier run can certify later corrected source. Because this manifest itself is inside the release allowlist, **the authoritative source/package/QA result is always the workflow result for the exact final commit that contains this manifest**; any later commit automatically reopens the gate.
+The exact-head source gate runs all legacy suites, Advanced Trust gates, the preserved R1–R11 executable review gates, all R12–R18 ten-round gates, and the R19, R20 and R21 twenty-round gates on PHP 7.4 and PHP 8.3. No earlier run can certify later corrected source. Because this manifest itself is inside the release allowlist, **the authoritative source/package/QA result is always the workflow result for the exact final commit that contains this manifest**; any later commit automatically reopens the gate.
 
 ## Acceptance state
 
 - Specified: candidate complete
 - Coded: RC6 corrective candidate complete at repository-source level
-- Repository review: R1–R11 historical 80-round series preserved; R12–R18 fresh 10-round reviews and R19–R20 twenty-round reviews preserved; R20 numbered review is complete at **10 defect-bearing corrected / 10 clean**
+- Repository review: R1–R11 historical 80-round series preserved; R12–R18 fresh 10-round reviews and R19–R21 twenty-round reviews preserved; R21 numbered review is complete at **8 defect-bearing corrected / 12 clean**
 - Packaged: determined only by the authoritative exact-final-commit RC6 package job
 - Automated QA: determined only by the authoritative exact-final-commit PHP 7.4/8.3 RC6 workflow
 - Staging Accepted: false
@@ -44,6 +44,14 @@ The exact-head source gate runs all legacy suites, Advanced Trust gates, the pre
 - Operational: false
 
 Hostinger staging remains mandatory for real WordPress/MySQL core-schema-6 + Advanced-Trust-schema-2 migration, issuer/provider adapters, monitor retry/adverse behavior, chunk interruption/resume/races, private storage, reviewer conflict/dual review, passport issue/supersession/expiry/revocation, privacy/retention, public-safe projections, accessibility, backup/restore and two fresh staging review/fix/retest rounds.
+
+## Twenty-first fresh 20-round sequential corrective assurance — R21
+
+- Frozen baseline: `a4191a0c693ba7dd95770fcdfee46804a8645a67`.
+- R01–R20 complete; defect-bearing corrected rounds: `01,02,03,04,05,16,17,19`; clean rounds: `06,07,08,09,10,11,12,13,14,15,18,20`.
+- Permanent ledger: `REVIEW-20-ROUNDS-RC6-R21.md`; executable gate: `tests/twenty-round-audit-r21.py`.
+- Installable release allowlist remains **62 entries**; R21 ledger/test are repository QA evidence outside the package.
+- Staging, live and operational acceptance remain false until separately evidenced.
 
 ## Twentieth fresh 20-round sequential corrective assurance — R20
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## Twenty-first fresh 20-round sequential corrective assurance — R21
+
+- Frozen baseline: `a4191a0c693ba7dd95770fcdfee46804a8645a67`.
+- R01–R20 completed sequentially; defects corrected in `01,02,03,04,05,16,17,19`; clean rounds `06,07,08,09,10,11,12,13,14,15,18,20`.
+- Added authoritative COMMIT reconciliation for private draft creation/consent and generic standalone state transitions.
+- Made legacy quarantine application + initial chained audit atomic/reconciled instead of allowing permanent partial migration history.
+- Made private credential grants/served bytes fail closed on durable access-audit failure and strengthened evidence-review reconciliation to exact mutation state.
+- Made eligibility fail closed when latest-application DB state is unavailable.
+- Hardened applicant save/appeal/withdraw COMMIT recovery; possibly committed encrypted evidence is preserved for reconciliation instead of blind deletion.
+- Added permanent R21 ledger/executable/release-lock/workflow evidence; five final source-shape assertion mismatches were corrected only after source semantics were verified and are not product-defect rounds.
+- External Hostinger staging, live deployment and operational acceptance remain false and require separate evidence.
+
 ## Twentieth fresh 20-round sequential corrective assurance — R20
 
 - Frozen baseline: `f6ffbc43edf2679590595f5bb1db7c3fec652d25`.
