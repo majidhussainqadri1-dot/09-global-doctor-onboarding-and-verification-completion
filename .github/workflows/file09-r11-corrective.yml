@@ -1,8 +1,10 @@
 name: File 09 R11 Root-Cause Corrective Pass
 on:
   push:
-    branches: [codex/file09-1.3.0-rc6-80-round-review]
-    paths: ['.github/workflows/file09-r11-corrective.yml']
+    branches:
+      - codex/file09-1.3.0-rc6-80-round-review
+    paths:
+      - .github/scripts/file09_r11_correct.py
 permissions:
   contents: write
 jobs:
@@ -13,201 +15,18 @@ jobs:
         with:
           ref: codex/file09-1.3.0-rc6-80-round-review
           fetch-depth: 0
-      - name: Apply R11 root-cause corrections
-        shell: bash
+      - name: Apply deterministic R11 corrections
+        run: python3 .github/scripts/file09_r11_correct.py
+      - name: Remove generated and temporary review artifacts
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          def rep(path, old, new, count=1):
-              p=Path(path); s=p.read_text()
-              if s.count(old) < count:
-                  raise SystemExit(f'missing replacement in {path}: {old[:100]!r}')
-              s=s.replace(old,new,count)
-              p.write_text(s)
-
-          # Audit/hash-chain read isolation.
-          rep('includes/class-gdo-audit.php',
-              "        global $wpdb;\n        $previous = $wpdb->get_var",
-              "        global $wpdb;\n        $wpdb->last_error = '';\n        $previous = $wpdb->get_var")
-
-          # Rate-limit read isolation after write/upsert.
-          rep('includes/class-gdo-rate-limiter.php',
-              "\t\t$raw_hits = $wpdb->get_var",
-              "\t\t$wpdb->last_error = '';\n\t\t$raw_hits = $wpdb->get_var")
-
-          # Risk reads are isolated; database write failures are not mislabelled as concurrency.
-          r=Path('includes/class-gdo-risk.php'); s=r.read_text()
-          s=s.replace("\t\tif ( $identity ) {\n\t\t\t$duplicate = $wpdb->get_var", "\t\tif ( $identity ) {\n\t\t\t$wpdb->last_error = '';\n\t\t\t$duplicate = $wpdb->get_var",1)
-          s=s.replace("\t\t\t$duplicate = $wpdb->get_var( $wpdb->prepare(\n\t\t\t\t'SELECT id FROM ' . GDO_Schema::table( 'evidence' )", "\t\t\t$wpdb->last_error = '';\n\t\t\t$duplicate = $wpdb->get_var( $wpdb->prepare(\n\t\t\t\t'SELECT id FROM ' . GDO_Schema::table( 'evidence' )",1)
-          s=s.replace("\t\t$existing = $wpdb->get_var( $wpdb->prepare(", "\t\t$wpdb->last_error = '';\n\t\t$existing = $wpdb->get_var( $wpdb->prepare(",1)
-          s=s.replace("\t\t$rows = $wpdb->get_results( $wpdb->prepare(", "\t\t$wpdb->last_error = '';\n\t\t$rows = $wpdb->get_results( $wpdb->prepare(",1)
-          s=s.replace("\t\treturn 1 === $updated ? true : new WP_Error( 'gdo_risk_resolution_conflict', __( 'The risk signal changed before it could be resolved.', 'global-doctor-onboarding' ) );",
-                      "\t\tif ( false === $updated ) {\n\t\t\treturn new WP_Error( 'gdo_risk_resolution_store', __( 'The risk resolution could not be stored safely.', 'global-doctor-onboarding' ) );\n\t\t}\n\t\treturn 1 === $updated ? true : new WP_Error( 'gdo_risk_resolution_conflict', __( 'The risk signal changed before it could be resolved.', 'global-doctor-onboarding' ) );")
-          r.write_text(s)
-
-          # Quality completion separates database failure from optimistic conflict.
-          rep('includes/class-gdo-quality.php',
-              "\t\treturn 1 === $updated ? true : new WP_Error( 'gdo_quality_conflict', __( 'The quality sample changed before completion.', 'global-doctor-onboarding' ) );",
-              "\t\tif ( false === $updated ) {\n\t\t\treturn new WP_Error( 'gdo_quality_store_failed', __( 'The quality sample completion could not be stored safely.', 'global-doctor-onboarding' ) );\n\t\t}\n\t\treturn 1 === $updated ? true : new WP_Error( 'gdo_quality_conflict', __( 'The quality sample changed before completion.', 'global-doctor-onboarding' ) );")
-
-          # State transition distinguishes DB write failure from real row-version conflict.
-          rep('includes/class-gdo-state.php',
-              "        if ( 1 !== $updated ) {\n            if ( $manage_transaction ) {\n                $wpdb->query( 'ROLLBACK' );\n            }\n            return new WP_Error( 'gdo_concurrent_change', __( 'The application changed while it was being reviewed. Reload and try again.', 'global-doctor-onboarding' ) );\n        }",
-              "        if ( false === $updated ) {\n            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }\n            return new WP_Error( 'gdo_transition_store_failed', __( 'The application state could not be stored safely.', 'global-doctor-onboarding' ) );\n        }\n        if ( 1 !== $updated ) {\n            if ( $manage_transaction ) {\n                $wpdb->query( 'ROLLBACK' );\n            }\n            return new WP_Error( 'gdo_concurrent_change', __( 'The application changed while it was being reviewed. Reload and try again.', 'global-doctor-onboarding' ) );\n        }")
-
-          # Claims: DB write/read failures remain distinct and publishing never fabricates application_id=0 on query failure.
-          c=Path('includes/class-gdo-claims.php'); s=c.read_text()
-          s=s.replace("\t\tif ( 1 !== $updated ) {\n\t\t\t$wpdb->query( 'ROLLBACK' );\n\t\t\treturn new WP_Error( 'gdo_claim_concurrent_change'",
-                      "\t\tif ( false === $updated ) {\n\t\t\t$wpdb->query( 'ROLLBACK' );\n\t\t\treturn new WP_Error( 'gdo_claim_store_failed', __( 'The professional verification claim could not be stored safely.', 'global-doctor-onboarding' ) );\n\t\t}\n\t\tif ( 1 !== $updated ) {\n\t\t\t$wpdb->query( 'ROLLBACK' );\n\t\t\treturn new WP_Error( 'gdo_claim_concurrent_change'",1)
-          s=s.replace("\t\tglobal $wpdb;\n\t\t$application_id = absint( $wpdb->get_var", "\t\tglobal $wpdb;\n\t\t$wpdb->last_error = '';\n\t\t$application_id = absint( $wpdb->get_var",1)
-          s=s.replace("\t\tGDO_Membership_Adapter::audit( 'doctor_professional_claim_issued', array(", "\t\tif ( ! empty( $wpdb->last_error ) || ! $application_id ) {\n\t\t\treturn false;\n\t\t}\n\t\tGDO_Membership_Adapter::audit( 'doctor_professional_claim_issued', array(",1)
-          c.write_text(s)
-
-          # REST autosave cannot return a false-success model after a failed post-write read.
-          rep('includes/class-gdo-rest.php',
-              "\t\treturn rest_ensure_response( GDO_API::application_edit_model( GDO_Application::get( $app->id ), get_current_user_id() ) );",
-              "\t\t$wpdb->last_error = '';\n\t\t$fresh = GDO_Application::get( $app->id );\n\t\tif ( null === $fresh && ! empty( $wpdb->last_error ) ) {\n\t\t\treturn new WP_Error( 'gdo_application_autosave_reload_failed', __( 'The saved application could not be reloaded safely.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );\n\t\t}\n\t\tif ( ! $fresh ) {\n\t\t\treturn new WP_Error( 'gdo_application_autosave_reload_missing', __( 'The saved application is temporarily unavailable.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );\n\t\t}\n\t\treturn rest_ensure_response( GDO_API::application_edit_model( $fresh, get_current_user_id() ) );")
-
-          # Application write/reload paths distinguish infrastructure failure from user/concurrency state.
-          a=Path('includes/class-gdo-application.php'); s=a.read_text()
-          s=s.replace("\t\tif ( 1 !== $inserted ) {\n\t\t\t$wpdb->query( 'ROLLBACK' );\n\t\t\t$existing = self::latest_for_user( $user_id );",
-                      "\t\tif ( 1 !== $inserted ) {\n\t\t\t$wpdb->query( 'ROLLBACK' );\n\t\t\t$wpdb->last_error = '';\n\t\t\t$existing = self::latest_for_user( $user_id );\n\t\t\tif ( ! empty( $wpdb->last_error ) ) {\n\t\t\t\treturn new WP_Error( 'gdo_application_create_recovery_query', __( 'The application creation result could not be verified safely.', 'global-doctor-onboarding' ) );\n\t\t\t}",1)
-          s=s.replace("\t\t$app = self::get( $wpdb->insert_id );\n\t\t$audit = $app ?", "\t\t$wpdb->last_error = '';\n\t\t$app = self::get( $wpdb->insert_id );\n\t\tif ( null === $app && ! empty( $wpdb->last_error ) ) {\n\t\t\t$wpdb->query( 'ROLLBACK' );\n\t\t\treturn new WP_Error( 'gdo_application_create_reload_query', __( 'The newly created application could not be reloaded safely.', 'global-doctor-onboarding' ) );\n\t\t}\n\t\t$audit = $app ?",1)
-          s=s.replace("\t\treturn 1 === $updated ? true : new WP_Error( 'gdo_concurrent_change', __( 'The application changed. Reload and try again.', 'global-doctor-onboarding' ) );",
-                      "\t\tif ( false === $updated ) {\n\t\t\treturn new WP_Error( 'gdo_draft_store_failed', __( 'The draft application could not be stored safely.', 'global-doctor-onboarding' ) );\n\t\t}\n\t\treturn 1 === $updated ? true : new WP_Error( 'gdo_concurrent_change', __( 'The application changed. Reload and try again.', 'global-doctor-onboarding' ) );",1)
-          s=s.replace("\t\t$row = $wpdb->get_row( $wpdb->prepare(\n\t\t\t'SELECT consent_version", "\t\t$wpdb->last_error = '';\n\t\t$row = $wpdb->get_row( $wpdb->prepare(\n\t\t\t'SELECT consent_version",1)
-          s=s.replace("\t\tif ( 1 !== $updated ) {\n\t\t\tif ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }\n\t\t\treturn new WP_Error( 'gdo_consent_link'",
-                      "\t\tif ( false === $updated ) {\n\t\t\tif ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }\n\t\t\treturn new WP_Error( 'gdo_consent_link_store', __( 'Consent could not be linked because the application write failed.', 'global-doctor-onboarding' ) );\n\t\t}\n\t\tif ( 1 !== $updated ) {\n\t\t\tif ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }\n\t\t\treturn new WP_Error( 'gdo_consent_link'",1)
-          a.write_text(s)
-
-          # Evidence checked reads for privacy/critical paths; quota isolation; review/grant write/read failures remain explicit.
-          e=Path('includes/class-gdo-evidence.php'); s=e.read_text()
-          needle="""    public static function current( $application_id, $type ) {
-        global $wpdb;
-        return $wpdb->get_row( $wpdb->prepare(
-            'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . \" WHERE application_id=%d AND document_type=%s AND retention_state='active' AND deleted_at IS NULL ORDER BY version DESC LIMIT 1\",
-            absint( $application_id ), sanitize_key( $type )
-        ) );
-    }
-"""
-          insert=needle+"""
-    public static function records_checked( $application_id, $active_only = false ) {
-        global $wpdb;
-        $wpdb->last_error = '';
-        $rows = self::records( $application_id, $active_only );
-        if ( null === $rows || ! empty( $wpdb->last_error ) ) {
-            return new WP_Error( 'gdo_evidence_records_query', __( 'Credential evidence records could not be read safely.', 'global-doctor-onboarding' ) );
-        }
-        return $rows;
-    }
-
-    public static function current_checked( $application_id, $type ) {
-        global $wpdb;
-        $wpdb->last_error = '';
-        $row = self::current( $application_id, $type );
-        if ( null === $row && ! empty( $wpdb->last_error ) ) {
-            return new WP_Error( 'gdo_evidence_current_query', __( 'Current credential evidence could not be read safely.', 'global-doctor-onboarding' ) );
-        }
-        return $row;
-    }
-"""
-          if needle not in s: raise SystemExit('evidence method anchor missing')
-          s=s.replace(needle,insert,1)
-          s=s.replace("\t\t$raw_used = $wpdb->get_var", "\t\t$wpdb->last_error = '';\n\t\t$raw_used = $wpdb->get_var",1)
-          s=s.replace("        if ( 1 !== $updated ) {\n            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }\n            return new WP_Error( 'gdo_evidence_review_conflict'",
-                      "        if ( false === $updated ) {\n            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }\n            return new WP_Error( 'gdo_evidence_review_store_failed', __( 'The credential review could not be stored safely.', 'global-doctor-onboarding' ) );\n        }\n        if ( 1 !== $updated ) {\n            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }\n            return new WP_Error( 'gdo_evidence_review_conflict'",1)
-          s=s.replace("        $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . \" WHERE id=%d AND retention_state='active' AND deleted_at IS NULL\", $evidence_id ) );\n        $app = $record ? GDO_Application::get( $record->application_id ) : null;",
-                      "        $wpdb->last_error = '';\n        $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . \" WHERE id=%d AND retention_state='active' AND deleted_at IS NULL\", $evidence_id ) );\n        if ( null === $record && ! empty( $wpdb->last_error ) ) {\n            return new WP_Error( 'gdo_evidence_grant_evidence_query', __( 'Credential evidence could not be read safely for access grant.', 'global-doctor-onboarding' ) );\n        }\n        $wpdb->last_error = '';\n        $app = $record ? GDO_Application::get( $record->application_id ) : null;\n        if ( $record && null === $app && ! empty( $wpdb->last_error ) ) {\n            return new WP_Error( 'gdo_evidence_grant_application_query', __( 'Credential application could not be read safely for access grant.', 'global-doctor-onboarding' ) );\n        }",1)
-          s=s.replace("        $wpdb->query( $wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'access_grants' ) . ' WHERE reviewer_id=%d AND (expires_at<%s OR used_at IS NOT NULL)', $reviewer_id, current_time( 'mysql', true ) ) );",
-                      "        $cleaned = $wpdb->query( $wpdb->prepare( 'DELETE FROM ' . GDO_Schema::table( 'access_grants' ) . ' WHERE reviewer_id=%d AND (expires_at<%s OR used_at IS NOT NULL)', $reviewer_id, current_time( 'mysql', true ) ) );\n        if ( false === $cleaned ) {\n            return new WP_Error( 'gdo_evidence_grant_cleanup_failed', __( 'Expired credential access grants could not be cleaned safely.', 'global-doctor-onboarding' ) );\n        }",1)
-          e.write_text(s)
-
-          # Privacy export/erasure cannot silently skip evidence or inherit stale DB error state.
-          p=Path('includes/class-gdo-privacy.php'); s=p.read_text()
-          s=s.replace("\t\t$apps = $wpdb->get_results( $wpdb->prepare(", "\t\t$wpdb->last_error = '';\n\t\t$apps = $wpdb->get_results( $wpdb->prepare(",1)
-          s=s.replace("\t\t\tforeach ( GDO_Evidence::records( $app->id ) as $record ) {",
-                      "\t\t\t$evidence_rows = GDO_Evidence::records_checked( $app->id );\n\t\t\tif ( is_wp_error( $evidence_rows ) ) {\n\t\t\t\treturn array( 'data'=>$data, 'done'=>false );\n\t\t\t}\n\t\t\tforeach ( $evidence_rows as $record ) {",1)
-          s=s.replace("\t\t\tforeach ( $queries as $label => $sql ) {\n\t\t\t\t$items =", "\t\t\tforeach ( $queries as $label => $sql ) {\n\t\t\t\t$wpdb->last_error = '';\n\t\t\t\t$items =",1)
-          # second applications inventory in erase
-          target="\t\t$limit = 10;\n\t\t$apps = $wpdb->get_results"
-          s=s.replace(target,"\t\t$limit = 10;\n\t\t$wpdb->last_error = '';\n\t\t$apps = $wpdb->get_results",1)
-          s=s.replace("\t\t$held_raw = $wpdb->get_var", "\t\t$wpdb->last_error = '';\n\t\t$held_raw = $wpdb->get_var",1)
-          s=s.replace("\t\tforeach ( $apps as $app ) {\n\t\t\t$current = GDO_Application::get( $app->id );",
-                      "\t\tforeach ( $apps as $app ) {\n\t\t\t$wpdb->last_error = '';\n\t\t\t$current = GDO_Application::get( $app->id );\n\t\t\tif ( null === $current && ! empty( $wpdb->last_error ) ) {\n\t\t\t\t$retained = true;\n\t\t\t\t$messages[] = 'Erasure is paused because the current application state could not be read safely.';\n\t\t\t\tcontinue;\n\t\t\t}",1)
-          s=s.replace("\t\t\tforeach ( GDO_Evidence::records( $app->id, false ) as $record ) {",
-                      "\t\t\t$evidence_rows = GDO_Evidence::records_checked( $app->id, false );\n\t\t\tif ( is_wp_error( $evidence_rows ) ) {\n\t\t\t\t$retained = true;\n\t\t\t\t$messages[] = 'Erasure is paused because credential evidence inventory could not be read safely.';\n\t\t\t\tcontinue;\n\t\t\t}\n\t\t\tforeach ( $evidence_rows as $record ) {",1)
-          s=s.replace("\t\t\t$locked_app = $wpdb->get_row( $wpdb->prepare(", "\t\t\t$wpdb->last_error = '';\n\t\t\t$locked_app = $wpdb->get_row( $wpdb->prepare(",1)
-          s=s.replace("\t\t\t$now = current_time( 'mysql', true );\n\t\t\t$db_ok = (bool) $locked_app;",
-                      "\t\t\t$now = current_time( 'mysql', true );\n\t\t\t$db_ok = (bool) $locked_app && empty( $wpdb->last_error );",1)
-          p.write_text(s)
-
-          # Membership reviewer authorization remains fail-closed without stale DB state influencing reads.
-          m=Path('includes/class-gdo-membership-adapter.php'); s=m.read_text()
-          s=s.replace("\t\t\t$app = GDO_Application::get( $application_id );\n\t\t\t$profile = $wpdb->get_row", "\t\t\t$wpdb->last_error = '';\n\t\t\t$app = GDO_Application::get( $application_id );\n\t\t\tif ( null === $app && ! empty( $wpdb->last_error ) ) { $allowed = false; }\n\t\t\t$wpdb->last_error = '';\n\t\t\t$profile = $wpdb->get_row",1)
-          s=s.replace("\t\t\tif ( ! $app || ! $profile || absint( $app->user_id ) !== $applicant_id ) {", "\t\t\tif ( ! empty( $wpdb->last_error ) || ! $app || ! $profile || absint( $app->user_id ) !== $applicant_id ) {",1)
-          s=s.replace("\t\t$app = GDO_Application::get( $application_id );\n\t\tif ( ! $app || absint( $app->user_id ) !== $applicant_id ) {", "\t\t$wpdb->last_error = '';\n\t\t$app = GDO_Application::get( $application_id );\n\t\tif ( ! empty( $wpdb->last_error ) || ! $app || absint( $app->user_id ) !== $applicant_id ) {",1)
-          s=s.replace("\t\t\t$appeal_reviewer = absint( $wpdb->get_var", "\t\t\t$wpdb->last_error = '';\n\t\t\t$appeal_reviewer = absint( $wpdb->get_var",1)
-          s=s.replace("\t\t\tif ( $appeal_reviewer && $appeal_reviewer === $reviewer_id ) {", "\t\t\tif ( ! empty( $wpdb->last_error ) ) { return false; }\n\t\t\tif ( $appeal_reviewer && $appeal_reviewer === $reviewer_id ) {",1)
-          m.write_text(s)
-
-          # Legacy migration cannot create duplicates or choose a bogus version on DB uncertainty.
-          mig=Path('includes/class-gdo-migration.php'); s=mig.read_text()
-          s=s.replace("\t\t\t\t$app = GDO_Application::latest_for_user( $user_id );", "\t\t\t\t$wpdb->last_error = '';\n\t\t\t\t$app = GDO_Application::latest_for_user( $user_id );\n\t\t\t\tif ( null === $app && ! empty( $wpdb->last_error ) ) {\n\t\t\t\t\tthrow new RuntimeException( 'Legacy File 09 application inventory could not be read safely.' );\n\t\t\t\t}",1)
-          s=s.replace("\t\t$existing = absint( $wpdb->get_var( $wpdb->prepare(", "\t\t$wpdb->last_error = '';\n\t\t$existing = absint( $wpdb->get_var( $wpdb->prepare(",1)
-          s=s.replace("\t\tif ( $existing ) {", "\t\tif ( ! empty( $wpdb->last_error ) ) {\n\t\t\tthrow new RuntimeException( 'Legacy credential duplicate state could not be read safely.' );\n\t\t}\n\t\tif ( $existing ) {",1)
-          s=s.replace("\t\t$version = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT MAX(version)", "\t\t$wpdb->last_error = '';\n\t\t$version_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT MAX(version)",1)
-          s=s.replace("' WHERE application_id=%d AND document_type=%s', $app->id, $type ) ) ) + 1;\n\t\t$meta =", "' WHERE application_id=%d AND document_type=%s', $app->id, $type ) );\n\t\tif ( ! empty( $wpdb->last_error ) ) {\n\t\t\tthrow new RuntimeException( 'Legacy credential version state could not be read safely.' );\n\t\t}\n\t\t$version = absint( $version_raw ) + 1;\n\t\t$meta =",1)
-          mig.write_text(s)
-
-          # Outbox duplicate recovery distinguishes DB uncertainty; persisted provider errors are minimized.
-          n=Path('includes/class-gdo-notifications.php'); s=n.read_text()
-          s=s.replace("\t\tif ( 1 !== $inserted ) {\n\t\t\t$existing = absint( $wpdb->get_var", "\t\tif ( 1 !== $inserted ) {\n\t\t\t$wpdb->last_error = '';\n\t\t\t$existing = absint( $wpdb->get_var",1)
-          s=s.replace("\t\t\tif ( ! $existing ) {", "\t\t\tif ( ! empty( $wpdb->last_error ) ) {\n\t\t\t\treturn new WP_Error( 'gdo_notification_outbox_query', __( 'The notification queue state could not be verified safely.', 'global-doctor-onboarding' ) );\n\t\t\t}\n\t\t\tif ( ! $existing ) {",1)
-          s=s.replace("\t\t\t} catch ( Throwable $e ) {\n\t\t\t\t$result = new WP_Error( 'gdo_outbox_exception', $e->getMessage() );\n\t\t\t}", "\t\t\t} catch ( Throwable $e ) {\n\t\t\t\tGDO_Membership_Adapter::audit( 'doctor_verification_outbox_provider_exception', array( 'event_uuid'=>$row->event_uuid, 'event_type'=>$row->event_type, 'exception_class'=>get_class( $e ), 'exception_digest'=>hash( 'sha256', $e->getMessage() ) ) );\n\t\t\t\t$result = new WP_Error( 'gdo_outbox_exception', __( 'Notification provider processing failed.', 'global-doctor-onboarding' ) );\n\t\t\t}",1)
-          s=s.replace("\t\t\t$error = is_wp_error( $result ) ? $result->get_error_code() . ': ' . $result->get_error_message() : 'Provider returned no explicit success.';", "\t\t\t$error = is_wp_error( $result ) ? sanitize_key( $result->get_error_code() ) : 'provider_no_explicit_success';",1)
-          n.write_text(s)
-
-          # Base Advanced Trust public methods remain safe even when called outside hardened REST overrides.
-          adv=Path('includes/class-gdo-advanced-trust.php'); s=adv.read_text()
-          s=s.replace("        $now = self::now();\n        $existing = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::table( 'jurisdiction_rules' )", "        $now = self::now();\n        $wpdb->last_error = '';\n        $existing = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::table( 'jurisdiction_rules' )",1)
-          s=s.replace("        $data = array(\n            'status'=>$status,", "        if ( null === $existing && ! empty( $wpdb->last_error ) ) {\n            return new WP_Error( 'gdo_jurisdiction_rule_query', __( 'Jurisdiction-rule state could not be read safely.', 'global-doctor-onboarding' ) );\n        }\n        $data = array(\n            'status'=>$status,",1)
-          s=s.replace("        $updated=$wpdb->update(self::table('reviewer_conflicts')", "        $updated=$wpdb->update(self::table('reviewer_conflicts')",1)
-          s=s.replace("        if(1!==$updated){return new WP_Error('gdo_conflict_resolve',__('The active reviewer conflict could not be resolved.','global-doctor-onboarding'));}", "        if(false===$updated){return new WP_Error('gdo_conflict_resolve_store',__('The reviewer conflict resolution could not be stored safely.','global-doctor-onboarding'));}\n        if(1!==$updated){return new WP_Error('gdo_conflict_resolve',__('The active reviewer conflict could not be resolved because its state changed.','global-doctor-onboarding'));}",1)
-          adv.write_text(s)
-
-          # Hardened scheduling distinguishes application DB uncertainty from not-found.
-          h=Path('includes/class-gdo-advanced-trust-hardening.php'); s=h.read_text()
-          s=s.replace("        $application_id = absint( $application_id );\n        if ( ! $application_id || ! GDO_Application::get( $application_id ) ) { return false; }",
-                      "        $application_id = absint( $application_id );\n        if ( ! $application_id ) { return false; }\n        $wpdb->last_error = '';\n        $application = GDO_Application::get( $application_id );\n        if ( null === $application && ! empty( $wpdb->last_error ) ) {\n            return new WP_Error( 'gdo_reverification_application_query', __( 'Professional application state could not be read safely for reverification scheduling.', 'global-doctor-onboarding' ) );\n        }\n        if ( ! $application ) { return false; }",1)
-          h.write_text(s)
-
-          # Event bridge does not silently drop an adverse fact when app lookup itself failed.
-          ev=Path('includes/class-gdo-advanced-trust-events.php'); s=ev.read_text()
-          s=s.replace("        $app = GDO_Application::get( $application_id );\n        if ( ! $app ) {\n            return;\n        }", "        global $wpdb;\n        $wpdb->last_error = '';\n        $app = GDO_Application::get( $application_id );\n        if ( null === $app && ! empty( $wpdb->last_error ) ) {\n            GDO_Membership_Adapter::audit( 'doctor_continuous_verification_application_read_failed', array( 'application_id'=>$application_id, 'result'=>$result ) );\n            return;\n        }\n        if ( ! $app ) {\n            return;\n        }",1)
-          ev.write_text(s)
-          PY
-
-          cat > .gitignore <<'EOF'
-          __pycache__/
-          *.py[cod]
-          .DS_Store
-          Thumbs.db
-          dist/
-          dist-*/
-          .env
-          .env.*
-          *.pem
-          *.key
-          *.p12
-          *.pfx
-          EOF
+          printf '%s\n' '__pycache__/' '*.py[cod]' '.DS_Store' 'Thumbs.db' 'dist/' 'dist-*/' '.env' '.env.*' '*.pem' '*.key' '*.p12' '*.pfx' > .gitignore
           git rm -r --ignore-unmatch tests/__pycache__
           git rm --ignore-unmatch .github/workflows/file09-r11-static-scan.yml
           git rm --ignore-unmatch .github/workflows/file09-r11-corrective.yml
+          git rm --ignore-unmatch .github/scripts/file09_r11_correct.py
           git diff --check
-          find includes -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-      - name: Commit R11 source corrections
-        shell: bash
+          find includes -type f -name '*.php' -print0 | sort -z | xargs -0 -n1 php -l
+      - name: Commit source corrections
         run: |
           git config user.name 'File09 Corrective Assurance Bot'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
