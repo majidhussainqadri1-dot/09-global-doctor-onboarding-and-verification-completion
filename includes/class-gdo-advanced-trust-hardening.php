@@ -444,9 +444,15 @@ final class GDO_Advanced_Trust_Hardening {
                 if ( ! in_array( sanitize_key( $evidence->document_type ), array( 'license','registration','professional_registration' ), true ) ) { continue; }
                 $check = GDO_Advanced_Trust::primary_source_verify( $app->id, $evidence->id );
                 if ( is_wp_error( $check ) ) {
-                    $provider_failure = true;
-                    if ( ! $adverse ) { $result = sanitize_key( $check->get_error_code() ); }
-                    continue;
+                    $check_error = sanitize_key( $check->get_error_code() );
+                    if ( 'gdo_primary_source_rate' === $check_error ) {
+                        $provider_failure = true;
+                        if ( ! $adverse ) { $result = $check_error; }
+                        continue;
+                    }
+                    self::release_monitor_claim( $app->id, 'trust_check_failed' );
+                    GDO_Membership_Adapter::audit( 'doctor_continuous_verification_internal_check_failed', array( 'application_id'=>$app->id, 'error'=>$check_error ) );
+                    return new WP_Error( 'gdo_trust_monitor_check_failed', __( 'A professional verification check could not complete safely because an internal dependency failed.', 'global-doctor-onboarding' ) );
                 }
                 $check_result = isset( $check['status'] ) ? sanitize_key( $check['status'] ) : 'provider_error';
                 if ( in_array( $check_result, array( 'revoked','expired','not_matched' ), true ) ) {
