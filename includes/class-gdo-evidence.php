@@ -141,6 +141,7 @@ final class GDO_Evidence {
 
     private static function quota_allows( $user_id, $new_size, $replacing_size = 0 ) {
         global $wpdb;
+        $wpdb->last_error = '';
         $raw_used = $wpdb->get_var( $wpdb->prepare(
             'SELECT COALESCE(SUM(file_size),0) FROM ' . GDO_Schema::table('evidence') . " WHERE user_id=%d AND retention_state='active' AND deleted_at IS NULL",
             absint( $user_id )
