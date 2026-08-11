@@ -357,8 +357,29 @@ final class GDO_Advanced_Trust_Hardening {
         $history = self::history_once( $app, 'verification_passport_issued', array( 'version'=>$version, 'expires_at'=>gmdate( 'c', $exp ) ), true );
         if ( is_wp_error( $history ) ) { $wpdb->query( 'ROLLBACK' ); return $history; }
         if ( false === $wpdb->query( 'COMMIT' ) ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_Error( 'gdo_passport_store', __( 'The professional verification passport could not be committed.', 'global-doctor-onboarding' ) );
+            // COMMIT acknowledgement can be ambiguous after the server has durably
+            // committed the transaction. Reconcile against the exact passport row
+            // before deciding whether a retry is safe.
+            $wpdb->last_error = '';
+            $committed = $wpdb->get_row( $wpdb->prepare(
+                "SELECT passport_uuid,user_id,application_id,version,status,token_hash FROM {$table} WHERE passport_uuid=%s LIMIT 1",
+                $uuid
+            ) );
+            if ( null === $committed && ! empty( $wpdb->last_error ) ) {
+                return new WP_Error( 'gdo_passport_commit_uncertain', __( 'The professional verification passport commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) );
+            }
+            $committed_ok = $committed
+                && (string) $committed->passport_uuid === (string) $uuid
+                && absint( $committed->user_id ) === absint( $app->user_id )
+                && absint( $committed->application_id ) === absint( $app->id )
+                && absint( $committed->version ) === absint( $version )
+                && 'active' === sanitize_key( $committed->status )
+                && hash_equals( (string) $committed->token_hash, hash( 'sha256', $token ) );
+            if ( ! $committed_ok ) {
+                $wpdb->query( 'ROLLBACK' );
+                return new WP_Error( 'gdo_passport_store', __( 'The professional verification passport could not be committed.', 'global-doctor-onboarding' ) );
+            }
+            GDO_Membership_Adapter::audit( 'doctor_verification_passport_commit_reconciled', array( 'application_id'=>$app->id, 'passport_uuid'=>$uuid, 'version'=>$version ) );
         }
         GDO_Membership_Adapter::audit( 'doctor_verification_passport_issued', array( 'application_id'=>$app->id, 'passport_uuid'=>$uuid, 'version'=>$version ) );
         return array( 'token'=>$token, 'passport_uuid'=>$uuid, 'verification_url'=>rest_url( GDO_Advanced_Trust::REST_NAMESPACE . '/public/passport/' . $uuid ), 'qr_payload'=>rest_url( GDO_Advanced_Trust::REST_NAMESPACE . '/public/passport/' . $uuid ) );
