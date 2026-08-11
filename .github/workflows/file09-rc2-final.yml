@@ -42,6 +42,7 @@ jobs:
           set -euo pipefail
           git diff --check
           test ! -f .gitmodules
+          test -z "$(find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -not -path './.git/*' -print -quit)"
           test -z "$(find . -type f \( -name '*.zip' -o -name '*.sql' -o -name '*.sqlite' -o -name '.env' -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -not -path './.git/*' -print -quit)"
           find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l
           node --check assets/js/onboarding.js
@@ -69,6 +70,7 @@ jobs:
           python3 tests/eighty-round-audit-r8.py
           python3 tests/eighty-round-audit-r9.py
           python3 tests/eighty-round-audit-r10.py
+          python3 tests/eighty-round-audit-r11.py
       - name: Exact-head source evidence
         run: |
           git rev-parse HEAD | tee exact-head.txt
