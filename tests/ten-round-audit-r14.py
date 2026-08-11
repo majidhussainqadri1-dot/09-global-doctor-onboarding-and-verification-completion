@@ -30,7 +30,9 @@ c(2,'License and professional-registration evidence share current-validity trust
   and evidence.count("'registration'") >= 3 and evidence.count("'professional_registration'") >= 3)
 
 c(3,'More-information/resubmission remains ownership/version/immutable-snapshot guarded',
-  has(frontend, 'gdo_file_resubmit', 'submission_hash') and has(state, 'row_version', 'FOR UPDATE') and has(app, 'submission_hash'))
+  has(app, "array( 'draft','more_information' )", "'resubmitted'", 'submission_hash', 'hash_equals')
+  and has(state, 'row_version', 'FOR UPDATE')
+  and has(evidence, "retention_state'=>'superseded'"))
 
 c(4,'Expiry truth is request-time checked and lifecycle reconciliation remains present',
   has(trust, 'function current_verification_expiry', '$expires > time()')
@@ -56,10 +58,9 @@ c(8,'Public License and Registration scope truths remain separate',
   and "if ( in_array( $evidence->document_type, array( 'license','registration','professional_registration' ), true ) )" not in matrix)
 
 c(9,'Security/private evidence and human-final-decision architecture remains intact',
-  has(trust, 'function issue_viewing_room_grant', "'download_allowed'=>false", 'GDO_Evidence::stage_upload')
+  has(trust, 'function issue_viewing_room_grant', "'download_allowed'=>false", 'GDO_Evidence::stage_upload', 'human_final_decision_required')
   and has(notify, 'sun.event.v1')
-  and 'wp_mail(' not in notify
-  and has(hard, 'human_final_decision_required'))
+  and 'wp_mail(' not in notify)
 
 c(10,'R14 ledger/release-lock/workflow evidence is permanent and temporary apply plumbing is absent',
   (root/'REVIEW-10-ROUNDS-RC6-R14.md').exists()
