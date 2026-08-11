@@ -112,17 +112,24 @@ final class GDO_Application {
 			}
 		}
 		$missing_evidence = array();
+		$query_error = false;
+		global $wpdb;
 		foreach ( array_keys( GDO_Policy::evidence_types( $application->jurisdiction, $application->application_type ) ) as $type ) {
+			$wpdb->last_error = '';
 			$record = GDO_Evidence::current( $application->id, $type );
+			if ( null === $record && ! empty( $wpdb->last_error ) ) { $query_error = true; }
 			if ( ! $record
 				|| ! in_array( $record->status, array( 'pending_review','accepted' ), true )
 				|| ( ! empty( $record->expires_at ) && strtotime( $record->expires_at . ' UTC' ) <= time() ) ) {
 				$missing_evidence[] = $type;
 			}
 		}
+		$wpdb->last_error = '';
 		$consent = self::active_consent( $application );
+		if ( ! empty( $wpdb->last_error ) ) { $query_error = true; }
 		return array(
-			'complete'=>! $missing_fields && ! $missing_evidence && $consent,
+			'complete'=>! $query_error && ! $missing_fields && ! $missing_evidence && $consent,
+			'query_error'=>$query_error,
 			'missing_fields'=>$missing_fields,
 			'missing_evidence'=>$missing_evidence,
 			'consent'=>$consent,
@@ -201,7 +208,11 @@ final class GDO_Application {
 
 	public static function save_draft( $application_id, $user_id, array $profile, $expected_row_version, $allow_incomplete = false ) {
 		global $wpdb;
+		$wpdb->last_error = '';
 		$app = self::get( $application_id );
+		if ( null === $app && ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_draft_application_query', __( 'The draft application could not be read safely.', 'global-doctor-onboarding' ) );
+		}
 		if ( ! GDO_Operations::mutation_allowed() ) {
 			return new WP_Error( 'gdo_safe_mode', __( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ) );
 		}
@@ -362,6 +373,10 @@ final class GDO_Application {
 		$profile = is_array( $profile ) ? $profile : array();
 		$valid = self::validate_profile( $profile, false, $app->jurisdiction, $app->application_type );
 		$complete = self::completeness( $app );
+		if ( ! empty( $complete['query_error'] ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'gdo_submit_completeness_query', __( 'Application completeness could not be verified safely because a database read failed.', 'global-doctor-onboarding' ) );
+		}
 		if ( is_wp_error( $valid ) || empty( $complete['complete'] ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'gdo_submit_incomplete', __( 'Complete all profile, declaration, consent, and current credential requirements before submission.', 'global-doctor-onboarding' ) );

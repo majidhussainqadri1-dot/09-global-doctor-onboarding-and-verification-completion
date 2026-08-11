@@ -20,7 +20,12 @@ final class GDO_Claims {
 		if ( $manage_transaction && false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'gdo_claim_transaction', __( 'The professional claim transaction could not be started safely.', 'global-doctor-onboarding' ) );
 		}
+		$wpdb->last_error = '';
 		$app = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE', $application_id ) );
+		if ( null === $app && ! empty( $wpdb->last_error ) ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_claim_application_query', __( 'The professional claim application state could not be read safely.', 'global-doctor-onboarding' ) );
+		}
 		if ( ! $app ) {
 			if ( $manage_transaction ) {
 				$wpdb->query( 'ROLLBACK' );

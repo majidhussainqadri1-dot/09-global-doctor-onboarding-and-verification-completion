@@ -54,7 +54,12 @@ final class GDO_State {
         if ( $manage_transaction && false === $wpdb->query( 'START TRANSACTION' ) ) {
             return new WP_Error( 'gdo_transaction_start_failed', __( 'The verification transaction could not be started safely.', 'global-doctor-onboarding' ) );
         }
+        $wpdb->last_error = '';
         $app = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id=%d FOR UPDATE", $application_id ) );
+        if ( null === $app && ! empty( $wpdb->last_error ) ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+            return new WP_Error( 'gdo_transition_application_query', __( 'The application state could not be locked/read safely for transition.', 'global-doctor-onboarding' ) );
+        }
         if ( ! $app || ! self::can_transition( $app->state, $to ) ) {
             if ( $manage_transaction ) {
                 $wpdb->query( 'ROLLBACK' );
