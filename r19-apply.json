@@ -1,0 +1,14 @@
+{
+  "replacements": [
+    {
+      "path": "includes/class-gdo-privacy.php",
+      "old": "\t\t\tif ( false === $wpdb->query( 'COMMIT' ) ) {\n\t\t\t\t$wpdb->query( 'ROLLBACK' );\n\t\t\t\t$retained = true;\n\t\t\t\t$messages[] = 'Erasure is paused because legal-hold eligibility could not be committed safely.';\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\t$deletion_failed = false;\n\t\t\t$evidence_rows = GDO_Evidence::records_checked( $app->id, false );\n\t\t\tif ( is_wp_error( $evidence_rows ) ) { $retained = true; $messages[] = 'Erasure is paused because credential evidence inventory could not be read safely.'; continue; }",
+      "new": "\t\t\t// Keep the application row lock through the irreversible native evidence\n\t\t\t// deletion phase. A legal-hold writer must serialize either before this\n\t\t\t// lock (and block erasure) or after this authorized deletion phase.\n\t\t\t$deletion_failed = false;\n\t\t\t$evidence_rows = GDO_Evidence::records_checked( $app->id, false );\n\t\t\tif ( is_wp_error( $evidence_rows ) ) { $wpdb->query( 'ROLLBACK' ); $retained = true; $messages[] = 'Erasure is paused because credential evidence inventory could not be read safely.'; continue; }"
+    },
+    {
+      "path": "includes/class-gdo-privacy.php",
+      "old": "\t\t\tif ( $deletion_failed ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\tif ( class_exists( 'GDO_Advanced_Trust_Hardening' ) ) {",
+      "new": "\t\t\tif ( $deletion_failed ) {\n\t\t\t\t$wpdb->query( 'ROLLBACK' );\n\t\t\t\tcontinue;\n\t\t\t}\n\t\t\tif ( false === $wpdb->query( 'COMMIT' ) ) {\n\t\t\t\t$wpdb->query( 'ROLLBACK' );\n\t\t\t\t$retained = true;\n\t\t\t\t$messages[] = 'Erasure native-evidence deletion checkpoint has an uncertain database commit and requires reconciliation.';\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\tif ( class_exists( 'GDO_Advanced_Trust_Hardening' ) ) {"
+    }
+  ]
+}
