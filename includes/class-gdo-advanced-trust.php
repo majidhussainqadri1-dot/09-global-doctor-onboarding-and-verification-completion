@@ -637,7 +637,11 @@ final class GDO_Advanced_Trust {
     }
 
     private static function evidence_record( $application_id, $evidence_id ) {
-        foreach ( GDO_Evidence::records( absint( $application_id ), true ) as $item ) {
+        $records = GDO_Evidence::records_checked( absint( $application_id ), true );
+        if ( is_wp_error( $records ) ) {
+            return $records;
+        }
+        foreach ( $records as $item ) {
             if ( absint( $item->id ) === absint( $evidence_id ) ) {
                 return $item;
             }
@@ -648,6 +652,7 @@ final class GDO_Advanced_Trust {
     public static function primary_source_verify( $application_id, $evidence_id ) {
         $app = GDO_Application::get( $application_id );
         $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;
+        if ( is_wp_error( $record ) ) { return $record; }
         if ( ! $app || ! $record ) {
             return new WP_Error( 'gdo_evidence_missing', __( 'Application or evidence was not found.', 'global-doctor-onboarding' ) );
         }
@@ -695,6 +700,7 @@ final class GDO_Advanced_Trust {
     public static function authenticity_assessment( $application_id, $evidence_id ) {
         $app = GDO_Application::get( $application_id );
         $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;
+        if ( is_wp_error( $record ) ) { return $record; }
         if ( ! $app || ! $record ) { return new WP_Error( 'gdo_evidence_missing', __( 'Application or evidence was not found.', 'global-doctor-onboarding' ) ); }
         global $wpdb;
         $wpdb->last_error = '';
@@ -730,6 +736,7 @@ final class GDO_Advanced_Trust {
 
     public static function translation_assistance( $application_id, $evidence_id, $target_locale ) {
         $app=GDO_Application::get($application_id); $record=$app?self::evidence_record($app->id,$evidence_id):null;
+        if(is_wp_error($record)){return $record;}
         if(!$app||!$record){return new WP_Error('gdo_evidence_missing',__('Application or evidence was not found.','global-doctor-onboarding'));}
         $locale=function_exists('sanitize_locale_name')?sanitize_locale_name($target_locale):preg_replace('/[^A-Za-z0-9_-]/','',(string)$target_locale);
         $payload=array('application_id'=>absint($application_id),'evidence_id'=>absint($evidence_id),'target_locale'=>substr((string)$locale,0,20));
@@ -741,6 +748,7 @@ final class GDO_Advanced_Trust {
 
     public static function ai_assistance( $application_id, $evidence_id ) {
         $app=GDO_Application::get($application_id); $record=$app?self::evidence_record($app->id,$evidence_id):null;
+        if(is_wp_error($record)){return $record;}
         if(!$app||!$record){return new WP_Error('gdo_evidence_missing',__('Application or evidence was not found.','global-doctor-onboarding'));}
         if(!GDO_Rate_Limiter::hit('ai-evidence-assist:'.absint($application_id),20,HOUR_IN_SECONDS)){return new WP_Error('gdo_ai_rate',__('Too many AI evidence-assistance requests.','global-doctor-onboarding'));}
         $payload=array('application_id'=>absint($application_id),'evidence_id'=>absint($evidence_id),'document_type'=>$record->document_type,'allowed_tasks'=>array('classification','field_extraction','expiry_detection','mismatch_highlighting','duplicate_clues'));
@@ -1080,6 +1088,7 @@ final class GDO_Advanced_Trust {
         }
         $app = GDO_Application::get( $application_id );
         $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;
+        if ( is_wp_error( $record ) ) { return $record; }
         if ( ! $app || ! $record ) { return new WP_Error( 'gdo_room_not_found', __( 'The requested credential review room is unavailable.', 'global-doctor-onboarding' ) ); }
         $grant = GDO_Evidence::issue_view_grant( $record->id, absint( $reviewer_id ), $purpose, 'view' );
         if ( is_wp_error( $grant ) ) { return $grant; }
