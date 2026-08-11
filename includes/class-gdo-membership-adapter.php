@@ -40,7 +40,12 @@ final class GDO_Membership_Adapter {
 		if ( ! self::available() || ! $user_id ) {
 			return array();
 		}
-		$assertion = SMC_Contracts::assertions( $user_id );
+		try {
+			$assertion = SMC_Contracts::assertions( $user_id );
+		} catch ( Throwable $e ) {
+			unset( $e );
+			return array();
+		}
 		return self::valid_base_assertion( $assertion, $user_id ) ? $assertion : array();
 	}
 
@@ -55,7 +60,12 @@ final class GDO_Membership_Adapter {
 			'trace_id'     => wp_generate_uuid4(),
 			'jurisdiction' => strtoupper( preg_replace( '/[^A-Z]/i', '', (string) $jurisdiction ) ),
 		);
-		$assertion = SMC_CF01_Contract::membership_assertion( $user_id, $context );
+		try {
+			$assertion = SMC_CF01_Contract::membership_assertion( $user_id, $context );
+		} catch ( Throwable $e ) {
+			unset( $e );
+			return array();
+		}
 		return self::valid_membership_assertion( $assertion ) ? $assertion : array();
 	}
 
@@ -68,7 +78,10 @@ final class GDO_Membership_Adapter {
 		if ( ! $base ) {
 			return array();
 		}
-		$profile = function_exists( 'smc_get_profile' ) ? (array) smc_get_profile( $user_id ) : array();
+		$profile = array();
+		if ( function_exists( 'smc_get_profile' ) ) {
+			try { $profile = (array) smc_get_profile( $user_id ); } catch ( Throwable $e ) { unset( $e ); $profile = array(); }
+		}
 		$subject = self::membership_assertion( $user_id );
 		$profile['account_type']      = sanitize_key( $base['membership_type'] );
 		$profile['membership_status'] = sanitize_key( $base['status'] );
@@ -258,7 +271,12 @@ final class GDO_Membership_Adapter {
 		if ( ! self::authentication_available() || ! $user_id || $user_id !== get_current_user_id() ) {
 			return false;
 		}
-		$receipt = SA_Professional_Reauthentication::assertion( $user_id, self::review_scope( $user_id ) );
+		try {
+			$receipt = SA_Professional_Reauthentication::assertion( $user_id, self::review_scope( $user_id ) );
+		} catch ( Throwable $e ) {
+			unset( $e );
+			return false;
+		}
 		if ( ! self::valid_reauthentication( $receipt, true ) ) {
 			return false;
 		}
@@ -271,15 +289,20 @@ final class GDO_Membership_Adapter {
 		if ( ! self::authentication_available() || ! $user_id || $user_id !== get_current_user_id() ) {
 			return new WP_Error( 'gdo_step_up_unavailable', __( 'File 02 professional reauthentication is unavailable.', 'global-doctor-onboarding' ) );
 		}
-		$receipt = SA_Professional_Reauthentication::verify_and_record(
-			$user_id,
-			(string) $password,
-			(string) $otp,
-			array(
-				'scope'    => self::review_scope( $user_id ),
-				'trace_id' => wp_generate_uuid4(),
-			)
-		);
+		try {
+			$receipt = SA_Professional_Reauthentication::verify_and_record(
+				$user_id,
+				(string) $password,
+				(string) $otp,
+				array(
+					'scope'    => self::review_scope( $user_id ),
+					'trace_id' => wp_generate_uuid4(),
+				)
+			);
+		} catch ( Throwable $e ) {
+			unset( $e );
+			return new WP_Error( 'gdo_step_up_dependency_failure', __( 'File 02 professional reauthentication could not be completed safely.', 'global-doctor-onboarding' ) );
+		}
 		if ( ! self::valid_reauthentication( $receipt, true ) || ! self::subject_matches( $user_id, $receipt['subject_uuid'] ) ) {
 			$reason = is_array( $receipt ) && isset( $receipt['reason_code'] ) ? sanitize_key( $receipt['reason_code'] ) : 'contract_invalid';
 			return new WP_Error( 'gdo_step_up_' . $reason, __( 'Password and Authenticator verification failed or expired.', 'global-doctor-onboarding' ) );
@@ -291,7 +314,7 @@ final class GDO_Membership_Adapter {
 	public static function clear_step_up( $user_id = 0 ) {
 		$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
 		if ( $user_id && self::authentication_available() && is_callable( array( 'SA_Professional_Reauthentication', 'clear_current_session' ) ) ) {
-			SA_Professional_Reauthentication::clear_current_session();
+			try { SA_Professional_Reauthentication::clear_current_session(); } catch ( Throwable $e ) { unset( $e ); }
 		}
 	}
 
