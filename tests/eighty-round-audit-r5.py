@@ -51,7 +51,7 @@ c(42,'Destructive uninstall verifies table and option removal',has(uninstall,'SH
 c(43,'Destructive uninstall clears recurring monitor and wakeup hook',has(uninstall,'gdo_trust_continuous_monitor','gdo_trust_reverification_wakeup'))
 c(44,'Default uninstall remains non-destructive without triple authorization',has(uninstall,'SABRI_ALLOW_DESTRUCTIVE_UNINSTALL','gdo_allow_destructive_uninstall','gdo_destructive_uninstall_confirmation','return;'))
 c(45,'Privacy legal-hold/erasure controls remain present',has(privacy,'legal_hold','erasure'))
-c(46,'Physical evidence deletion proof remains present',has(privacy,'delete_verified','deletion_proof'))
+c(46,'Physical evidence deletion proof remains present',has(evidence,'function delete_record_safely','deletion_proof','deletion_pending_erasure','deletion_pending_retention') and has(privacy,'GDO_Evidence::delete_record_safely') and has(retention,'GDO_Evidence::delete_record_safely'))
 c(47,'Retention still fails closed when runtime is unavailable',has(retention,'gdo_retention_runtime_not_ready','mutation_allowed'))
 c(48,'Retention still propagates each checked maintenance error',has(retention,'retention_failure','doctor_verification_retention_failed'))
 c(49,'Renewal and expiry remain transactionally coupled to claim/outbox',has(retention,'GDO_Claims::issue','GDO_Notifications::queue','START TRANSACTION'))
