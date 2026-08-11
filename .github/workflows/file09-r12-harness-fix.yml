@@ -1,0 +1,41 @@
+name: File09 R12 Historical Harness Compatibility Fix
+
+on:
+  push:
+    branches: [codex/file09-1.3.0-rc6-80-round-review]
+    paths: ['.github/workflows/file09-r12-harness-fix.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: codex/file09-1.3.0-rc6-80-round-review
+          fetch-depth: 0
+      - name: Adapt R9 historical assertion to stronger checked evidence inventory
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/eighty-round-audit-r9.py')
+          s=p.read_text(encoding='utf-8')
+          old="'GDO_Evidence::records( $app->id, true )'"
+          new="'GDO_Evidence::records_checked( $app->id, true )'"
+          if old not in s:
+              raise SystemExit('expected historical R9 token not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+          git diff --check
+      - name: Commit harness correction and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name 'File09 Corrective Assurance Bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/file09-r12-harness-fix.yml
+          git add tests/eighty-round-audit-r9.py
+          git commit -m 'test(file09): adapt historical R9 gate to checked evidence reads'
+          git push origin HEAD:codex/file09-1.3.0-rc6-80-round-review
