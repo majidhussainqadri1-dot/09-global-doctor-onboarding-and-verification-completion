@@ -1,11 +1,17 @@
 {
-  "round": "R07",
+  "round": "R08",
   "replacements": [
     {
-      "path": "includes/class-gdo-notifications.php",
+      "path": "includes/class-gdo-migration.php",
       "count": 1,
-      "old": "\t\t$application_id = absint( isset( $payload['application_id'] ) ? $payload['application_id'] : 0 );\n\t\t$claim_version = absint( isset( $claim['claim_version'] ) ? $claim['claim_version'] : 0 );\n\t\tif ( ! GDO_Claims::acknowledge( $application_id, $claim_version, 'accepted', '' ) ) {\n\t\t\treturn new WP_Error( 'gdo_claim_ack_failed', 'File 09 could not record the File 00 claim acknowledgment.' );\n\t\t}\n\t\treturn true;",
-      "new": "\t\t$application_id = absint( isset( $payload['application_id'] ) ? $payload['application_id'] : 0 );\n\t\t$claim_version = absint( isset( $claim['claim_version'] ) ? $claim['claim_version'] : 0 );\n\t\t$acknowledged = GDO_Claims::acknowledge( $application_id, $claim_version, 'accepted', '' );\n\t\tif ( is_wp_error( $acknowledged ) ) {\n\t\t\treturn new WP_Error( 'gdo_claim_ack_failed', 'File 09 could not persist the File 00 claim acknowledgment safely.' );\n\t\t}\n\t\tif ( ! $acknowledged ) {\n\t\t\treturn new WP_Error( 'gdo_claim_ack_failed', 'File 09 could not record the File 00 claim acknowledgment.' );\n\t\t}\n\t\treturn true;"
+      "old": "\tpublic static function maybe_run() {\n\t\t$current = absint( get_option( 'gdo_schema_version', 0 ) );",
+      "new": "\tpublic static function maybe_run() {\n\t\tglobal $wpdb;\n\t\t$current = absint( get_option( 'gdo_schema_version', 0 ) );"
+    },
+    {
+      "path": "includes/class-gdo-migration.php",
+      "count": 1,
+      "old": "\t\t$token = wp_generate_uuid4();\n\t\tif ( ! add_option( self::LOCK_OPTION, array( 'token'=>$token, 'started_at'=>time() ), '', false ) ) {\n\t\t\t$lock = (array) get_option( self::LOCK_OPTION, array() );\n\t\t\tif ( empty( $lock['started_at'] ) || absint( $lock['started_at'] ) > time() - 15 * MINUTE_IN_SECONDS ) {\n\t\t\t\treturn new WP_Error( 'gdo_migration_locked', __( 'Another File 09 schema migration is already running.', 'global-doctor-onboarding' ) );\n\t\t\t}\n\t\t\tdelete_option( self::LOCK_OPTION );\n\t\t\tif ( ! add_option( self::LOCK_OPTION, array( 'token'=>$token, 'started_at'=>time() ), '', false ) ) {\n\t\t\t\treturn new WP_Error( 'gdo_migration_locked', __( 'File 09 could not acquire its migration lock.', 'global-doctor-onboarding' ) );\n\t\t\t}\n\t\t}",
+      "new": "\t\t$token = wp_generate_uuid4();\n\t\t$new_lock = array( 'token'=>$token, 'started_at'=>time() );\n\t\tif ( ! add_option( self::LOCK_OPTION, $new_lock, '', false ) ) {\n\t\t\t$lock = (array) get_option( self::LOCK_OPTION, array() );\n\t\t\tif ( empty( $lock['started_at'] ) || absint( $lock['started_at'] ) > time() - 15 * MINUTE_IN_SECONDS ) {\n\t\t\t\treturn new WP_Error( 'gdo_migration_locked', __( 'Another File 09 schema migration is already running.', 'global-doctor-onboarding' ) );\n\t\t\t}\n\n\t\t\t// Stale takeover is an atomic compare-and-swap. Never delete the\n\t\t\t// option after a stale read because another worker may already have\n\t\t\t// replaced it with a fresh lock in that interval.\n\t\t\t$wpdb->last_error = '';\n\t\t\t$swapped = $wpdb->update(\n\t\t\t\t$wpdb->options,\n\t\t\t\tarray( 'option_value'=>maybe_serialize( $new_lock ) ),\n\t\t\t\tarray( 'option_name'=>self::LOCK_OPTION, 'option_value'=>maybe_serialize( $lock ) ),\n\t\t\t\tarray( '%s' ),\n\t\t\t\tarray( '%s','%s' )\n\t\t\t);\n\t\t\tif ( 1 !== $swapped || ! empty( $wpdb->last_error ) ) {\n\t\t\t\treturn new WP_Error( 'gdo_migration_locked', __( 'File 09 could not acquire the stale migration lock safely.', 'global-doctor-onboarding' ) );\n\t\t\t}\n\t\t\twp_cache_delete( self::LOCK_OPTION, 'options' );\n\t\t}"
     }
   ]
 }
