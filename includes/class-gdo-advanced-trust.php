@@ -683,7 +683,12 @@ final class GDO_Advanced_Trust {
             'jurisdiction'=>$app->jurisdiction, 'issuer_uuid'=>$issuer->issuer_uuid,
             'license_number'=>isset( $profile['license_number'] ) ? substr( sanitize_text_field( $profile['license_number'] ), 0, 120 ) : '',
         );
-        $request = (array) apply_filters( 'gdo_primary_source_request_minimized', $request, absint( $app->id ), absint( $record->id ), sanitize_text_field( $issuer->issuer_uuid ) );
+        try {
+            $request = (array) apply_filters( 'gdo_primary_source_request_minimized', $request, absint( $app->id ), absint( $record->id ), sanitize_text_field( $issuer->issuer_uuid ) );
+        } catch ( Throwable $e ) {
+            unset( $e );
+            return self::record_check( $app->id, $record->id, 'primary_source', $issuer->adapter_key ? $issuer->adapter_key : 'configured', 'provider_unavailable', 0, array( 'issuer_uuid'=>$issuer->issuer_uuid ), array( 'reason'=>'request_filter_exception' ) );
+        }
         // Extension filters may narrow the request, but may never widen it with
         // profile/evidence/private storage fields. Re-allowlist after filtering.
         $request = array_intersect_key( self::sanitize_provider_array( $request ), array_flip( array( 'application_id','evidence_id','document_type','jurisdiction','issuer_uuid','license_number' ) ) );
@@ -738,7 +743,12 @@ final class GDO_Advanced_Trust {
         if ( ! $app ) { return new WP_Error( 'gdo_app_missing', __( 'Application not found.', 'global-doctor-onboarding' ) ); }
         $profile = json_decode( $app->profile_json, true ); $profile = is_array($profile) ? $profile : array();
         $request = array( 'qualification'=>isset($profile['qualification'])?substr(sanitize_text_field($profile['qualification']),0,240):'', 'source_jurisdiction'=>isset($profile['license_jurisdiction'])?self::normalize_jurisdiction($profile['license_jurisdiction']):'', 'target_jurisdiction'=>self::normalize_jurisdiction($app->jurisdiction) );
-        $result = apply_filters( 'gdo_credential_equivalency_assessment', null, $request );
+        try {
+            $result = apply_filters( 'gdo_credential_equivalency_assessment', null, $request );
+        } catch ( Throwable $e ) {
+            unset( $e );
+            $result = array( 'status'=>'manual_review_required', 'facts'=>$request, 'explanation'=>array( 'reason'=>'provider_exception' ) );
+        }
         if ( ! is_array($result) ) { $result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'no_equivalency_adapter')); }
         return self::record_check( $app->id, 0, 'equivalency', isset($result['provider'])?$result['provider']:'unconfigured', isset($result['status'])?$result['status']:'manual_review_required', isset($result['confidence'])?$result['confidence']:0, isset($result['facts'])&&is_array($result['facts'])?$result['facts']:$request, isset($result['explanation'])&&is_array($result['explanation'])?$result['explanation']:array('legal_license_grant'=>false) );
     }
@@ -748,7 +758,12 @@ final class GDO_Advanced_Trust {
         if(is_wp_error($app)){return $app;}
         if(!$app){return new WP_Error('gdo_app_missing',__('Application not found.','global-doctor-onboarding'));}
         $request=array('institution'=>substr(sanitize_text_field($institution),0,240),'application_id'=>absint($app->id),'jurisdiction'=>$app->jurisdiction);
-        $result=apply_filters('gdo_institutional_affiliation_verification',null,$request);
+        try {
+            $result=apply_filters('gdo_institutional_affiliation_verification',null,$request);
+        } catch ( Throwable $e ) {
+            unset( $e );
+            $result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'provider_exception'));
+        }
         if(!is_array($result)){$result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'no_affiliation_adapter'));}
         return self::record_check($app->id,0,'affiliation',isset($result['provider'])?$result['provider']:'unconfigured',isset($result['status'])?$result['status']:'manual_review_required',isset($result['confidence'])?$result['confidence']:0,isset($result['facts'])&&is_array($result['facts'])?$result['facts']:$request,isset($result['explanation'])&&is_array($result['explanation'])?$result['explanation']:array());
     }
@@ -759,7 +774,12 @@ final class GDO_Advanced_Trust {
         if(!$app||!$record){return new WP_Error('gdo_evidence_missing',__('Application or evidence was not found.','global-doctor-onboarding'));}
         $locale=function_exists('sanitize_locale_name')?sanitize_locale_name($target_locale):preg_replace('/[^A-Za-z0-9_-]/','',(string)$target_locale);
         $payload=array('application_id'=>absint($application_id),'evidence_id'=>absint($evidence_id),'target_locale'=>substr((string)$locale,0,20));
-        $result=apply_filters('gdo_credential_translation_assistance',null,$payload);
+        try {
+            $result=apply_filters('gdo_credential_translation_assistance',null,$payload);
+        } catch ( Throwable $e ) {
+            unset( $e );
+            $result=array('status'=>'unavailable','translation'=>'','provider'=>'exception');
+        }
         if(!is_array($result)){$result=array('status'=>'unavailable','translation'=>'','provider'=>'unconfigured');}
         $facts=array('target_locale'=>$payload['target_locale'],'translation'=>substr(sanitize_textarea_field(isset($result['translation'])?$result['translation']:''),0,12000),'original_remains_authoritative'=>true);
         return self::record_check($application_id,$evidence_id,'translation',isset($result['provider'])?$result['provider']:'unconfigured',isset($result['status'])?$result['status']:'unavailable',isset($result['confidence'])?$result['confidence']:0,$facts,array('decision_authority'=>'human_reviewer'));
@@ -771,7 +791,12 @@ final class GDO_Advanced_Trust {
         if(!$app||!$record){return new WP_Error('gdo_evidence_missing',__('Application or evidence was not found.','global-doctor-onboarding'));}
         if(!GDO_Rate_Limiter::hit('ai-evidence-assist:'.absint($application_id),20,HOUR_IN_SECONDS)){return new WP_Error('gdo_ai_rate',__('Too many AI evidence-assistance requests.','global-doctor-onboarding'));}
         $payload=array('application_id'=>absint($application_id),'evidence_id'=>absint($evidence_id),'document_type'=>$record->document_type,'allowed_tasks'=>array('classification','field_extraction','expiry_detection','mismatch_highlighting','duplicate_clues'));
-        $result=apply_filters('gdo_ai_evidence_assistance',null,$payload);
+        try {
+            $result=apply_filters('gdo_ai_evidence_assistance',null,$payload);
+        } catch ( Throwable $e ) {
+            unset( $e );
+            $result=array('status'=>'unavailable','provider'=>'exception','hints'=>array());
+        }
         if(!is_array($result)){$result=array('status'=>'unavailable','provider'=>'unconfigured','hints'=>array());}
         unset($result['decision'],$result['approve'],$result['reject'],$result['professional_status'],$result['clinical_authorization']);
         $hints=isset($result['hints'])&&is_array($result['hints'])?array_slice(self::sanitize_provider_array($result['hints']),0,50):array();
