@@ -1,0 +1,49 @@
+name: File 09 R18 corrective apply
+
+on:
+  push:
+    branches:
+      - codex/file09-1.3.0-rc6-80-round-review
+    paths:
+      - r18-apply.json
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: codex/file09-1.3.0-rc6-80-round-review
+          fetch-depth: 0
+      - name: Apply exact corrective replacements
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          spec=json.loads(Path('r18-apply.json').read_text(encoding='utf-8'))
+          changed=[]
+          for item in spec.get('replacements',[]):
+              p=Path(item['path'])
+              s=p.read_text(encoding='utf-8')
+              old=item['old']; new=item['new']
+              count=s.count(old)
+              expected=int(item.get('count',1))
+              if count != expected:
+                  raise SystemExit(f"{p}: expected {expected} exact matches, found {count}")
+              p.write_text(s.replace(old,new),encoding='utf-8')
+              changed.append(str(p))
+          print('changed:', ', '.join(changed))
+          PY
+          git diff --check
+          find includes -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Commit correction
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(file09): apply R18 corrective round"
+          git push origin HEAD:codex/file09-1.3.0-rc6-80-round-review
