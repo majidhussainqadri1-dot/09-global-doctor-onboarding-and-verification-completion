@@ -132,7 +132,11 @@ final class GDO_Notifications {
 		}
 		$application_id = absint( isset( $payload['application_id'] ) ? $payload['application_id'] : 0 );
 		$claim_version = absint( isset( $claim['claim_version'] ) ? $claim['claim_version'] : 0 );
-		if ( ! GDO_Claims::acknowledge( $application_id, $claim_version, 'accepted', '' ) ) {
+		$acknowledged = GDO_Claims::acknowledge( $application_id, $claim_version, 'accepted', '' );
+		if ( is_wp_error( $acknowledged ) ) {
+			return new WP_Error( 'gdo_claim_ack_failed', 'File 09 could not persist the File 00 claim acknowledgment safely.' );
+		}
+		if ( ! $acknowledged ) {
 			return new WP_Error( 'gdo_claim_ack_failed', 'File 09 could not record the File 00 claim acknowledgment.' );
 		}
 		return true;
