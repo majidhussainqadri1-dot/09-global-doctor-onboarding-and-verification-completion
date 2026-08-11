@@ -552,6 +552,75 @@ final class GDO_Evidence {
         return $proof;
     }
 
+    /**
+     * Recover database truth after an already-authorized physical unlink when
+     * the surrounding transaction outcome was lost or rolled back. This path
+     * is intentionally unavailable while the ciphertext still exists.
+     */
+    public static function reconcile_authorized_missing_deletion( $record, $final_state = 'deleted', $now = '' ) {
+        global $wpdb;
+        $pending_states = array(
+            'deleted'            => 'deletion_pending_erasure',
+            'retention_deleted'  => 'deletion_pending_retention',
+            'superseded_deleted' => 'deletion_pending_superseded',
+        );
+        $final_state = sanitize_key( $final_state );
+        $id = is_object( $record ) ? absint( $record->id ) : 0;
+        $storage_name = is_object( $record ) ? (string) $record->storage_name : '';
+        $ciphertext_sha256 = is_object( $record ) ? (string) $record->ciphertext_sha256 : '';
+        if ( ! $id || ! isset( $pending_states[ $final_state ] ) || ! $storage_name || ! preg_match( '/^[a-f0-9]{64}$/', $ciphertext_sha256 ) ) {
+            return new WP_Error( 'gdo_delete_recovery_invalid', __( 'Credential deletion recovery data are invalid.', 'global-doctor-onboarding' ) );
+        }
+        $path = GDO_Storage::path( $storage_name );
+        if ( is_file( $path ) ) {
+            return false;
+        }
+        $wpdb->last_error = '';
+        $current = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id=%d', $id ) );
+        if ( null === $current && ! empty( $wpdb->last_error ) ) {
+            return new WP_Error( 'gdo_delete_recovery_query', __( 'Credential deletion recovery state could not be read safely.', 'global-doctor-onboarding' ) );
+        }
+        if ( ! $current ) {
+            return new WP_Error( 'gdo_delete_recovery_missing', __( 'Credential deletion recovery record is unavailable.', 'global-doctor-onboarding' ) );
+        }
+        if ( ! empty( $current->deleted_at ) && $final_state === sanitize_key( $current->retention_state ) && preg_match( '/^[a-f0-9]{64}$/', (string) $current->deletion_proof ) ) {
+            return (string) $current->deletion_proof;
+        }
+        $pending_state = $pending_states[ $final_state ];
+        if ( $pending_state !== sanitize_key( $current->retention_state ) ) {
+            if ( ! hash_equals( $storage_name, (string) $current->storage_name ) || ! hash_equals( $ciphertext_sha256, (string) $current->ciphertext_sha256 ) ) {
+                return new WP_Error( 'gdo_delete_recovery_conflict', __( 'Credential deletion recovery stopped because database storage truth changed.', 'global-doctor-onboarding' ) );
+            }
+            $now = $now ? sanitize_text_field( $now ) : current_time( 'mysql', true );
+            $prepared = $wpdb->update(
+                GDO_Schema::table( 'evidence' ),
+                array(
+                    'user_id'=>0, 'retention_state'=>$pending_state, 'deletion_proof'=>null,
+                    'original_name'=>'erasure-pending', 'source_sha256'=>'', 'content_hmac'=>'', 'key_id'=>'',
+                    'scan_reference'=>null, 'checklist_json'=>null, 'findings_json'=>null, 'review_note'=>null,
+                    'registry_source'=>null, 'reviewer_id'=>null, 'reviewed_at'=>null, 'validity_from'=>null,
+                    'validity_until'=>null, 'updated_at'=>$now,
+                ),
+                array( 'id'=>$id, 'storage_name'=>$storage_name, 'ciphertext_sha256'=>$ciphertext_sha256 ),
+                null,
+                array( '%d','%s','%s' )
+            );
+            if ( 1 !== $prepared ) {
+                return new WP_Error( 'gdo_delete_recovery_store', __( 'Credential deletion recovery checkpoint could not be persisted safely.', 'global-doctor-onboarding' ) );
+            }
+        }
+        $wpdb->last_error = '';
+        $pending = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id=%d', $id ) );
+        if ( ! $pending || ! empty( $wpdb->last_error ) ) {
+            return new WP_Error( 'gdo_delete_recovery_recheck', __( 'Credential deletion recovery checkpoint could not be revalidated safely.', 'global-doctor-onboarding' ) );
+        }
+        $proof = self::delete_record_safely( $pending, $final_state, $now );
+        if ( ! is_wp_error( $proof ) ) {
+            GDO_Membership_Adapter::audit( 'doctor_credential_missing_file_deletion_reconciled', array( 'application_id'=>absint($pending->application_id), 'evidence_id'=>$id, 'final_state'=>$final_state ) );
+        }
+        return $proof;
+    }
+
     public static function decrypt_record( $record ) {
         global $wpdb;
         $wpdb->last_error = '';

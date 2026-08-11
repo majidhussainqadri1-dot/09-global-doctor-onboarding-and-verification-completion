@@ -133,11 +133,26 @@ final class GDO_Privacy {
 				}
 				$result = GDO_State::transition( $current->id, 'revoked', 0, 'privacy_erasure', 'Public verification was revoked before personal-data erasure.', $current->row_version, false );
 				$claim = is_wp_error( $result ) ? $result : GDO_Claims::issue( $current->id, 'revoked', array(), false );
-				if ( is_wp_error( $result ) || is_wp_error( $claim ) || false === $wpdb->query( 'COMMIT' ) ) {
+				if ( is_wp_error( $result ) || is_wp_error( $claim ) ) {
 					$wpdb->query( 'ROLLBACK' );
 					$retained = true;
-					$messages[] = is_wp_error( $result ) ? $result->get_error_message() : ( is_wp_error( $claim ) ? $claim->get_error_message() : 'Erasure is paused until revocation and claim propagation can commit atomically.' );
+					$messages[] = is_wp_error( $result ) ? $result->get_error_message() : $claim->get_error_message();
 					continue;
+				}
+				if ( false === $wpdb->query( 'COMMIT' ) ) {
+					$wpdb->query( 'ROLLBACK' );
+					$wpdb->last_error = '';
+					$committed = $wpdb->get_row( $wpdb->prepare( 'SELECT state,claim_version FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d LIMIT 1', absint( $current->id ) ) );
+					$app_read_error = ! empty( $wpdb->last_error );
+					$wpdb->last_error = '';
+					$outbox_id = is_array( $claim ) && ! empty( $claim['event_id'] ) ? absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_uuid=%s LIMIT 1', (string) $claim['event_id'] ) ) ) : 0;
+					$outbox_read_error = ! empty( $wpdb->last_error );
+					if ( $app_read_error || $outbox_read_error || ! $committed || 'revoked' !== sanitize_key( $committed->state ) || absint( $committed->claim_version ) !== absint( $claim['claim_version'] ) || ! $outbox_id ) {
+						$retained = true;
+						$messages[] = 'Erasure is paused because revocation commit outcome could not be reconciled safely.';
+						continue;
+					}
+					GDO_Membership_Adapter::audit( 'doctor_privacy_revocation_commit_reconciled', array( 'application_id'=>absint($current->id), 'claim_version'=>absint($claim['claim_version']) ) );
 				}
 				GDO_Audit::publish_transition( $result );
 				GDO_Claims::publish( $claim );
@@ -204,14 +219,27 @@ final class GDO_Privacy {
 				}
 				$removed = true;
 			}
-			if ( $deletion_failed ) {
+			// Never roll back database truth for files already unlinked. Commit the
+			// successful/pending deletion records even when another record failed.
+			$native_commit = $wpdb->query( 'COMMIT' );
+			if ( false === $native_commit ) {
 				$wpdb->query( 'ROLLBACK' );
-				continue;
+				$all_final = true;
+				foreach ( $evidence_rows as $record ) {
+					if ( ! empty( $record->deleted_at ) ) { continue; }
+					$recovered = GDO_Evidence::reconcile_authorized_missing_deletion( $record, 'deleted', current_time( 'mysql', true ) );
+					if ( false === $recovered ) { $all_final = false; continue; }
+					if ( is_wp_error( $recovered ) ) { $all_final = false; $messages[] = $recovered->get_error_message(); }
+				}
+				if ( ! $all_final ) {
+					$retained = true;
+					$messages[] = 'Erasure native-evidence deletion commit required recovery; remaining records will be retried safely.';
+					continue;
+				}
+				GDO_Membership_Adapter::audit( 'doctor_privacy_native_deletion_commit_reconciled', array( 'application_id'=>absint($app->id) ) );
 			}
-			if ( false === $wpdb->query( 'COMMIT' ) ) {
-				$wpdb->query( 'ROLLBACK' );
+			if ( $deletion_failed ) {
 				$retained = true;
-				$messages[] = 'Erasure native-evidence deletion checkpoint has an uncertain database commit and requires reconciliation.';
 				continue;
 			}
 
@@ -260,11 +288,23 @@ final class GDO_Privacy {
 				),
 				array( 'id'=>absint( $app->id ), 'user_id'=>$user->ID )
 			) : false;
-			if ( 1 !== $updated || false === $wpdb->query( 'COMMIT' ) ) {
+			if ( 1 !== $updated ) {
 				$wpdb->query( 'ROLLBACK' );
 				$retained = true;
-				$messages[] = 'Application anonymization requires administrator repair; native database identity links were not partially committed.';
+				$messages[] = 'Application anonymization requires administrator repair; native database identity links were not stored.';
 				continue;
+			}
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				$wpdb->last_error = '';
+				$anon_app = $wpdb->get_row( $wpdb->prepare( 'SELECT user_id,profile_json,approved_snapshot_json FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d LIMIT 1', absint( $app->id ) ) );
+				if ( null === $anon_app && ! empty( $wpdb->last_error ) ) {
+					$retained = true; $messages[] = 'Application anonymization commit outcome is uncertain and requires reconciliation.'; continue;
+				}
+				if ( ! $anon_app || null !== $anon_app->user_id || '{}' !== (string) $anon_app->profile_json || null !== $anon_app->approved_snapshot_json ) {
+					$retained = true; $messages[] = 'Application anonymization was not committed and will be retried.'; continue;
+				}
+				GDO_Membership_Adapter::audit( 'doctor_privacy_anonymization_commit_reconciled', array( 'application_id'=>absint($app->id) ) );
 			}
 			do_action( 'gdo_identity_projection_erased', $user->ID, $app->id );
 			$removed = true;

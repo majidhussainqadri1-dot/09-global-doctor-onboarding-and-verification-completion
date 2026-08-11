@@ -588,7 +588,28 @@ final class GDO_Advanced_Trust_Hardening {
         if(false===$wpdb->delete(GDO_Advanced_Trust::table('upload_sessions'),array('application_id'=>$application_id))||false===$wpdb->delete(GDO_Advanced_Trust::table('monitor_state'),array('application_id'=>$application_id))||false===$wpdb->delete(GDO_Advanced_Trust::table('verification_passports'),array('application_id'=>$application_id))){$wpdb->query('ROLLBACK');return new WP_Error('gdo_privacy_operational_cleanup',__('Advanced Trust operational records could not be removed.','global-doctor-onboarding'));}
         if(false===$wpdb->update(GDO_Advanced_Trust::table('credential_checks'),array('facts_json'=>'{"redacted":"privacy_erasure"}','explanation_json'=>'{"redacted":"privacy_erasure"}','external_reference'=>'','updated_at'=>$now),array('application_id'=>$application_id))||false===$wpdb->update(GDO_Advanced_Trust::table('professional_history'),array('user_id'=>0,'public_safe'=>0,'event_json'=>'{"redacted":"privacy_erasure"}','source_hash'=>hash('sha256','{"redacted":"privacy_erasure"}')),array('application_id'=>$application_id))||false===$wpdb->update(GDO_Advanced_Trust::table('reviewer_conflicts'),array('applicant_id'=>0),array('application_id'=>$application_id,'applicant_id'=>$user_id))){$wpdb->query('ROLLBACK');return new WP_Error('gdo_privacy_anonymize',__('Advanced Trust accountability records could not be anonymized.','global-doctor-onboarding'));}
         $queries=array('reviewer_id'=>"UPDATE ".GDO_Advanced_Trust::table('reviewer_conflicts').' SET reviewer_id=0 WHERE reviewer_id=%d','declared_by'=>"UPDATE ".GDO_Advanced_Trust::table('reviewer_conflicts').' SET declared_by=0 WHERE declared_by=%d','resolved_by'=>"UPDATE ".GDO_Advanced_Trust::table('reviewer_conflicts').' SET resolved_by=0 WHERE resolved_by=%d');foreach($queries as $sql){if(false===$wpdb->query($wpdb->prepare($sql,$user_id))){$wpdb->query('ROLLBACK');return new WP_Error('gdo_privacy_reviewer_anonymize',__('Reviewer conflict identifiers could not be anonymized.','global-doctor-onboarding'));}}
-        if(false===$wpdb->query('COMMIT')){$wpdb->query('ROLLBACK');return new WP_Error('gdo_privacy_advanced_commit',__('Advanced Trust privacy erasure could not be committed safely.','global-doctor-onboarding'));}
+        if(false===$wpdb->query('COMMIT')){
+            $wpdb->query('ROLLBACK');
+            $checks = array(
+                array( GDO_Advanced_Trust::table('upload_sessions'), 'SELECT COUNT(*) FROM %s WHERE application_id=%d', $application_id ),
+                array( GDO_Advanced_Trust::table('monitor_state'), 'SELECT COUNT(*) FROM %s WHERE application_id=%d', $application_id ),
+                array( GDO_Advanced_Trust::table('verification_passports'), 'SELECT COUNT(*) FROM %s WHERE application_id=%d', $application_id ),
+            );
+            foreach ( $checks as $spec ) {
+                $wpdb->last_error='';
+                $remaining=$wpdb->get_var($wpdb->prepare(sprintf($spec[1],$spec[0]),$spec[2]));
+                if(null===$remaining||!empty($wpdb->last_error)){return new WP_Error('gdo_privacy_advanced_commit_uncertain',__('Advanced Trust privacy-erasure commit outcome is uncertain and requires reconciliation.','global-doctor-onboarding'));}
+                if(absint($remaining)>0){return new WP_Error('gdo_privacy_advanced_commit',__('Advanced Trust privacy erasure was not committed and will be retried.','global-doctor-onboarding'));}
+            }
+            $wpdb->last_error='';
+            $unredacted_checks=$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.GDO_Advanced_Trust::table('credential_checks')." WHERE application_id=%d AND facts_json<>'{\"redacted\":\"privacy_erasure\"}'",$application_id));
+            $check_error=!empty($wpdb->last_error);
+            $wpdb->last_error='';
+            $unredacted_history=$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.GDO_Advanced_Trust::table('professional_history')." WHERE application_id=%d AND (user_id<>0 OR public_safe<>0 OR event_json<>'{\"redacted\":\"privacy_erasure\"}')",$application_id));
+            if($check_error||null===$unredacted_checks||null===$unredacted_history||!empty($wpdb->last_error)){return new WP_Error('gdo_privacy_advanced_commit_uncertain',__('Advanced Trust privacy-erasure commit outcome is uncertain and requires reconciliation.','global-doctor-onboarding'));}
+            if(absint($unredacted_checks)>0||absint($unredacted_history)>0){return new WP_Error('gdo_privacy_advanced_commit',__('Advanced Trust privacy erasure was not fully committed and will be retried.','global-doctor-onboarding'));}
+            GDO_Membership_Adapter::audit('doctor_advanced_privacy_commit_reconciled',array('application_id'=>$application_id));
+        }
         return true;
     }
 
