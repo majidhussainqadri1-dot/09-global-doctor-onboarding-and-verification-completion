@@ -12,7 +12,7 @@ c(2,'Repository truth still separates staging/live/operational',has(status.lower
 c(3,'Latest central/File09/Advanced-Trust ownership trace remains explicit',has(trace,'F09-CEN-01','F09-CEN-02','F09-AT-24'))
 # R04-R20 defects discovered on frozen R10 head 91d9a590... and corrected during R11.
 c(4,'Audit previous-hash read isolates database error state before chain read',has(audit,"$wpdb->last_error = ''",'$previous_raw = $wpdb->get_var','gdo_audit_chain_read_failed'))
-c(5,'Rate limiter isolates post-upsert counter read database state',has(rate,"$wpdb->last_error = ''",'$raw_hits = $wpdb->get_var','gdo_rate_limit_query'))
+c(5,'Rate limiter isolates post-upsert counter read database state',has(rate,"$wpdb->last_error = ''",'$raw_hits = $wpdb->get_var','null === $raw_hits','return false;'))
 c(6,'Risk reads isolate DB uncertainty and resolution distinguishes store failure from conflict',has(risk,"$wpdb->last_error = ''",'gdo_risk_resolution_store','gdo_risk_resolution_conflict'))
 c(7,'Quality completion distinguishes database store failure from pending-state conflict',has(quality,'gdo_quality_store_failed','gdo_quality_conflict'))
 c(8,'State transition distinguishes database write failure from optimistic concurrency',has(state,'gdo_transition_store_failed','gdo_concurrent_change'))
