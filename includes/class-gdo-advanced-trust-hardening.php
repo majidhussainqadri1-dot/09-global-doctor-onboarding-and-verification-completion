@@ -254,7 +254,12 @@ final class GDO_Advanced_Trust_Hardening {
         $decision=sanitize_key($decision);
         if(in_array($decision,array('verified','reinstated'),true)){
             $history=self::history_once($app,'professional_decision',array('decision'=>$decision,'verified_until'=>$app->verified_until),true);if(is_wp_error($history)){return $history;}
-            $passport=self::ensure_passport($app->id);if(is_wp_error($passport)){GDO_Membership_Adapter::audit('doctor_verification_passport_issue_failed',array('application_id'=>$app->id,'decision'=>$decision,'error'=>$passport->get_error_code()));return $passport;}
+            // Passport issuance is downstream of explicit File00 claim acceptance.
+            // A freshly committed professional decision normally has claim_status=pending,
+            // so do not treat that expected sequencing state as a passport failure here.
+            if('accepted'===sanitize_key($app->claim_status)){
+                $passport=self::ensure_passport($app->id);if(is_wp_error($passport)){GDO_Membership_Adapter::audit('doctor_verification_passport_issue_failed',array('application_id'=>$app->id,'decision'=>$decision,'error'=>$passport->get_error_code()));return $passport;}
+            }
             $scheduled=self::schedule_reverification($app->id,'verified',time()+30*DAY_IN_SECONDS,false);if(is_wp_error($scheduled)||!$scheduled){$error=is_wp_error($scheduled)?$scheduled:new WP_Error('gdo_decision_reverification_store',__('Professional reverification state could not be persisted after the decision.','global-doctor-onboarding'));GDO_Membership_Adapter::audit('doctor_decision_reverification_schedule_failed',array('application_id'=>$app->id,'decision'=>$decision,'error'=>$error->get_error_code()));return $error;}
         }elseif('expired'===$decision){
             $history=self::history_once($app,'professional_expired',array('decision'=>'expired'),true);if(is_wp_error($history)){return $history;}
@@ -281,6 +286,14 @@ final class GDO_Advanced_Trust_Hardening {
         if ( is_wp_error( $passport ) ) {
             GDO_Membership_Adapter::audit( 'doctor_verification_passport_issue_after_claim_failed', array( 'application_id'=>$app->id, 'claim_version'=>absint( $claim_version ), 'error'=>$passport->get_error_code() ) );
             return $passport;
+        }
+        // Idempotently heal/ensure the per-application monitor row at the same
+        // downstream acceptance boundary that makes the public passport usable.
+        $scheduled = self::schedule_reverification( $app->id, 'claim_accepted', time()+30*DAY_IN_SECONDS, true );
+        if ( is_wp_error( $scheduled ) || ! $scheduled ) {
+            $error = is_wp_error( $scheduled ) ? $scheduled : new WP_Error( 'gdo_claim_reverification_store', __( 'Professional reverification state could not be persisted after claim acceptance.', 'global-doctor-onboarding' ) );
+            GDO_Membership_Adapter::audit( 'doctor_claim_reverification_schedule_failed', array( 'application_id'=>$app->id, 'claim_version'=>absint( $claim_version ), 'error'=>$error->get_error_code() ) );
+            return $error;
         }
         return true;
     }
