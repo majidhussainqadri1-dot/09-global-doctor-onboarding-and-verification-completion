@@ -618,10 +618,25 @@ final class GDO_Evidence {
             return new WP_Error( 'gdo_rotation_transaction', __( 'Credential rotation could not start a safe database transaction.', 'global-doctor-onboarding' ) );
         }
         $ok = $wpdb->update( GDO_Schema::table('evidence'), array( 'storage_name'=>$new_name,'ciphertext_sha256'=>$stored['sha256'],'content_hmac'=>$encrypted['content_hmac'],'key_id'=>$encrypted['key_id'],'updated_at'=>current_time('mysql',true) ), array('id'=>$record->id,'storage_name'=>$record->storage_name), array('%s','%s','%s','%s','%s'), array('%d','%s') );
-        if ( 1 !== $ok || false === $wpdb->query( 'COMMIT' ) ) {
+        if ( 1 !== $ok ) {
             $wpdb->query( 'ROLLBACK' );
-            GDO_Storage::delete_verified( $new_name, $stored['sha256'] );
-            return new WP_Error( 'gdo_rotation_database', __( 'The rotated credential could not be committed.', 'global-doctor-onboarding' ) );
+            $cleanup = self::cleanup_failed_storage( $new_name, $stored['sha256'], $record->application_id, 'rotation_store_failed' );
+            return is_wp_error( $cleanup ) ? $cleanup : new WP_Error( 'gdo_rotation_database', __( 'The rotated credential could not be stored.', 'global-doctor-onboarding' ) );
+        }
+        if ( false === $wpdb->query( 'COMMIT' ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            $wpdb->last_error = '';
+            $committed = $wpdb->get_row( $wpdb->prepare( 'SELECT storage_name,ciphertext_sha256,key_id FROM ' . GDO_Schema::table('evidence') . ' WHERE id=%d LIMIT 1', absint( $record->id ) ) );
+            if ( null === $committed && ! empty( $wpdb->last_error ) ) {
+                GDO_Membership_Adapter::audit( 'doctor_credential_rotation_commit_uncertain', array( 'application_id'=>absint($record->application_id), 'evidence_id'=>absint($record->id) ) );
+                return new WP_Error( 'gdo_rotation_commit_uncertain', __( 'Credential key-rotation commit outcome is uncertain; both encrypted files were retained for reconciliation.', 'global-doctor-onboarding' ) );
+            }
+            $committed_ok = $committed && hash_equals( (string) $committed->storage_name, (string) $new_name ) && hash_equals( (string) $committed->ciphertext_sha256, (string) $stored['sha256'] ) && hash_equals( (string) $committed->key_id, (string) $encrypted['key_id'] );
+            if ( ! $committed_ok ) {
+                $cleanup = self::cleanup_failed_storage( $new_name, $stored['sha256'], $record->application_id, 'rotation_commit_not_persisted' );
+                return is_wp_error( $cleanup ) ? $cleanup : new WP_Error( 'gdo_rotation_database', __( 'The rotated credential could not be committed.', 'global-doctor-onboarding' ) );
+            }
+            GDO_Membership_Adapter::audit( 'doctor_credential_rotation_commit_reconciled', array( 'application_id'=>absint($record->application_id), 'evidence_id'=>absint($record->id), 'new_key_id'=>$encrypted['key_id'] ) );
         }
         $deleted = GDO_Storage::delete_verified( $record->storage_name, $record->ciphertext_sha256 );
         if ( is_wp_error( $deleted ) ) {
@@ -722,7 +737,15 @@ final class GDO_Evidence {
         }
         if ( $manage_transaction && false === $wpdb->query( 'COMMIT' ) ) {
             $wpdb->query( 'ROLLBACK' );
-            return new WP_Error( 'gdo_evidence_review_commit', __( 'The credential review could not be committed.', 'global-doctor-onboarding' ) );
+            $wpdb->last_error = '';
+            $committed = $wpdb->get_row( $wpdb->prepare( 'SELECT status,reviewer_id,reviewed_at FROM ' . GDO_Schema::table('evidence') . ' WHERE id=%d LIMIT 1', absint( $record->id ) ) );
+            if ( null === $committed && ! empty( $wpdb->last_error ) ) {
+                return new WP_Error( 'gdo_evidence_review_commit_uncertain', __( 'The credential review commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) );
+            }
+            if ( ! $committed || sanitize_key( $committed->status ) !== $status || absint( $committed->reviewer_id ) !== absint( $reviewer_id ) || empty( $committed->reviewed_at ) ) {
+                return new WP_Error( 'gdo_evidence_review_commit', __( 'The credential review could not be committed.', 'global-doctor-onboarding' ) );
+            }
+            GDO_Membership_Adapter::audit( 'doctor_evidence_review_commit_reconciled', array( 'application_id'=>absint($record->application_id), 'evidence_id'=>absint($record->id), 'reviewer_id'=>absint($reviewer_id), 'status'=>$status ) );
         }
         if ( $manage_transaction ) {
             GDO_Membership_Adapter::audit( 'doctor_evidence_reviewed', array( 'application_id'=>absint($record->application_id),'evidence_id'=>absint($record->id),'reviewer_id'=>absint($reviewer_id),'status'=>$status ) );
@@ -817,9 +840,25 @@ final class GDO_Evidence {
         }
         $used = $wpdb->update( $table, array( 'used_at'=>current_time( 'mysql', true ) ), array( 'id'=>$grant->id, 'used_at'=>null ), array( '%s' ), array( '%d','%s' ) );
         $event = 1 === $used ? GDO_Notifications::queue( 'doctor_credential_accessed', $app->user_id, array( 'application_id'=>absint( $app->id ), 'evidence_type'=>$record->document_type, 'access_mode'=>sanitize_key( $grant->mode ) ), false ) : new WP_Error( 'gdo_evidence_grant_conflict', __( 'The credential access grant was already used.', 'global-doctor-onboarding' ) );
-        if ( 1 !== $used || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+        if ( 1 !== $used || is_wp_error( $event ) ) {
             $wpdb->query( 'ROLLBACK' );
             return is_wp_error( $event ) ? $event : new WP_Error( 'gdo_evidence_grant_conflict', __( 'The credential access grant was already used.', 'global-doctor-onboarding' ) );
+        }
+        if ( false === $wpdb->query( 'COMMIT' ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            $wpdb->last_error = '';
+            $committed_grant = $wpdb->get_row( $wpdb->prepare( 'SELECT used_at FROM ' . $table . ' WHERE id=%d LIMIT 1', absint( $grant->id ) ) );
+            $grant_read_error = ! empty( $wpdb->last_error );
+            $wpdb->last_error = '';
+            $outbox_id = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table('outbox') . ' WHERE event_uuid=%s LIMIT 1', (string) $event ) ) );
+            $outbox_read_error = ! empty( $wpdb->last_error );
+            if ( $grant_read_error || $outbox_read_error ) {
+                return new WP_Error( 'gdo_evidence_grant_commit_uncertain', __( 'Credential access consumption commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) );
+            }
+            if ( ! $committed_grant || empty( $committed_grant->used_at ) || ! $outbox_id ) {
+                return new WP_Error( 'gdo_evidence_grant_conflict', __( 'The credential access grant could not be committed safely.', 'global-doctor-onboarding' ) );
+            }
+            GDO_Membership_Adapter::audit( 'doctor_evidence_grant_commit_reconciled', array( 'application_id'=>absint($app->id), 'evidence_id'=>absint($record->id), 'reviewer_id'=>$reviewer_id ) );
         }
         GDO_Notifications::process( 1, $event );
         return array( 'grant'=>$grant, 'record'=>$record );
