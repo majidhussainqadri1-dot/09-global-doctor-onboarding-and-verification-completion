@@ -72,7 +72,7 @@ c(47,'Canonical private-storage path boundary',has(storage,'realpath( $dir )','c
 c(48,'Storage use-time health recheck',has(storage,'public static function read','self::health()'))
 c(49,'AES-256-GCM authenticated encryption',has(crypto,'aes-256-gcm','gdo_authentication_failure'))
 c(50,'Privacy export failure propagation','gdo_advanced_export_failed' in privacy)
-c(51,'Physical evidence deletion proof',has(privacy,'delete_verified','deletion_proof'))
+c(51,'Physical evidence deletion proof',has(evidence,'function delete_record_safely','deletion_proof','deletion_pending_erasure','deletion_pending_retention') and has(privacy,'GDO_Evidence::delete_record_safely') and has(retention,'GDO_Evidence::delete_record_safely'))
 c(52,'Advanced Trust erasure checked operations',has(hard,'privacy_erase_application','gdo_privacy_operational_cleanup','gdo_privacy_anonymize'))
 c(53,'Legal-hold protection','legal_hold' in privacy)
 c(54,'Retention runtime gate',has(retention,'gdo_retention_runtime_not_ready','mutation_allowed'))
