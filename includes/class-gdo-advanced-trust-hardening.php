@@ -246,18 +246,23 @@ final class GDO_Advanced_Trust_Hardening {
         return true;
     }
     public static function application_decided( $application_id, $decision ) {
-        $app=GDO_Application::get($application_id);if(!$app){return new WP_Error('gdo_decision_application',__('Decision application could not be read.','global-doctor-onboarding'));}$decision=sanitize_key($decision);
+        global $wpdb;
+        $wpdb->last_error = '';
+        $app=GDO_Application::get($application_id);
+        if(!$app&&!empty($wpdb->last_error)){return new WP_Error('gdo_decision_application_query',__('Decision application state could not be read safely.','global-doctor-onboarding'),array('status'=>503));}
+        if(!$app){return new WP_Error('gdo_decision_application',__('Decision application could not be read.','global-doctor-onboarding'));}
+        $decision=sanitize_key($decision);
         if(in_array($decision,array('verified','reinstated'),true)){
             $history=self::history_once($app,'professional_decision',array('decision'=>$decision,'verified_until'=>$app->verified_until),true);if(is_wp_error($history)){return $history;}
-            $passport=self::ensure_passport($app->id);if(is_wp_error($passport)){GDO_Membership_Adapter::audit('doctor_verification_passport_issue_failed',array('application_id'=>$app->id,'decision'=>$decision,'error'=>$passport->get_error_code()));}
-            $scheduled=self::schedule_reverification($app->id,'verified',time()+30*DAY_IN_SECONDS,false);if(is_wp_error($scheduled)||!$scheduled){GDO_Membership_Adapter::audit('doctor_decision_reverification_schedule_failed',array('application_id'=>$app->id,'decision'=>$decision,'error'=>is_wp_error($scheduled)?$scheduled->get_error_code():'store_failed'));}
+            $passport=self::ensure_passport($app->id);if(is_wp_error($passport)){GDO_Membership_Adapter::audit('doctor_verification_passport_issue_failed',array('application_id'=>$app->id,'decision'=>$decision,'error'=>$passport->get_error_code()));return $passport;}
+            $scheduled=self::schedule_reverification($app->id,'verified',time()+30*DAY_IN_SECONDS,false);if(is_wp_error($scheduled)||!$scheduled){$error=is_wp_error($scheduled)?$scheduled:new WP_Error('gdo_decision_reverification_store',__('Professional reverification state could not be persisted after the decision.','global-doctor-onboarding'));GDO_Membership_Adapter::audit('doctor_decision_reverification_schedule_failed',array('application_id'=>$app->id,'decision'=>$decision,'error'=>$error->get_error_code()));return $error;}
         }elseif('expired'===$decision){
             $history=self::history_once($app,'professional_expired',array('decision'=>'expired'),true);if(is_wp_error($history)){return $history;}
-            $revoked=GDO_Advanced_Trust::revoke_passports_for_application($app->id,'expired');if(!$revoked){GDO_Membership_Adapter::audit('doctor_verification_passport_revoke_failed',array('application_id'=>$app->id,'decision'=>$decision));}
+            $revoked=GDO_Advanced_Trust::revoke_passports_for_application($app->id,'expired');if(!$revoked){$error=new WP_Error('gdo_decision_passport_revoke',__('Existing professional passports could not be revoked after expiry.','global-doctor-onboarding'));GDO_Membership_Adapter::audit('doctor_verification_passport_revoke_failed',array('application_id'=>$app->id,'decision'=>$decision));return $error;}
         }elseif(in_array($decision,array('suspended','revoked','rejected','withdrawn'),true)){
             $history=self::history_once($app,'professional_status_changed',array('decision'=>$decision),false);if(is_wp_error($history)){return $history;}
-            $revoked=GDO_Advanced_Trust::revoke_passports_for_application($app->id,$decision);if(!$revoked){GDO_Membership_Adapter::audit('doctor_verification_passport_revoke_failed',array('application_id'=>$app->id,'decision'=>$decision));}
-            $scheduled=self::event_reverification($app->id,$decision);if(is_wp_error($scheduled)||!$scheduled){GDO_Membership_Adapter::audit('doctor_decision_reverification_schedule_failed',array('application_id'=>$app->id,'decision'=>$decision,'error'=>is_wp_error($scheduled)?$scheduled->get_error_code():'store_failed'));}
+            $revoked=GDO_Advanced_Trust::revoke_passports_for_application($app->id,$decision);if(!$revoked){$error=new WP_Error('gdo_decision_passport_revoke',__('Existing professional passports could not be revoked after the decision.','global-doctor-onboarding'));GDO_Membership_Adapter::audit('doctor_verification_passport_revoke_failed',array('application_id'=>$app->id,'decision'=>$decision));return $error;}
+            $scheduled=self::event_reverification($app->id,$decision);if(is_wp_error($scheduled)||!$scheduled){$error=is_wp_error($scheduled)?$scheduled:new WP_Error('gdo_decision_reverification_store',__('Professional reverification state could not be persisted after the decision.','global-doctor-onboarding'));GDO_Membership_Adapter::audit('doctor_decision_reverification_schedule_failed',array('application_id'=>$app->id,'decision'=>$decision,'error'=>$error->get_error_code()));return $error;}
         }
         return true;
     }
