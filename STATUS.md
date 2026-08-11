@@ -66,3 +66,21 @@ All earlier workflow runs/artifacts, including the R11 exact-head artifact from 
 Hostinger staging must verify core schema 6 + Advanced Trust schema 2 migration, current File 00/File 02 and companion contracts, provider unavailable/mismatch/revoked/expired paths, issuer/rule governance, no provider auto-decision, conflict/dual-review routing, passport issue/supersession/expiry/revocation/public-safe output, chunk interruption/resume/race/hash/malware path, secure-room one-time authorization/no-download behavior, privacy export/erasure/retention interaction, real applicant/reviewer/more-info/resubmission/appeal/renewal/suspension/revocation journeys, mobile/RTL/accessibility/weak-network journeys, backup/restore/rollback, companion integrations and **two fresh staging review → fix → full-retest cycles** before explicit Founder acceptance.
 
 Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status remain separate facts. This repository status does not claim RC6/R12 staging or production deployment.
+
+## Historical compact compatibility rows
+
+These compact rows preserve the immutable historical three-column ledger shape consumed by earlier regression gates; they are not the current-status table and do not supersede R12.
+
+| Review | Defect-bearing rounds corrected | Clean rounds |
+|---|---:|---:|
+| R1 | 49 | 31 |
+| R2 | 47 | 33 |
+| R3 | 13 | 67 |
+| R4 | 30 | 50 |
+| R5 | 29 | 51 |
+| R6 | 60 | 20 |
+| R7 | 22 | 58 |
+| R8 | 15 | 65 |
+| R9 | 10 | 70 |
+| R10 | 19 | 61 |
+| R11 | 17 | 63 |
