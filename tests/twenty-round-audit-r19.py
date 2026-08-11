@@ -36,11 +36,13 @@ checks = []
 checks.append(require(1, 'gdo_passport_identity_unavailable' in hard and 'data_available' in hard, 'Public passport/current verification preserves unavailable truth'))
 checks.append(require(2,
     "if ( $status === $current_status ) { return true; }" in claims
-    and "if ( 'pending' !== $current_status ) { return false; }" in claims
+    and "if ( ! in_array( $current_status, array( 'pending','failed' ), true ) ) { return false; }" in claims
+    and "'claim_status'=>$current_status" in claims
     and "'claim_status'=>'pending'" in claims
+    and 'gdo_claim_ack_query_failed' in claims
     and 'gdo_claim_ack_store_failed' in claims
     and 'gdo_claim_ack_recheck_failed' in claims,
-    'Claim acknowledgement remains terminal CAS/idempotent'))
+    'Claim acknowledgement remains terminal CAS/idempotent with retryable transport precursor'))
 checks.append(require(3, 'submission_hash' in app and 'idempotency' in app.lower() and 'FOR UPDATE' in app, 'Submission remains immutable/idempotency/row-lock guarded'))
 checks.append(require(4, 'recommender_id' in admin and 'finalizer_id' in admin and 'appeal' in admin.lower(), 'Reviewer/finalizer/appeal separation remains explicit'))
 checks.append(require(5, 'gdo_storage_quota_query' in evidence and 'cleanup_failed_storage' in evidence and 'gdo_evidence_commit_uncertain' in evidence, 'Evidence quota/cleanup/commit uncertainty is fail-visible'))
