@@ -64,7 +64,7 @@ check(50,'Public passport remains current-state/public-safe',has(hard,'verify_pa
 # 51-60 lifecycle/retention/privacy truth
 check(51,'Renewal/expiry transitions remain transactionally coupled to claims/events',has(retention,'START TRANSACTION','GDO_Claims::issue','GDO_Notifications::queue'))
 check(52,'Privacy erasure revokes public verification before data erasure',has(privacy,'privacy_erasure','Public verification was revoked before personal-data erasure'))
-check(53,'Physical evidence deletion records deletion proof',has(privacy,'delete_verified','deletion_proof','retention_state'))
+check(53,'Physical evidence deletion records deletion proof',has(evidence,'function delete_record_safely','deletion_proof','deletion_pending_erasure','deletion_pending_retention') and has(privacy,'GDO_Evidence::delete_record_safely') and has(retention,'GDO_Evidence::delete_record_safely'))
 check(54,'Legal hold prevents ordinary erasure',has(privacy,'legal_hold=0','legal_hold=1'))
 check(55,'Transition hash-chain accountability is preserved through privacy handling',has(privacy,'Transition rows are hash-chained immutable accountability evidence'))
 check(56,'Advanced Trust erasure is invoked by native privacy eraser',has(privacy,'GDO_Advanced_Trust_Hardening::privacy_erase_application'))
