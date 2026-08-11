@@ -29,7 +29,7 @@ c(17,'Credential review bytes are purpose-watermarked and PDF requires provider'
 c(18,'Encrypted private storage health is rechecked before reads/deletes',has(storage,'public static function read','public static function delete_verified','self::health()'))
 c(19,'Private storage remains outside public upload tree and rejects unsafe paths',has(storage,'outside the public uploads directory','realpath','symlink'))
 c(20,'Application state transitions remain explicit and optimistic-concurrency guarded',has(state,'FOR UPDATE','row_version','can_transition'))
-c(21,'Submission remains snapshot/idempotency bound',has(app,'submission_hash','GDO_Evidence::records( $app->id, true )','hash_equals( (string) $app->submission_hash, $submission_hash )','gdo_submit_state'))
+c(21,'Submission remains snapshot/idempotency bound',has(app,'submission_hash','GDO_Evidence::records_checked( $app->id, true )','hash_equals( (string) $app->submission_hash, $submission_hash )','gdo_submit_state'))
 c(22,'Applicant edits remain ownership/state constrained',has(app,'save_draft','user_id','draft','more_information'))
 c(23,'Core migration future-schema state remains fail-closed',has(migration,'gdo_schema_future_version','$current > GDO_SCHEMA_VERSION'))
 c(24,'Core migration lock/idempotency remains present',has(migration,'gdo_schema_migration_lock','gdo_migration_lock'))
