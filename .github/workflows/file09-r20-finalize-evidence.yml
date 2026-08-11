@@ -1,0 +1,48 @@
+name: File 09 R20 Final Evidence Closure
+
+on:
+  push:
+    branches:
+      - codex/file09-1.3.0-rc6-80-round-review
+    paths:
+      - r20-finalize.json
+      - .github/workflows/file09-r20-finalize-evidence.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: codex/file09-1.3.0-rc6-80-round-review
+          fetch-depth: 0
+      - name: Finalize exact replacements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          spec = json.loads(Path('r20-finalize.json').read_text(encoding='utf-8'))
+          for item in spec.get('replacements', []):
+              p = Path(item['path'])
+              old = item['old']
+              new = item['new']
+              expected = int(item.get('count', 1))
+              s = p.read_text(encoding='utf-8')
+              found = s.count(old)
+              if found != expected:
+                  raise SystemExit(f'{p}: expected {expected} exact match(es), found {found}')
+              p.write_text(s.replace(old, new, expected), encoding='utf-8')
+          PY
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git rm r20-finalize.json
+          git commit -m "docs(file09): close R20 twenty-round evidence at 20 of 20"
+          git push origin HEAD:codex/file09-1.3.0-rc6-80-round-review
