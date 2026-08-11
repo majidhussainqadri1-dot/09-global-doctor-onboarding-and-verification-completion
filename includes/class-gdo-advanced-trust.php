@@ -693,7 +693,12 @@ final class GDO_Advanced_Trust {
             'jurisdiction'=>self::normalize_jurisdiction( $issuer->jurisdiction ),
             'canonical_domain'=>self::normalize_domain( $issuer->canonical_domain ),
         );
-        $result = apply_filters( 'gdo_primary_source_verification', null, $request, $issuer_context );
+        try {
+            $result = apply_filters( 'gdo_primary_source_verification', null, $request, $issuer_context );
+        } catch ( Throwable $e ) {
+            unset( $e );
+            return self::record_check( $app->id, $record->id, 'primary_source', $issuer->adapter_key ? $issuer->adapter_key : 'configured', 'provider_unavailable', 0, array( 'issuer_uuid'=>$issuer->issuer_uuid ), array( 'reason'=>'provider_exception' ) );
+        }
         if ( ! is_array( $result ) || empty( $result['status'] ) ) {
             return self::record_check( $app->id, $record->id, 'primary_source', $issuer->adapter_key ? $issuer->adapter_key : 'unconfigured', 'provider_unavailable', 0, array( 'issuer_uuid'=>$issuer->issuer_uuid ), array( 'reason'=>'provider_adapter_unavailable' ) );
         }
