@@ -26,6 +26,8 @@ This repository contains the canonical File 09 implementation candidate for the 
 | Hostinger-equivalent staging | Pending external execution |
 | Production/live/operational | Not authorized |
 
+**Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected; 63 clean; its own exact-head result was 80/80 PASS. R12 supersedes it only as current repository review evidence, not as historical evidence.
+
 File 09 owns doctor applications, private professional evidence, professional verification review/decision, renewal, suspension/revocation, appeal, signed professional-decision claims and File 09 professional-trust records. It does **not** own general identity, login, public profiles, directory/search ranking, clinics, notification transport or platform-wide security governance.
 
 Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, all `REVIEW-80-ROUNDS-RC6*.md` ledgers, `REVIEW-10-ROUNDS-RC6-R12.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
