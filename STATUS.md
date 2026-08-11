@@ -41,8 +41,8 @@ R9 corrects owner-command reviewer reauthorization, evidence/grant DB uncertaint
 
 Stable machine/historical-gate aliases (same truth, no additional status):
 
-Staging accepted: false  
-Live deployed: false  
+Staging accepted: false
+Live deployed: false
 Operationally accepted: false
 
 ## Authoritative RC6/R9 repository gate
