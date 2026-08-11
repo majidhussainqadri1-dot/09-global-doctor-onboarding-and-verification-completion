@@ -1,5 +1,18 @@
 # Changelog
 
+## Seventeenth fresh 10-round corrective assurance — R17
+
+- Froze the green R16 exact head `66e43bcb42904a381728509144cd0a1e6c77c6ac` and performed a new independent 10-round sequential corrective review.
+- Corrected **7** defect-bearing rounds (`01,03,05,06,08,09,10`); rounds `02,04,07` were clean.
+- Made the reviewer more-information command distinguish application-table DB uncertainty from ordinary invalid/state denial.
+- Contained external primary-source, equivalency, affiliation, translation and AI assistance `Throwable` failures as bounded degraded/manual-review states without raw exception leakage.
+- Preserved resumable-upload finalization retry when the application reload is DB-uncertain instead of permanently failing the session.
+- Added explicit public verification `data_available` truth so DB uncertainty is not rendered as `Not verified`; passport issue/read now fail visibly while scope truth is unavailable.
+- Made ordinary retention persist and verify `retention_pending` before resumable-file unlink, transactionally retire Advanced Trust state, row-lock and atomically anonymize native related records, and clear successful `retention_until` work.
+- Contained File 00/File 02 assertion/profile/reauthentication exceptions at the File 09 boundary with fail-closed or bounded error semantics.
+- Added permanent R17 ledger, executable gate, release-lock metadata, authoritative workflow wiring and current status evidence; temporary R17 corrective plumbing was removed before final exact-head assurance.
+- External Hostinger staging, live deployment and operational acceptance remain false and require separate evidence.
+
 ## Sixteenth fresh 10-round corrective assurance — R16
 
 - Froze the green R15 exact head `4707d31cbd5ed8f419166d2f796bee315449e172` and performed a new independent 10-round sequential corrective review.
@@ -98,96 +111,3 @@
 - Added the File 09 canonical owner contract `1.1.0` and explicit fail-closed professional-eligibility consumers for Files 21 and 23 in addition to Files 03/07/08.
 - Added `gdo.file26.doctor-verification-projection` and a privacy-preserving File 26 connector negotiation. The connector remains `contract_tested` so File 09 private applications/evidence cannot become search documents by activation side effect.
 - Added File 20 page-contract registration through `sabri_shell_page_contracts`, preserving File 20 as the only application shell.
-- Upgraded File 19 integration to the current `sun.event.v1` producer/event contract with immutable UUID idempotency, minimized safe notification data and current provider registration; legacy File 19 adapters remain compatibility-only fallbacks.
-- Removed raw notification payload forwarding from legacy presentation context.
-- Added `tests/latest-plan-parity.py` and expanded cross-file contract regression coverage for F09-CEN-01, F09-CEN-02, CEN-SEARCH-001 and applicable AJ journeys.
-- Replaced repository-static SBOM truth with a deterministic repository template plus exact-head SPDX 2.3 SBOM generation/verification during RC4 packaging, preventing stale checksum claims after source changes.
-- Staging, live and operational acceptance remain false pending the external RC4 acceptance contract and explicit Founder authorization.
-
-## 1.2.0-RC3 — Forty-round corrective assurance — 2026-08-07
-
-- Performed 40 independent review/fix rounds against the corrected RC2 baseline; 13 rounds found defects and 27 rounds found no new defect.
-- Made File 00 membership assertions explicitly fail-closed on `result=allow`, jurisdiction-aware, and protected authorization/policy extension points from widening baseline access or removing minimum evidence/profile requirements.
-- Corrected optional-field browser validation, stale outbox `processing` recovery, strict calendar-date validation, live reviewer scope revalidation and appeal/application/workload assignment locking.
-- Rechecked step-up at evidence-grant use time, enforced evidence-review expiry through final/CF-01 paths, preserved the transition audit hash chain during erasure, and preserved valid predecessor verification during an in-progress renewal.
-- Serialized credential upload ownership/quota checks and made quality sampling independent; reviewer-profile persistence failures are now surfaced and successful changes audited.
-- Added `tests/review40-adversarial.py`, `REVIEW-40-ROUNDS-RC3.md`, RC3 release metadata, deterministic RC3 package identity and exact-head CI enforcement.
-- Staging, live deployment and operational acceptance remain explicitly false pending external Hostinger acceptance.
-
-### Four-plan harmonization hardening — 7 Aug 2026
-
-- Aligned File 09 with current File 00 general contract 1.2.0 / runtime 1.2.11.
-- Added current identity-document and approved-doctor-grant checks without circular pre-verification.
-- Corrected CF-01 adult guardian logic and approved-snapshot schema compatibility.
-- Revalidated File 00 assurance and unresolved high-risk signals at verification/reinstatement/claim time.
-- Refreshed approved snapshot validity metadata on reinstatement.
-- Made WhatsApp optional as specified; corrected phone copy and File 20 shell naming boundary.
-
-## RC2 Fresh Adversarial Hardening — 2026-08-07
-
-- Closed renewal eligibility bypass on expired/renewal draft creation.
-- Made professional claim issuance state-bound and snapshot-bound.
-- Made schema backfill exhaustive and legacy migration bounded/resumable.
-- Moved legacy-source deletion after successful new-record commit with dedupe-safe cleanup.
-- Corrected privacy erasure pagination, all-version credential deletion, atomic revocation claim, and collision-free nullable subject anonymization.
-- Corrected retention expiry to scrub subject/profile and credential metadata after physical deletion.
-- Added a dedicated final hardening regression gate and third fresh adversarial review record.
-
-## 1.2.0 — 2026-08-06
-
-- Completed all File 09 FR/NFR source mappings and schema 6.
-- Added guided application wizard, autosave and version-safe cross-device resume.
-- Added encrypted private evidence, fail-closed scanning, metadata stripping, versioning and one-time reviewer grants.
-- Added assignment by scope/workload/language/jurisdiction, conflict controls, structured findings, recommendation and independent finalization.
-- Added signed/versioned File 00 claims with explicit acknowledgment before public verification.
-- Added renewal, grace/limited projection, expiry, suspension, revocation, reinstatement and appeal.
-- Added duplicate/document-hash signals, human resolution, quality sampling and access monitoring.
-- Added privacy export, withdrawal, erasure/legal-hold and physical deletion proof.
-- Added outbox retry/dead-letter/reconciliation, health, Safe Mode and bounded repairs.
-- Added deterministic package, SBOM, traceability and two fresh review/fix records.
-
-## 1.2.0-RC2 — Final corrective repository candidate
-
-- Reconciled the valid 1.2.0 source line without applying the incomplete encoded overlay branch.
-- Corrected adult guardian eligibility, immutable resubmission edit-state, autosave row-version propagation and step validation.
-- Made evidence review and more-information transition atomic with row locks, optimistic state checks and validity-date controls.
-- Added explicit independent appeal assignment and assignee-only resolution.
-- Added bounded fail-closed File 03, File 07 and File 08 eligibility projections; retained File 00, File 02, File 19, File 20 and CF-01 boundaries.
-- Removed temporary, self-mutating, stale baseline/corrective and duplicate CI workflows plus branch-marker/noop artifacts; one exact-head RC2 workflow is authoritative.
-- Added RC2 adversarial assurance, PHP 7.4/8.3 exact-head CI and deterministic RC2 packaging.
-
-
-## 1.3.0-RC6 — Sixth fresh 80-round corrective assurance — 2026-08-10
-
-- Re-reviewed frozen exact-head baseline `6fa0a5cb7063b6b821bd50c105c735470f589b80` through 80 independent controls; 60 rounds found defects/unsafe uncertainty paths and 20 were clean.
-- Made trusted issuer, jurisdiction, credential-check, authenticity, fraud-ring, risk, conflict, calibration, public-history and passport reads explicitly fail closed on database uncertainty.
-- Hardened resumable evidence upload creation/chunk/finalize with canonical mutation readiness, transaction-start checks, row-lock error checks, seek/fsync/rollback durability, hash/size read checks, recovery-state persistence and fail-visible temp cleanup.
-- Hardened Advanced Trust privacy export, WordPress exporter propagation, transparency aggregates and erasure so DB/storage uncertainty cannot be reported as a complete or safe result.
-- Made submission/history/passport/reverification/provider-assistance callback failures propagate or produce durable audit evidence.
-- Strengthened private-storage health with explicit directory/file permission and final hash verification.
-- Added `REVIEW-80-ROUNDS-RC6-R6.md`, `tests/eighty-round-audit-r6.py`, sixth-cycle release-lock evidence and a 57-entry deterministic release allowlist.
-- Staging, live deployment and operational acceptance remain false pending external evidence.
-
-### RC6 — seventh fresh 80-round corrective assurance (R7)
-- Corrected 22 defect-bearing controls from frozen baseline 9103310fc93d978b6e70661f024a079fc0971003; 58 controls were clean.
-- Hardened issuer lifecycle, mutation readiness, DB uncertainty, passport atomicity/privacy, public transparency, and nonce-protected application start.
-- Added `REVIEW-80-ROUNDS-RC6-R7.md` and `tests/eighty-round-audit-r7.py`; staging/live/operational claims remain false.
-
-### RC6 — eighth fresh 80-round corrective assurance (R8)
-- Reviewed frozen exact-head baseline `f40228d29ffa92e8d27ea84f9b1c1ae4a63ff9b2` through 80 independent controls.
-- Corrected 15 defect-bearing rounds (04–18): runtime mutation dependency completeness, privileged owner-command reauthorization, DB-uncertainty truth, reviewer queue/risk fail-closed UX, passport cache safety, risk writes and reviewer-calibration writes/metrics.
-- Added `REVIEW-80-ROUNDS-RC6-R8.md` and `tests/eighty-round-audit-r8.py`; staging/live/operational remain false.
-
-### Eleventh fresh 80-round corrective assurance
-- Added R11 80-round audit/ledger and 62-entry release evidence.
-- Hardened DB error-state isolation, write-failure semantics, privacy/evidence inventory, migration/reviewer reads, outbox provider-error minimization and repository generated-cache hygiene.
-
-
-### RC6 — thirteenth fresh 10-round corrective assurance (R13) — 2026-08-11
-- Froze R12 exact head `e5e867d235aafc49dd084644590afe8dfaf27d47` and completed ten new sequential review/fix controls; defects were corrected in rounds 01, 04, 05, 06, 07 and 10, while 02, 03, 08 and 09 were clean.
-- Bounded verified/public validity to the earliest required current credential/evidence expiry.
-- Reworked credential erasure/retention into a durable deletion-pending lifecycle so physical unlink cannot precede durable DB deletion intent and interrupted finalization remains recoverable/fail-visible.
-- Isolated dead-letter replay DB reads/writes and separated storage failure from optimistic replay conflict.
-- Made required retention, outbox and continuous-verification schedules part of mutation readiness and critical health.
-- Made public verification scope evidence expiry-aware, DB-fail-closed and current-status dependent on accepted File 00 professional-claim acknowledgement.
-- Added permanent R13 ledger/executable/release-lock/authoritative-workflow evidence; staging/live/operational status remains false pending external acceptance.
