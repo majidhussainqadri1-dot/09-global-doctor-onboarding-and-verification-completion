@@ -352,6 +352,7 @@ final class GDO_Notifications {
 		if ( strlen( $reason ) < 20 ) {
 			return new WP_Error( 'gdo_outbox_replay_reason', __( 'A reason of at least 20 characters is required.', 'global-doctor-onboarding' ) );
 		}
+		$wpdb->last_error = '';
 		$row = $wpdb->get_row( $wpdb->prepare(
 			'SELECT id,event_uuid,status FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE id=%d LIMIT 1',
 			absint( $event_id )
@@ -362,6 +363,7 @@ final class GDO_Notifications {
 		if ( ! $row || 'dead' !== sanitize_key( $row->status ) || ! self::valid_uuid( $row->event_uuid ) ) {
 			return new WP_Error( 'gdo_outbox_replay_conflict', __( 'The dead-letter event is no longer available for replay.', 'global-doctor-onboarding' ) );
 		}
+		$wpdb->last_error = '';
 		$updated = $wpdb->update(
 			GDO_Schema::table( 'outbox' ),
 			array( 'status'=>'pending', 'available_at'=>current_time( 'mysql', true ), 'dead_at'=>null, 'last_error'=>null ),
@@ -369,7 +371,10 @@ final class GDO_Notifications {
 			array( '%s','%s','%s','%s' ),
 			array( '%d','%s' )
 		);
-		if ( 1 !== $updated ) {
+		if ( false === $updated ) {
+			return new WP_Error( 'gdo_outbox_replay_store_failed', __( 'The dead-letter replay state could not be stored safely.', 'global-doctor-onboarding' ) );
+		}
+		if ( 1 !== (int) $updated ) {
 			return new WP_Error( 'gdo_outbox_replay_conflict', __( 'The dead-letter event is no longer available for replay.', 'global-doctor-onboarding' ) );
 		}
 		GDO_Membership_Adapter::audit( 'doctor_verification_outbox_replayed', array( 'event_id'=>absint( $event_id ), 'event_uuid'=>(string) $row->event_uuid, 'actor_id'=>absint( $actor_id ), 'reason'=>$reason ) );

@@ -169,3 +169,13 @@
 ### Eleventh fresh 80-round corrective assurance
 - Added R11 80-round audit/ledger and 62-entry release evidence.
 - Hardened DB error-state isolation, write-failure semantics, privacy/evidence inventory, migration/reviewer reads, outbox provider-error minimization and repository generated-cache hygiene.
+
+
+### RC6 — thirteenth fresh 10-round corrective assurance (R13) — 2026-08-11
+- Froze R12 exact head `e5e867d235aafc49dd084644590afe8dfaf27d47` and completed ten new sequential review/fix controls; defects were corrected in rounds 01, 04, 05, 06, 07 and 10, while 02, 03, 08 and 09 were clean.
+- Bounded verified/public validity to the earliest required current credential/evidence expiry.
+- Reworked credential erasure/retention into a durable deletion-pending lifecycle so physical unlink cannot precede durable DB deletion intent and interrupted finalization remains recoverable/fail-visible.
+- Isolated dead-letter replay DB reads/writes and separated storage failure from optimistic replay conflict.
+- Made required retention, outbox and continuous-verification schedules part of mutation readiness and critical health.
+- Made public verification scope evidence expiry-aware, DB-fail-closed and current-status dependent on accepted File 00 professional-claim acknowledgement.
+- Added permanent R13 ledger/executable/release-lock/authoritative-workflow evidence; staging/live/operational status remains false pending external acceptance.

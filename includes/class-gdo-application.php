@@ -516,6 +516,10 @@ final class GDO_Application {
 			return new WP_Error( 'gdo_snapshot_refresh_invalid', __( 'The approved professional snapshot cannot be refreshed safely.', 'global-doctor-onboarding' ) );
 		}
 		$timestamp = strtotime( $normalized_until . ' 23:59:59 UTC' );
+		$evidence_ceiling = GDO_Evidence::verification_valid_until_ceiling( $app->id );
+		if ( is_wp_error( $evidence_ceiling ) || ! $timestamp || $timestamp > $evidence_ceiling ) {
+			return new WP_Error( 'gdo_snapshot_validity_ceiling', __( 'The requested verification period exceeds the earliest current supporting credential or evidence expiry.', 'global-doctor-onboarding' ) );
+		}
 		$snapshot['schema'] = absint( GDO_SCHEMA_VERSION );
 		$snapshot['verified_until'] = $normalized_until;
 		$snapshot['policy_version'] = GDO_Policy::VERSION;

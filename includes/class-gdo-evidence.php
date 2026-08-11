@@ -331,6 +331,192 @@ final class GDO_Evidence {
         return true;
     }
 
+    /**
+     * Return the latest timestamp through which the current accepted evidence
+     * can support a verified public claim. The ceiling is the earliest native
+     * evidence-retention expiry or credential validity expiry among all
+     * required current evidence. DB uncertainty is never converted into a
+     * longer verification period.
+     */
+    public static function verification_valid_until_ceiling( $application_id ) {
+        global $wpdb;
+        $application_id = absint( $application_id );
+        $wpdb->last_error = '';
+        $app = GDO_Application::get( $application_id );
+        if ( null === $app && ! empty( $wpdb->last_error ) ) {
+            return new WP_Error( 'gdo_evidence_ceiling_application_query', __( 'The professional application could not be read safely for verification validity.', 'global-doctor-onboarding' ) );
+        }
+        if ( ! $app ) {
+            return new WP_Error( 'gdo_evidence_ceiling_application_missing', __( 'The professional application is unavailable for verification validity.', 'global-doctor-onboarding' ) );
+        }
+        $records = self::records_checked( $application_id, true );
+        if ( is_wp_error( $records ) ) {
+            return $records;
+        }
+        $by_type = array();
+        foreach ( $records as $record ) {
+            $by_type[ sanitize_key( $record->document_type ) ] = $record;
+        }
+        $ceiling = 0;
+        foreach ( array_keys( self::types( $app->jurisdiction, $app->application_type ) ) as $type ) {
+            $type = sanitize_key( $type );
+            if ( empty( $by_type[ $type ] ) ) {
+                return new WP_Error( 'gdo_evidence_ceiling_missing', __( 'Required accepted evidence is missing from verification validity calculation.', 'global-doctor-onboarding' ) );
+            }
+            $record = $by_type[ $type ];
+            if ( 'accepted' !== sanitize_key( $record->status ) || empty( $record->reviewer_id ) || empty( $record->reviewed_at ) ) {
+                return new WP_Error( 'gdo_evidence_ceiling_unaccepted', __( 'Verification validity requires current independently accepted evidence.', 'global-doctor-onboarding' ) );
+            }
+            $candidates = array();
+            if ( ! empty( $record->expires_at ) ) {
+                $timestamp = strtotime( $record->expires_at . ' UTC' );
+                if ( ! $timestamp || $timestamp <= time() ) {
+                    return new WP_Error( 'gdo_evidence_ceiling_expired', __( 'Required evidence has expired and cannot support verification.', 'global-doctor-onboarding' ) );
+                }
+                $candidates[] = $timestamp;
+            }
+            if ( ! empty( $record->validity_until ) ) {
+                $timestamp = strtotime( $record->validity_until . ' 23:59:59 UTC' );
+                if ( ! $timestamp || $timestamp <= time() ) {
+                    return new WP_Error( 'gdo_evidence_ceiling_expired', __( 'A required credential is no longer valid and cannot support verification.', 'global-doctor-onboarding' ) );
+                }
+                $candidates[] = $timestamp;
+            } elseif ( 'license' === $type ) {
+                return new WP_Error( 'gdo_evidence_ceiling_license_validity', __( 'A verified license requires an explicit current validity end date.', 'global-doctor-onboarding' ) );
+            }
+            if ( ! $candidates ) {
+                return new WP_Error( 'gdo_evidence_ceiling_unknown', __( 'Required evidence has no bounded validity period and cannot support verification.', 'global-doctor-onboarding' ) );
+            }
+            $record_ceiling = min( $candidates );
+            $ceiling = $ceiling ? min( $ceiling, $record_ceiling ) : $record_ceiling;
+        }
+        return $ceiling > time() ? $ceiling : new WP_Error( 'gdo_evidence_ceiling_expired', __( 'Current evidence cannot support a future verification period.', 'global-doctor-onboarding' ) );
+    }
+
+    /**
+     * Delete encrypted evidence through a durable pending state so a filesystem
+     * unlink can never be reported as complete before database truth records
+     * that deletion is in progress. A retry can finish a prior pending delete
+     * without exposing the record as active evidence.
+     */
+    public static function delete_record_safely( $record, $final_state, $now = '' ) {
+        global $wpdb;
+        $pending_states = array(
+            'deleted'            => 'deletion_pending_erasure',
+            'retention_deleted'  => 'deletion_pending_retention',
+            'superseded_deleted' => 'deletion_pending_superseded',
+        );
+        $final_state = sanitize_key( $final_state );
+        if ( ! isset( $pending_states[ $final_state ] ) ) {
+            return new WP_Error( 'gdo_delete_state_invalid', __( 'The credential deletion state is invalid.', 'global-doctor-onboarding' ) );
+        }
+        $id = is_object( $record ) ? absint( $record->id ) : 0;
+        if ( ! $id ) {
+            return new WP_Error( 'gdo_delete_record_invalid', __( 'The credential deletion record is invalid.', 'global-doctor-onboarding' ) );
+        }
+        $now = $now ? sanitize_text_field( $now ) : current_time( 'mysql', true );
+        $pending_state = $pending_states[ $final_state ];
+
+        $wpdb->last_error = '';
+        $current = $wpdb->get_row( $wpdb->prepare(
+            'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id=%d',
+            $id
+        ) );
+        if ( null === $current && ! empty( $wpdb->last_error ) ) {
+            return new WP_Error( 'gdo_delete_record_query', __( 'The credential deletion record could not be read safely.', 'global-doctor-onboarding' ) );
+        }
+        if ( ! $current ) {
+            return new WP_Error( 'gdo_delete_record_missing', __( 'The credential deletion record is unavailable.', 'global-doctor-onboarding' ) );
+        }
+        if ( ! empty( $current->deleted_at ) ) {
+            if ( $final_state === sanitize_key( $current->retention_state ) && preg_match( '/^[a-f0-9]{64}$/', (string) $current->deletion_proof ) ) {
+                return (string) $current->deletion_proof;
+            }
+            return new WP_Error( 'gdo_delete_record_final_conflict', __( 'The credential was already finalized under a different deletion state.', 'global-doctor-onboarding' ) );
+        }
+
+        $was_pending = $pending_state === sanitize_key( $current->retention_state );
+        $storage_name = (string) $current->storage_name;
+        $ciphertext_sha256 = (string) $current->ciphertext_sha256;
+        if ( ! $was_pending ) {
+            $health = GDO_Storage::health();
+            if ( is_wp_error( $health ) ) {
+                return $health;
+            }
+            $path = GDO_Storage::path( $storage_name );
+            if ( ! is_file( $path ) || ! is_readable( $path ) || is_link( $path ) ) {
+                return new WP_Error( 'gdo_delete_source_missing', __( 'Credential deletion stopped because the expected encrypted source file is unavailable or unsafe.', 'global-doctor-onboarding' ) );
+            }
+            $actual_sha256 = hash_file( 'sha256', $path );
+            if ( ! preg_match( '/^[a-f0-9]{64}$/', $ciphertext_sha256 ) || ! is_string( $actual_sha256 ) || ! hash_equals( $ciphertext_sha256, $actual_sha256 ) ) {
+                return new WP_Error( 'gdo_delete_source_hash', __( 'Credential deletion stopped because the encrypted source file could not be matched to database truth.', 'global-doctor-onboarding' ) );
+            }
+
+            $wpdb->last_error = '';
+            $prepared = $wpdb->update(
+                GDO_Schema::table( 'evidence' ),
+                array(
+                    'user_id'=>0, 'retention_state'=>$pending_state, 'deletion_proof'=>null,
+                    'original_name'=>'erasure-pending', 'source_sha256'=>'', 'content_hmac'=>'', 'key_id'=>'',
+                    'scan_reference'=>null, 'checklist_json'=>null, 'findings_json'=>null, 'review_note'=>null,
+                    'registry_source'=>null, 'reviewer_id'=>null, 'reviewed_at'=>null, 'validity_from'=>null,
+                    'validity_until'=>null, 'updated_at'=>$now,
+                ),
+                array(
+                    'id'=>$id,
+                    'retention_state'=>(string) $current->retention_state,
+                    'storage_name'=>$storage_name,
+                    'ciphertext_sha256'=>$ciphertext_sha256,
+                )
+            );
+            if ( false === $prepared ) {
+                return new WP_Error( 'gdo_delete_pending_store_failed', __( 'Credential deletion could not persist its durable pending state.', 'global-doctor-onboarding' ) );
+            }
+            if ( 1 !== (int) $prepared ) {
+                return new WP_Error( 'gdo_delete_pending_conflict', __( 'Credential deletion stopped because the record changed concurrently.', 'global-doctor-onboarding' ) );
+            }
+        }
+
+        $path = GDO_Storage::path( $storage_name );
+        if ( is_file( $path ) ) {
+            $proof = GDO_Storage::delete_verified( $storage_name, $ciphertext_sha256 );
+            if ( is_wp_error( $proof ) ) {
+                return $proof;
+            }
+        } elseif ( $was_pending ) {
+            // The source file was verified before the durable pending state was
+            // first written. Missing-on-retry therefore represents an
+            // interrupted post-unlink finalization, not an unexplained active
+            // evidence disappearance.
+            $proof = hash( 'sha256', 'pending-delete-recovery|' . $id . '|' . $storage_name . '|' . $ciphertext_sha256 );
+        } else {
+            return new WP_Error( 'gdo_delete_interrupted_before_unlink', __( 'Credential deletion entered its durable pending state but the source file changed before deletion. Retry or reconcile before finalization.', 'global-doctor-onboarding' ) );
+        }
+        if ( ! is_string( $proof ) || ! preg_match( '/^[a-f0-9]{64}$/', $proof ) ) {
+            return new WP_Error( 'gdo_delete_proof_invalid', __( 'Credential deletion did not produce a valid durable proof.', 'global-doctor-onboarding' ) );
+        }
+
+        $wpdb->last_error = '';
+        $finalized = $wpdb->update(
+            GDO_Schema::table( 'evidence' ),
+            array(
+                'user_id'=>0, 'retention_state'=>$final_state, 'deletion_proof'=>$proof, 'deleted_at'=>$now,
+                'storage_name'=>'deleted-' . $id, 'original_name'=>'erased', 'source_sha256'=>'', 'ciphertext_sha256'=>'',
+                'content_hmac'=>'', 'key_id'=>'', 'scan_reference'=>null, 'checklist_json'=>null, 'findings_json'=>null,
+                'review_note'=>null, 'registry_source'=>null, 'reviewer_id'=>null, 'reviewed_at'=>null,
+                'validity_from'=>null, 'validity_until'=>null, 'updated_at'=>$now,
+            ),
+            array( 'id'=>$id, 'retention_state'=>$pending_state, 'storage_name'=>$storage_name )
+        );
+        if ( false === $finalized ) {
+            return new WP_Error( 'gdo_delete_finalize_store_failed', __( 'Credential deletion completed physically but its durable final proof could not be stored; the record remains pending for safe retry.', 'global-doctor-onboarding' ) );
+        }
+        if ( 1 !== (int) $finalized ) {
+            return new WP_Error( 'gdo_delete_finalize_conflict', __( 'Credential deletion proof could not be finalized because the record changed concurrently.', 'global-doctor-onboarding' ) );
+        }
+        return $proof;
+    }
+
     public static function decrypt_record( $record ) {
         global $wpdb;
         $wpdb->last_error = '';

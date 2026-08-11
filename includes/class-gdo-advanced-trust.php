@@ -347,7 +347,7 @@ final class GDO_Advanced_Trust {
             return $matrix;
         }
         $verified_expiry = self::current_verification_expiry( $app );
-        $current = GDO_State::public_verified( $app->state ) && (bool) $verified_expiry;
+        $current = GDO_State::public_verified( $app->state ) && (bool) $verified_expiry && 'accepted' === sanitize_key( $app->claim_status );
         $identity = GDO_Membership_Adapter::identity_assurance_current( $app->user_id );
         $matrix['identity'] = (bool) $identity;
         $matrix['current_status'] = (bool) ( $identity && $current );
@@ -361,9 +361,25 @@ final class GDO_Advanced_Trust {
         if ( in_array( 'institution', $required, true ) || in_array( 'affiliation', $required, true ) || in_array( 'employment', $required, true ) ) {
             $matrix['scope_status']['institution'] = 'not_verified';
         }
-        foreach ( GDO_Evidence::records( $app->id, true ) as $evidence ) {
+        $evidence_rows = GDO_Evidence::records_checked( $app->id, true );
+        if ( is_wp_error( $evidence_rows ) ) {
+            // Public trust projection must understate rather than preserve an
+            // unverifiable professional-current state during DB uncertainty.
+            $matrix['current_status'] = false;
+            $matrix['scope_status']['current_status'] = 'not_verified';
+            return $matrix;
+        }
+        foreach ( $evidence_rows as $evidence ) {
             $status = sanitize_key( $evidence->status );
-            $accepted = 'accepted' === $status;
+            $accepted = 'accepted' === $status && ! empty( $evidence->reviewer_id ) && ! empty( $evidence->reviewed_at );
+            if ( $accepted && ! empty( $evidence->expires_at ) ) {
+                $expires_at = strtotime( $evidence->expires_at . ' UTC' );
+                $accepted = $expires_at && $expires_at > time();
+            }
+            if ( $accepted && ! empty( $evidence->validity_until ) ) {
+                $validity_until = strtotime( $evidence->validity_until . ' 23:59:59 UTC' );
+                $accepted = $validity_until && $validity_until > time();
+            }
             $pending = in_array( $status, array( 'pending_review','more_information' ), true );
             if ( in_array( $evidence->document_type, array( 'qualification','degree','diploma' ), true ) ) {
                 $matrix['qualification'] = $matrix['qualification'] || $accepted;

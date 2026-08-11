@@ -167,25 +167,14 @@ final class GDO_Privacy {
 					}
 					continue;
 				}
-				$proof = GDO_Storage::delete_verified( $record->storage_name, $record->ciphertext_sha256 );
+				$proof = GDO_Evidence::delete_record_safely( $record, 'deleted', current_time( 'mysql', true ) );
 				if ( is_wp_error( $proof ) ) {
 					$deletion_failed = true;
 					$retained = true;
 					$messages[] = $proof->get_error_message();
 					continue;
 				}
-				$updated = $wpdb->update(
-					GDO_Schema::table( 'evidence' ),
-					array( 'user_id'=>0, 'retention_state'=>'deleted', 'deletion_proof'=>$proof, 'deleted_at'=>current_time( 'mysql', true ), 'original_name'=>'erased', 'storage_name'=>'deleted-' . absint( $record->id ), 'source_sha256'=>'', 'ciphertext_sha256'=>'', 'content_hmac'=>'', 'key_id'=>'', 'scan_reference'=>null, 'checklist_json'=>null, 'findings_json'=>null, 'review_note'=>null, 'registry_source'=>null, 'updated_at'=>current_time( 'mysql', true ) ),
-					array( 'id'=>absint( $record->id ) )
-				);
-				if ( false === $updated ) {
-					$deletion_failed = true;
-					$retained = true;
-					$messages[] = 'A physical credential deletion succeeded but its proof record requires administrator repair.';
-				} else {
-					$removed = true;
-				}
+				$removed = true;
 			}
 			if ( $deletion_failed ) {
 				continue;

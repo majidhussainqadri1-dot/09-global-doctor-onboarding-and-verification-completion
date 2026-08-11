@@ -417,8 +417,10 @@ final class GDO_Admin {
 			$this->rollback_die( __( 'Invalid, conflicted, stale, or unauthorized final decision.', 'global-doctor-onboarding' ), 409 );
 		}
 		$normalized_until = 'verified' === $decision ? GDO_Policy::normalize_future_date( $until ) : '';
-		if ( 'verified' === $decision && ( is_wp_error( $normalized_until ) || ! GDO_Evidence::all_accepted( $id ) || GDO_Risk::unresolved( $id, 'high' ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id, $app->jurisdiction ) ) ) {
-			$this->rollback_die( __( 'Verification requires accepted current evidence, a real future expiry date, and resolved high-risk signals.', 'global-doctor-onboarding' ), 400 );
+		$evidence_ceiling = 'verified' === $decision ? GDO_Evidence::verification_valid_until_ceiling( $id ) : 0;
+		$requested_until = ! is_wp_error( $normalized_until ) && $normalized_until ? strtotime( $normalized_until . ' 23:59:59 UTC' ) : 0;
+		if ( 'verified' === $decision && ( is_wp_error( $normalized_until ) || is_wp_error( $evidence_ceiling ) || ! $requested_until || $requested_until > $evidence_ceiling || ! GDO_Evidence::all_accepted( $id ) || GDO_Risk::unresolved( $id, 'high' ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $app->user_id, $app->jurisdiction ) ) ) {
+			$this->rollback_die( __( 'Verification requires accepted current evidence, a real future expiry date no later than the earliest supporting credential/evidence expiry, and resolved high-risk signals.', 'global-doctor-onboarding' ), 400 );
 		}
 		if ( 'verified' === $decision ) { $until = $normalized_until; }
 		$profile = json_decode( $app->profile_json, true );

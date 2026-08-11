@@ -10,9 +10,11 @@ final class GDO_Operations {
 		$core_schema_ready = absint( get_option( 'gdo_schema_version', 0 ) ) === GDO_SCHEMA_VERSION;
 		$advanced_schema_ready = ! class_exists( 'GDO_Advanced_Trust_Hardening' )
 			|| absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) === GDO_Advanced_Trust_Hardening::SCHEMA_VERSION;
+		$schedules_ready = self::required_schedules_ready();
 		return ! self::safe_mode()
 			&& $core_schema_ready
 			&& $advanced_schema_ready
+			&& $schedules_ready
 			&& defined( 'GDO_CLAIM_SIGNING_KEY' )
 			&& strlen( (string) GDO_CLAIM_SIGNING_KEY ) >= 32
 			&& GDO_Membership_Adapter::available()
@@ -25,6 +27,12 @@ final class GDO_Operations {
 		if ( ! function_exists( 'wp_get_scheduled_event' ) ) { return false; }
 		$event = wp_get_scheduled_event( $hook, array() );
 		return is_object( $event ) && isset( $event->schedule ) && $recurrence === $event->schedule;
+	}
+
+	private static function required_schedules_ready() {
+		return self::recurring_schedule_ready( 'gdo_daily_retention', 'daily' )
+			&& self::recurring_schedule_ready( 'gdo_notification_outbox', 'hourly' )
+			&& self::recurring_schedule_ready( 'gdo_trust_continuous_monitor', 'daily' );
 	}
 
 	private static function count_query( $sql, $error_code ) {
@@ -46,9 +54,9 @@ final class GDO_Operations {
 		$checks['private_storage'] = is_wp_error( GDO_Storage::health() ) ? 'fail' : 'pass';
 		$checks['schema_version'] = absint( get_option( 'gdo_schema_version', 0 ) ) === GDO_SCHEMA_VERSION ? 'pass' : 'fail';
 		$checks['advanced_trust_schema'] = ! class_exists( 'GDO_Advanced_Trust_Hardening' ) || absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) === GDO_Advanced_Trust_Hardening::SCHEMA_VERSION ? 'pass' : 'fail';
-		$checks['retention_cron'] = self::recurring_schedule_ready( 'gdo_daily_retention', 'daily' ) ? 'pass' : 'warn';
-		$checks['outbox_cron'] = self::recurring_schedule_ready( 'gdo_notification_outbox', 'hourly' ) ? 'pass' : 'warn';
-		$checks['trust_monitor_cron'] = self::recurring_schedule_ready( 'gdo_trust_continuous_monitor', 'daily' ) ? 'pass' : 'warn';
+		$checks['retention_cron'] = self::recurring_schedule_ready( 'gdo_daily_retention', 'daily' ) ? 'pass' : 'fail';
+		$checks['outbox_cron'] = self::recurring_schedule_ready( 'gdo_notification_outbox', 'hourly' ) ? 'pass' : 'fail';
+		$checks['trust_monitor_cron'] = self::recurring_schedule_ready( 'gdo_trust_continuous_monitor', 'daily' ) ? 'pass' : 'fail';
 		$modern_notifications = function_exists( 'sun_ingest_domain_event' ) && function_exists( 'sun_register_notification_producer' );
 		$checks['notification_provider'] = ( $modern_notifications || class_exists( 'SUN_Core' ) || has_action( 'sabri_notify' ) ) ? 'pass' : 'warn';
 		$checks['claim_signing_key'] = defined( 'GDO_CLAIM_SIGNING_KEY' ) && strlen( (string) GDO_CLAIM_SIGNING_KEY ) >= 32 ? 'pass' : 'fail';

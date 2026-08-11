@@ -10,7 +10,7 @@ Review baseline: `6d5c2850dbf86ce954e0c2fdef8adf36d2dbf1f1`
 
 ## Scope
 
-RC6 preserves the complete prior File 09 application/evidence/review/decision/renewal/suspension/revocation/appeal/privacy implementation and all 24 approved **Advanced Professional Trust & Verification Extensions 2026**. It additionally preserves all repository corrective assurance evidence through R12.
+RC6 preserves the complete prior File 09 application/evidence/review/decision/renewal/suspension/revocation/appeal/privacy implementation and all 24 approved **Advanced Professional Trust & Verification Extensions 2026**. It additionally preserves all repository corrective assurance evidence through R13.
 
 The RC6 corrective layer fixes lifecycle-state drift, issuer/rule governance, monitoring retry/backoff, passport validity/supersession/read semantics, resumable-upload concurrency, viewing-room grant duplication, REST object authorization, provider-data minimization, Advanced Trust privacy/retention coverage, schema/index migration and release/plan evidence drift.
 
@@ -30,7 +30,7 @@ The RC6 corrective layer fixes lifecycle-state drift, issuer/rule governance, mo
 
 `tools/build-release.py` builds `global-doctor-onboarding-09-1.3.0-RC6.zip` twice using the exact **62-entry** release allowlist. `tools/verify-release.py` requires identical entry order, fixed ZIP timestamps, source/package SHA-256 parity and an exact-head generated SPDX 2.3 SBOM whose package identity is `1.3.0-RC6`.
 
-The exact-head source gate runs all legacy suites, Advanced Trust gates, the preserved R1–R11 executable review gates and `tests/ten-round-audit-r12.py` on PHP 7.4 and PHP 8.3. No earlier run can certify later corrected source. Because this manifest itself is inside the release allowlist, **the authoritative source/package/QA result is always the workflow result for the exact final commit that contains this manifest**; any later commit automatically reopens the gate.
+The exact-head source gate runs all legacy suites, Advanced Trust gates, the preserved R1–R11 executable review gates and both `tests/ten-round-audit-r12.py` / `tests/ten-round-audit-r13.py` on PHP 7.4 and PHP 8.3. No earlier run can certify later corrected source. Because this manifest itself is inside the release allowlist, **the authoritative source/package/QA result is always the workflow result for the exact final commit that contains this manifest**; any later commit automatically reopens the gate.
 
 ## Acceptance state
 
@@ -98,4 +98,17 @@ RC6 underwent a tenth independent 80-control repository review against frozen ex
 - R12 fixes fail-closed reviewer/finalizer snapshot reads, claim-acknowledgement-bound passport issuance, checked submission/front-end evidence reads, draft reload certainty, migration/legacy credential failure visibility, version-bound claim delivery failure and retention/orphan-cleanup failure propagation.
 - R12 ledger/test are repository QA evidence and intentionally remain outside the installable allowlist; current installable allowlist remains **62 entries**.
 - Because R12 changed package-owned PHP source, every artifact predating the final R12 exact head is historical and a new deterministic ZIP/SBOM must be generated.
+- Staging acceptance, live deployment and operational acceptance remain false until externally evidenced.
+
+
+## Thirteenth fresh 10-round corrective assurance — R13
+
+- Frozen baseline: `e5e867d235aafc49dd084644590afe8dfaf27d47`.
+- R13: **10 rounds; 6 defect-bearing; 4 clean; post-correction target 10 PASS / 0 FAIL**.
+- Defect-bearing rounds: `01,04,05,06,07,10`; clean rounds: `02,03,08,09`.
+- Permanent ledger: `REVIEW-10-ROUNDS-RC6-R13.md`.
+- Executable gate: `tests/ten-round-audit-r13.py`.
+- R13 corrections bound verified validity to required evidence expiry, make credential deletion DB-first/durable-pending, harden dead-letter replay DB semantics, require maintenance schedules for mutation readiness, and prevent stale/unacknowledged public verification scope truth.
+- R13 ledger/test remain repository QA evidence outside the installable allowlist; the allowlist remains **62 entries**.
+- Any package, checksum, artifact or workflow result predating the final R13 exact head is historical; deterministic ZIP/SBOM evidence must be regenerated on that exact head.
 - Staging acceptance, live deployment and operational acceptance remain false until externally evidenced.

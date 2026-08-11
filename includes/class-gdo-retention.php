@@ -186,7 +186,7 @@ final class GDO_Retention {
 		global $wpdb;
 		$before = gmdate( 'Y-m-d H:i:s', time() - absint( apply_filters( 'gdo_superseded_evidence_grace_days', 30 ) ) * DAY_IN_SECONDS );
 		$rows = $wpdb->get_results( $wpdb->prepare(
-			"SELECT * FROM {$evidence_table} WHERE retention_state='superseded' AND deleted_at IS NULL AND updated_at<%s LIMIT 100",
+			"SELECT * FROM {$evidence_table} WHERE deleted_at IS NULL AND ((retention_state='superseded' AND updated_at<%s) OR retention_state='deletion_pending_superseded') LIMIT 100",
 			$before
 		) );
 		if ( null === $rows || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_superseded_query', __( 'Superseded credential records could not be read safely.', 'global-doctor-onboarding' ) ); }
@@ -289,18 +289,12 @@ final class GDO_Retention {
 	}
 
 	private static function delete_record( $record, $state, $now ) {
-		global $wpdb;
-		$proof = GDO_Storage::delete_verified( $record->storage_name, $record->ciphertext_sha256 );
-		if ( is_wp_error( $proof ) ) {
-			GDO_Membership_Adapter::audit( 'doctor_credential_retention_delete_failed', array( 'application_id'=>absint( $record->application_id ), 'evidence_id'=>absint( $record->id ), 'error'=>$proof->get_error_code() ) );
+		$result = GDO_Evidence::delete_record_safely( $record, $state, $now );
+		if ( is_wp_error( $result ) ) {
+			GDO_Membership_Adapter::audit( 'doctor_credential_retention_delete_failed', array( 'application_id'=>absint( $record->application_id ), 'evidence_id'=>absint( $record->id ), 'error'=>$result->get_error_code() ) );
 			return false;
 		}
-		$updated = $wpdb->update(
-			GDO_Schema::table( 'evidence' ),
-			array( 'user_id'=>0, 'retention_state'=>$state, 'deletion_proof'=>$proof, 'deleted_at'=>$now, 'storage_name'=>'deleted-' . absint( $record->id ), 'original_name'=>'erased', 'source_sha256'=>'', 'ciphertext_sha256'=>'', 'content_hmac'=>'', 'key_id'=>'', 'scan_reference'=>null, 'checklist_json'=>null, 'findings_json'=>null, 'review_note'=>null, 'registry_source'=>null, 'updated_at'=>$now ),
-			array( 'id'=>absint( $record->id ) )
-		);
-		return false !== $updated;
+		return true;
 	}
 
 	private static function cleanup_orphans() {
