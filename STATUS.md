@@ -39,6 +39,12 @@ R9 corrects owner-command reviewer reauthorization, evidence/grant DB uncertaint
 - Live deployed: **false**
 - Operationally accepted: **false**
 
+Stable machine/historical-gate aliases (same truth, no additional status):
+
+Staging accepted: false  
+Live deployed: false  
+Operationally accepted: false
+
 ## Authoritative RC6/R9 repository gate
 
 The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R9 80-round executable gates**, deterministic double build, **60-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
