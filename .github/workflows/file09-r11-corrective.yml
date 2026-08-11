@@ -5,6 +5,7 @@ on:
       - codex/file09-1.3.0-rc6-80-round-review
     paths:
       - .github/scripts/file09_r11_correct.py
+      - .github/workflows/file09-r11-corrective.yml
 permissions:
   contents: write
 jobs:
