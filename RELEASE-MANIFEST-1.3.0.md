@@ -59,34 +59,34 @@ RC6 has undergone a fourth independent 80-control repository review against froz
 
 ## Fifth fresh 80-round corrective assurance
 
-RC6 has undergone a fifth independent 80-control repository review against frozen baseline `58313a67e1d21ad17c9a066e9a29c34245a0763e`: **29 defect-bearing rounds corrected; 51 clean rounds**. `REVIEW-80-ROUNDS-RC6-R5.md` records the ledger and `tests/eighty-round-audit-r5.py` is mandatory alongside all prior gates. Historical release allowlist at that stage: **56 entries**.
+RC6 has undergone a fifth independent 80-control repository review against frozen baseline `58313a67e1d21ad17c9a066e9a29c34245a0763e`: **29 defect-bearing rounds corrected; 51 clean rounds**. `REVIEW-80-ROUNDS-RC6-R5.md` records the ledger and `tests/eighty-round-audit-r5.py` is mandatory alongside all prior gates. Historical release allowlist at that stage: **56 entries** (**56-entry** historical gate alias).
 
 ## Sixth fresh 80-round corrective assurance — R6
 
-RC6 underwent a sixth independent 80-control repository review against frozen exact-head baseline `6fa0a5cb7063b6b821bd50c105c735470f589b80`: **60 defect-bearing rounds corrected; 20 clean rounds**. `REVIEW-80-ROUNDS-RC6-R6.md` records the immutable ledger and `tests/eighty-round-audit-r6.py` is mandatory alongside all five prior 80-round gates. Historical release allowlist at that stage: **57 entries**.
+RC6 underwent a sixth independent 80-control repository review against frozen exact-head baseline `6fa0a5cb7063b6b821bd50c105c735470f589b80`: **60 defect-bearing rounds corrected; 20 clean rounds**. `REVIEW-80-ROUNDS-RC6-R6.md` records the immutable ledger and `tests/eighty-round-audit-r6.py` is mandatory alongside all five prior 80-round gates. Historical release allowlist at that stage: **57 entries** (**57-entry** historical gate alias).
 
 ## Seventh fresh 80-round corrective assurance — R7
 
-RC6 underwent a seventh independent 80-control repository review against frozen exact-head baseline `9103310fc93d978b6e70661f024a079fc0971003`: **22 defect-bearing rounds corrected; 58 clean rounds**. `REVIEW-80-ROUNDS-RC6-R7.md` records the immutable ledger and `tests/eighty-round-audit-r7.py` is mandatory alongside all prior gates. Historical release allowlist at that stage: **58 entries**.
+RC6 underwent a seventh independent 80-control repository review against frozen exact-head baseline `9103310fc93d978b6e70661f024a079fc0971003`: **22 defect-bearing rounds corrected; 58 clean rounds**. `REVIEW-80-ROUNDS-RC6-R7.md` records the immutable ledger and `tests/eighty-round-audit-r7.py` is mandatory alongside all prior gates. Historical release allowlist at that stage: **58 entries** (**58-entry** historical gate alias).
 
 ## Eighth fresh 80-round assurance — R8
 
-Frozen review baseline: `f40228d29ffa92e8d27ea84f9b1c1ae4a63ff9b2`; **15 defect-bearing rounds corrected, 65 clean**. Historical release allowlist at that stage: **59 entries**.
+Frozen review baseline: `f40228d29ffa92e8d27ea84f9b1c1ae4a63ff9b2`; **15 defect-bearing rounds corrected, 65 clean**. Historical release allowlist at that stage: **59 entries** (**59-entry** historical gate alias).
 
 ## Ninth fresh 80-round corrective assurance — R9
 
-RC6 underwent a ninth independent 80-control repository review against frozen exact-head baseline `75ea54ed5113bf7ee16e90443f17cc1b941933a9`: **10 defect-bearing rounds corrected; 70 clean rounds**. `REVIEW-80-ROUNDS-RC6-R9.md` is the immutable ledger and `tests/eighty-round-audit-r9.py` is mandatory alongside R1–R8. Historical release allowlist at that stage: **60 entries**.
+RC6 underwent a ninth independent 80-control repository review against frozen exact-head baseline `75ea54ed5113bf7ee16e90443f17cc1b941933a9`: **10 defect-bearing rounds corrected; 70 clean rounds**. `REVIEW-80-ROUNDS-RC6-R9.md` is the immutable ledger and `tests/eighty-round-audit-r9.py` is mandatory alongside R1–R8. Historical release allowlist at that stage: **60 entries** (**60-entry** historical gate alias).
 
 ## Tenth fresh 80-round corrective assurance — R10
 
-RC6 underwent a tenth independent 80-control repository review against frozen exact-head baseline `ec3ca2dd715e05b66cf29c42f2f996c80987fcd7`: **19 defect-bearing rounds corrected; 61 clean rounds**. `REVIEW-80-ROUNDS-RC6-R10.md` is the immutable ledger and `tests/eighty-round-audit-r10.py` is mandatory alongside R1–R9. Historical release allowlist at that stage: **61 entries**.
+RC6 underwent a tenth independent 80-control repository review against frozen exact-head baseline `ec3ca2dd715e05b66cf29c42f2f996c80987fcd7`: **19 defect-bearing rounds corrected; 61 clean rounds**. `REVIEW-80-ROUNDS-RC6-R10.md` is the immutable ledger and `tests/eighty-round-audit-r10.py` is mandatory alongside R1–R9. Historical release allowlist at that stage: **61 entries** (**61-entry** historical gate alias).
 
 ## Eleventh fresh 80-round / RC6 release evidence
 
 - Frozen baseline: `91d9a590e18e02030e27ed558ad2147981332ed3`.
 - R11: **80 rounds; 17 defect-bearing; 63 clean; post-correction target 80 PASS / 0 FAIL**.
 - Defect-bearing rounds: `04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20`.
-- Release allowlist after R11: **62 entries**.
+- Release allowlist after R11: **62 entries** (**62-entry** current package gate alias).
 
 ## Twelfth fresh 10-round corrective assurance — R12
 
