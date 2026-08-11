@@ -120,16 +120,32 @@ final class GDO_Membership_Adapter {
 			|| in_array( sanitize_key( $base['status'] ), array( 'suspended', 'rejected', 'revoked', 'expired', 'appeal_review', 'erasure_pending', 'invalid_application', 'blocked', 'banned' ), true );
 	}
 
-	public static function identity_assurance_current( $user_id ) {
-		$base = self::base_assertion( $user_id );
-		return $base
-			&& ! empty( $base['application_exists'] )
+	public static function identity_assurance_current_checked( $user_id ) {
+		$user_id = absint( $user_id );
+		if ( ! self::available() || ! $user_id ) {
+			return new WP_Error( 'gdo_identity_dependency_unavailable', __( 'Current File 00 identity assurance is temporarily unavailable.', 'global-doctor-onboarding' ) );
+		}
+		try {
+			$base = SMC_Contracts::assertions( $user_id );
+		} catch ( Throwable $e ) {
+			unset( $e );
+			return new WP_Error( 'gdo_identity_assertion_unavailable', __( 'Current File 00 identity assurance could not be read safely.', 'global-doctor-onboarding' ) );
+		}
+		if ( ! self::valid_base_assertion( $base, $user_id ) ) {
+			return new WP_Error( 'gdo_identity_assertion_invalid', __( 'Current File 00 identity assurance returned an invalid contract response.', 'global-doctor-onboarding' ) );
+		}
+		return ! empty( $base['application_exists'] )
 			&& 'approved' === sanitize_key( $base['status'] )
 			&& ! empty( $base['approved'] )
 			&& ! empty( $base['identity_documents_current'] )
 			&& ! empty( $base['email_verified'] )
 			&& ! empty( $base['phone_verified'] )
 			&& ! empty( $base['two_factor_ready'] );
+	}
+
+	public static function identity_assurance_current( $user_id ) {
+		$checked = self::identity_assurance_current_checked( $user_id );
+		return is_wp_error( $checked ) ? false : (bool) $checked;
 	}
 
 	public static function membership_allows( $assertion ) {
