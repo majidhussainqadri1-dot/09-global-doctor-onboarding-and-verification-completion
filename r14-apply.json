@@ -1,0 +1,10 @@
+{
+  "message": "fix(file09): isolate credential quota DB state",
+  "changes": [
+    {
+      "path": "includes/class-gdo-evidence.php",
+      "old": "    private static function quota_allows( $user_id, $new_size, $replacing_size = 0 ) {\n        global $wpdb;\n        $raw_used = $wpdb->get_var( $wpdb->prepare(\n",
+      "new": "    private static function quota_allows( $user_id, $new_size, $replacing_size = 0 ) {\n        global $wpdb;\n        $wpdb->last_error = '';\n        $raw_used = $wpdb->get_var( $wpdb->prepare(\n"
+    }
+  ]
+}
