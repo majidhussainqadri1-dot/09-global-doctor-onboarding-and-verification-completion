@@ -174,9 +174,42 @@ final class GDO_Application {
 		$app = self::get( $wpdb->insert_id );
 		if ( null === $app && ! empty( $wpdb->last_error ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'gdo_application_create_reload_query', __( 'The newly created application could not be reloaded safely.', 'global-doctor-onboarding' ) ); }
 		$audit = $app ? GDO_Audit::transition( $app->id, $user_id, 'none', 'draft', 'application_created', 'Applicant created a private doctor application.' ) : new WP_Error( 'gdo_application_create', __( 'The private application could not be loaded.', 'global-doctor-onboarding' ) );
-		if ( is_wp_error( $audit ) || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( is_wp_error( $audit ) ) {
 			$wpdb->query( 'ROLLBACK' );
-			return is_wp_error( $audit ) ? $audit : new WP_Error( 'gdo_application_commit', __( 'The private application could not be committed.', 'global-doctor-onboarding' ) );
+			return $audit;
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			// A lost COMMIT acknowledgement is outcome-ambiguous. Re-read both
+			// the exact draft identity and its initial chained transition before
+			// deciding whether post-commit publication must continue.
+			$wpdb->last_error = '';
+			$committed_app = $wpdb->get_row( $wpdb->prepare(
+				'SELECT id,application_uuid,user_id,version,state FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE application_uuid=%s AND user_id=%d AND version=%d LIMIT 1',
+				$data['application_uuid'], $user_id, absint( $version )
+			) );
+			$app_read_error = ! empty( $wpdb->last_error );
+			$wpdb->last_error = '';
+			$committed_hash = $wpdb->get_var( $wpdb->prepare(
+				'SELECT event_hash FROM ' . GDO_Schema::table( 'transitions' ) . ' WHERE application_id=%d AND trace_id=%s LIMIT 1',
+				$app->id, $audit['trace_id']
+			) );
+			$audit_read_error = ! empty( $wpdb->last_error );
+			if ( $app_read_error || $audit_read_error ) {
+				return new WP_Error( 'gdo_application_commit_uncertain', __( 'The private application commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) );
+			}
+			$committed = $committed_app
+				&& absint( $committed_app->id ) === absint( $app->id )
+				&& hash_equals( (string) $data['application_uuid'], (string) $committed_app->application_uuid )
+				&& absint( $committed_app->user_id ) === $user_id
+				&& absint( $committed_app->version ) === absint( $version )
+				&& 'draft' === sanitize_key( $committed_app->state )
+				&& is_string( $committed_hash )
+				&& hash_equals( (string) $audit['event_hash'], $committed_hash );
+			if ( ! $committed ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'gdo_application_commit', __( 'The private application could not be committed.', 'global-doctor-onboarding' ) );
+			}
+			GDO_Membership_Adapter::audit( 'doctor_application_create_commit_reconciled', array( 'application_id'=>$app->id, 'application_uuid'=>$data['application_uuid'], 'version'=>absint( $version ), 'trace_id'=>$audit['trace_id'] ) );
 		}
 		GDO_Audit::publish_transition( $audit );
 		return $app;
@@ -346,8 +379,40 @@ final class GDO_Application {
 			return new WP_Error( 'gdo_consent_link', __( 'Consent could not be linked to the current application state.', 'global-doctor-onboarding' ) );
 		}
 		if ( $manage_transaction && false === $wpdb->query( 'COMMIT' ) ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'gdo_consent_commit', __( 'Consent evidence could not be committed.', 'global-doctor-onboarding' ) );
+			// Reconcile a lost COMMIT acknowledgement against both durable consent
+			// evidence and the exact application linkage/version advanced by this
+			// transaction. Do not turn a committed consent into a false failure.
+			$wpdb->last_error = '';
+			$committed_consent = $wpdb->get_row( $wpdb->prepare(
+				"SELECT consent_version,wording_hash,accepted_at,withdrawn_at FROM {$table} WHERE application_id=%d AND user_id=%d AND consent_version=%s LIMIT 1",
+				$application_id, $user_id, $text['version']
+			) );
+			$consent_read_error = ! empty( $wpdb->last_error );
+			$wpdb->last_error = '';
+			$committed_app = $wpdb->get_row( $wpdb->prepare(
+				'SELECT user_id,state,row_version,consent_version,terms_version FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d LIMIT 1',
+				$application_id
+			) );
+			$app_read_error = ! empty( $wpdb->last_error );
+			if ( $consent_read_error || $app_read_error ) {
+				return new WP_Error( 'gdo_consent_commit_uncertain', __( 'The consent commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) );
+			}
+			$committed = $committed_consent
+				&& ! empty( $committed_consent->accepted_at )
+				&& empty( $committed_consent->withdrawn_at )
+				&& hash_equals( (string) $text['version'], (string) $committed_consent->consent_version )
+				&& hash_equals( $wording_hash, (string) $committed_consent->wording_hash )
+				&& $committed_app
+				&& absint( $committed_app->user_id ) === $user_id
+				&& in_array( sanitize_key( $committed_app->state ), array( 'draft','more_information' ), true )
+				&& absint( $committed_app->row_version ) === absint( $app->row_version ) + 1
+				&& hash_equals( (string) $text['version'], (string) $committed_app->consent_version )
+				&& hash_equals( (string) GDO_Policy::TERMS_VERSION, (string) $committed_app->terms_version );
+			if ( ! $committed ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'gdo_consent_commit', __( 'Consent evidence could not be committed.', 'global-doctor-onboarding' ) );
+			}
+			GDO_Membership_Adapter::audit( 'doctor_consent_commit_reconciled', array( 'application_id'=>$application_id, 'user_id'=>$user_id, 'consent_version'=>$text['version'] ) );
 		}
 		return true;
 	}
