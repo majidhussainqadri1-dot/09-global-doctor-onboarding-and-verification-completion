@@ -19,9 +19,10 @@ checks=[]
 def c(n,title,ok): checks.append((n,title,bool(ok)))
 
 evidence_lookup=trust[trust.index('private static function evidence_record'):trust.index('public static function primary_source_verify')]
+record_error_propagations = trust.count('is_wp_error( $record )') + trust.count('is_wp_error($record)')
 c(1,'Advanced Trust shared evidence lookup propagates database uncertainty',
   has(evidence_lookup, 'GDO_Evidence::records_checked( absint( $application_id ), true )', 'is_wp_error( $records )', 'return $records;')
-  and trust.count('if ( is_wp_error( $record ) ) { return $record; }') >= 5)
+  and record_error_propagations >= 5)
 
 command=trust[trust.index('public static function command_center'):trust.index('public static function public_card_shortcode')]
 c(2,'Applicant command center distinguishes DB uncertainty from no application/missing items',
