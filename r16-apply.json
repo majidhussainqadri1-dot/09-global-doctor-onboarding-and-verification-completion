@@ -1,10 +1,30 @@
 {
-  "message": "fix(file09): prevent duplicate Advanced Trust submission side effects",
+  "message": "fix(file09): observe post-commit Advanced Trust lifecycle failures",
   "changes": [
     {
       "path": "includes/class-gdo-advanced-trust-events.php",
-      "old": "            if ( 'submitted' === $to ) {\n                GDO_Advanced_Trust_Hardening::application_submitted( $application_id );\n                return;\n            }",
-      "new": "            if ( 'submitted' === $to ) {\n                // GDO_Application::submit() emits the canonical post-commit\n                // gdo_application_submitted owner hook immediately after this\n                // transition publication. Do not execute the same Advanced Trust\n                // submission side effects twice in one successful submit.\n                return;\n            }"
+      "old": "final class GDO_Advanced_Trust_Events {\n    public static function hooks() {",
+      "new": "final class GDO_Advanced_Trust_Events {\n    private static function observe_result( $result, $application_id, $operation ) {\n        if ( ! is_wp_error( $result ) ) { return true; }\n        GDO_Membership_Adapter::audit( 'doctor_advanced_trust_lifecycle_side_effect_failed', array(\n            'application_id'=>absint( $application_id ),\n            'operation'=>substr( sanitize_key( $operation ), 0, 80 ),\n            'error_code'=>substr( sanitize_key( $result->get_error_code() ), 0, 100 ),\n        ) );\n        do_action( 'gdo_advanced_trust_lifecycle_attention', absint( $application_id ), sanitize_key( $operation ), $result->get_error_code() );\n        return false;\n    }\n\n    public static function hooks() {"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust-events.php",
+      "old": "                GDO_Advanced_Trust_Hardening::application_decided( $application_id, $to );\n                if ( 'expired' === $to ) {\n                    GDO_Advanced_Trust_Hardening::event_reverification( $application_id, 'expired', $context );\n                }",
+      "new": "                self::observe_result( GDO_Advanced_Trust_Hardening::application_decided( $application_id, $to ), $application_id, 'decision_' . $to );\n                if ( 'expired' === $to ) {\n                    self::observe_result( GDO_Advanced_Trust_Hardening::event_reverification( $application_id, 'expired', $context ), $application_id, 'reverification_expired' );\n                }"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust-events.php",
+      "old": "                GDO_Advanced_Trust_Hardening::event_reverification( $application_id, $to, $context );",
+      "new": "                self::observe_result( GDO_Advanced_Trust_Hardening::event_reverification( $application_id, $to, $context ), $application_id, 'reverification_' . $to );"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust-events.php",
+      "old": "                GDO_Advanced_Trust_Hardening::application_submitted( $application_id );",
+      "new": "                self::observe_result( GDO_Advanced_Trust_Hardening::application_submitted( $application_id ), $application_id, 'submission' );"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust-events.php",
+      "old": "                GDO_Advanced_Trust_Hardening::application_decided( $application_id, $direct[ $event ] );\n                if ( 'expired' === $direct[ $event ] ) {\n                    GDO_Advanced_Trust_Hardening::event_reverification( $application_id, 'expired', $context );\n                }",
+      "new": "                self::observe_result( GDO_Advanced_Trust_Hardening::application_decided( $application_id, $direct[ $event ] ), $application_id, 'decision_' . $direct[ $event ] );\n                if ( 'expired' === $direct[ $event ] ) {\n                    self::observe_result( GDO_Advanced_Trust_Hardening::event_reverification( $application_id, 'expired', $context ), $application_id, 'reverification_expired' );\n                }"
     }
   ]
 }
