@@ -27,6 +27,15 @@ jobs:
           set -euo pipefail
           git merge-base --is-ancestor 75ea54ed5113bf7ee16e90443f17cc1b941933a9 HEAD
           python3 tools/r9-source-apply.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/eighty-round-audit-r5.py')
+          s=p.read_text(encoding='utf-8')
+          old="c(13,'Continuous monitor orphan deletion failure is surfaced',has(hard,'gdo_trust_monitor_orphan_delete','false === $wpdb->delete'))"
+          new="c(13,'Continuous monitor orphan deletion failure is surfaced',has(hard,'gdo_trust_monitor_orphan_delete',\"'monitor_status'=>'processing'\",'orphan_delete_failed'))"
+          if old not in s: raise SystemExit('R5 monitor assertion anchor missing')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
           git rm -f .github/workflows/file09-r9-apply.yml tools/r9-source-apply.py
       - name: Validate corrected source before commit
         run: |
