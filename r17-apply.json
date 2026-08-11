@@ -1,0 +1,10 @@
+{
+  "message": "fix(file09): surface more-info application DB uncertainty",
+  "changes": [
+    {
+      "path": "includes/class-gdo-admin.php",
+      "old": "\t\tcheck_admin_referer( 'gdo_request_more_info_' . $id );\n\t\t$app = GDO_Application::get( $id );\n\t\t$reviewer = get_current_user_id();",
+      "new": "\t\tcheck_admin_referer( 'gdo_request_more_info_' . $id );\n\t\t$wpdb->last_error = '';\n\t\t$app = GDO_Application::get( $id );\n\t\tif ( null === $app && ! empty( $wpdb->last_error ) ) {\n\t\t\twp_die( esc_html__( 'The professional application could not be read safely for the information request.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );\n\t\t}\n\t\t$reviewer = get_current_user_id();"
+    }
+  ]
+}
