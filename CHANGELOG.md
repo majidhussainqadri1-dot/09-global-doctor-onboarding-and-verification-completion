@@ -1,5 +1,17 @@
 # Changelog
 
+## Sixteenth fresh 10-round corrective assurance — R16
+
+- Froze the green R15 exact head `4707d31cbd5ed8f419166d2f796bee315449e172` and performed a new independent 10-round sequential corrective review.
+- Corrected **9** defect-bearing rounds (`01,02,03,04,05,06,08,09,10`); round `07` was clean.
+- Hardened Advanced Trust application DB reads and propagated professional-decision derivative lifecycle failures.
+- Removed duplicate post-submit trust side effects and made post-commit lifecycle failures explicitly auditable/operator-visible.
+- Aligned passport issuance with accepted File 00 professional claims while keeping monitor scheduling independently recoverable.
+- Preserved unsupported/degraded primary-source states as fail-safe manual attention rather than clean monitoring.
+- Added durable `erasure_pending` checkpoints before resumable-upload physical unlink and made WordPress privacy erasure retry until selected application work is actually complete.
+- Added permanent R16 ledger/executable gate/release-lock/workflow evidence while keeping the installable allowlist at 62 entries.
+- External staging/live/operational gates remain false.
+
 ## Tenth fresh 80-round corrective assurance — R10
 
 - Froze the R9 exact-head candidate `ec3ca2dd715e05b66cf29c42f2f996c80987fcd7` and performed a new independent 80-control review.
