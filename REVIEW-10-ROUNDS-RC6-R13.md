@@ -49,6 +49,10 @@ PHP syntax, JavaScript syntax, CSS brace balance, obvious secret-literal pattern
 ### R10 — New R13 corrections lacked permanent exact-head QA/release evidence
 After R01–R09, the repository had no permanent R13 ledger, executable ten-round gate, R13 release-lock fields, current status/manifest evidence or authoritative workflow invocation. R13 adds this ledger, `tests/ten-round-audit-r13.py`, thirteenth release-lock metadata and workflow wiring while preserving the single authoritative `.github/workflows/file09-rc2-final.yml`. R13 QA files remain repository-only and do not change the 62-entry installable allowlist.
 
+## Historical QA-harness compatibility corrections
+
+Two pre-R13 static gates encoded the old location of deletion-proof logic and failed after R04 deliberately centralized physical deletion and proof persistence in `GDO_Evidence::delete_record_safely()`. `tests/completion-security.py` and round 22 of `tests/review40-adversarial.py` were adapted to assert the stronger shared durable deletion primitive instead of requiring `delete_verified`/`deletion_proof` literals in the old caller files. These are historical test-contract adaptations, not additional R13 product/source defects. Temporary harness workflows were removed after applying the corrections.
+
 ## Final exact-head gate
 
 R13 is repository-QA complete only when the final exact commit containing all R13 corrections/evidence passes:
