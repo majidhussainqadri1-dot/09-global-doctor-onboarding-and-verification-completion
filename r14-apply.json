@@ -1,25 +1,10 @@
 {
-  "message": "fix(file09): operationalize appeal deadlines",
+  "message": "fix(file09): preserve worst continuous-monitor result",
   "changes": [
     {
-      "path": "includes/class-gdo-operations.php",
-      "old": "\t\t\t'open_critical_risks' => self::count_query( \"SELECT COUNT(*) FROM \" . GDO_Schema::table( 'risk_signals' ) . \" WHERE severity='critical' AND status IN ('open','reviewing')\", 'gdo_health_critical_risks' ),\n\t\t);",
-      "new": "\t\t\t'open_critical_risks' => self::count_query( \"SELECT COUNT(*) FROM \" . GDO_Schema::table( 'risk_signals' ) . \" WHERE severity='critical' AND status IN ('open','reviewing')\", 'gdo_health_critical_risks' ),\n\t\t\t'overdue_appeals' => self::count_query( $wpdb->prepare(\n\t\t\t\t\"SELECT COUNT(*) FROM \" . GDO_Schema::table( 'appeals' ) . \" WHERE status='open' AND deadline_at IS NOT NULL AND deadline_at<%s\",\n\t\t\t\tcurrent_time( 'mysql', true )\n\t\t\t), 'gdo_health_overdue_appeals' ),\n\t\t);"
-    },
-    {
-      "path": "includes/class-gdo-operations.php",
-      "old": "\t\t$open_critical_risks = is_wp_error( $counts['open_critical_risks'] ) ? 0 : $counts['open_critical_risks'];\n\t\t$checks['dead_letters'] = $dead ? 'warn' : 'pass';\n\t\t$checks['stale_claims'] = $stale_claims ? 'warn' : 'pass';\n\t\t$checks['critical_risks'] = $open_critical_risks ? 'warn' : 'pass';",
-      "new": "\t\t$open_critical_risks = is_wp_error( $counts['open_critical_risks'] ) ? 0 : $counts['open_critical_risks'];\n\t\t$overdue_appeals = is_wp_error( $counts['overdue_appeals'] ) ? 0 : $counts['overdue_appeals'];\n\t\t$checks['dead_letters'] = $dead ? 'warn' : 'pass';\n\t\t$checks['stale_claims'] = $stale_claims ? 'warn' : 'pass';\n\t\t$checks['critical_risks'] = $open_critical_risks ? 'warn' : 'pass';\n\t\t$checks['appeal_deadlines'] = $overdue_appeals ? 'warn' : 'pass';"
-    },
-    {
-      "path": "includes/class-gdo-operations.php",
-      "old": "\t\t\t'open_critical_risks'=>$open_critical_risks, 'checked_at'=>gmdate( 'c' ),",
-      "new": "\t\t\t'open_critical_risks'=>$open_critical_risks, 'overdue_appeals'=>$overdue_appeals, 'checked_at'=>gmdate( 'c' ),"
-    },
-    {
-      "path": "includes/class-gdo-admin.php",
-      "old": "\t\t\tif ( $appeal && empty( $appeal->assigned_reviewer_id ) ) {",
-      "new": "\t\t\tif ( $appeal && ! empty( $appeal->deadline_at ) ) {\n\t\t\t\t$appeal_deadline = strtotime( $appeal->deadline_at . ' UTC' );\n\t\t\t\t$appeal_overdue = $appeal_deadline && $appeal_deadline < time();\n\t\t\t\techo '<p class=\"description\">' . esc_html( sprintf( $appeal_overdue ? __( 'Appeal review deadline: %s UTC — OVERDUE; prioritize resolution without prejudicing the applicant.', 'global-doctor-onboarding' ) : __( 'Appeal review deadline: %s UTC.', 'global-doctor-onboarding' ), $appeal->deadline_at ) ) . '</p>';\n\t\t\t}\n\t\t\tif ( $appeal && empty( $appeal->assigned_reviewer_id ) ) {"
+      "path": "includes/class-gdo-advanced-trust-hardening.php",
+      "old": "            foreach ( $evidence_rows as $evidence ) {\n                if ( ! in_array( $evidence->document_type, array( 'license','registration','professional_registration' ), true ) ) { continue; }\n                $check = GDO_Advanced_Trust::primary_source_verify( $app->id, $evidence->id );\n                if ( is_wp_error( $check ) ) {\n                    $result = $check->get_error_code();\n                    $provider_failure = true;\n                    continue;\n                }\n                $result = isset( $check['status'] ) ? sanitize_key( $check['status'] ) : 'provider_error';\n                if ( 'provider_error' === $result || in_array( $result, array( 'provider_unavailable','pending','timeout','malformed_response' ), true ) ) {\n                    $provider_failure = true;\n                }\n                if ( in_array( $result, array( 'revoked','expired','not_matched' ), true ) ) {\n                    $adverse = true;\n                    do_action( 'gdo_continuous_verification_adverse_result', $app->id, $result, $check );\n                }\n            }",
+      "new": "            foreach ( $evidence_rows as $evidence ) {\n                if ( ! in_array( sanitize_key( $evidence->document_type ), array( 'license','registration','professional_registration' ), true ) ) { continue; }\n                $check = GDO_Advanced_Trust::primary_source_verify( $app->id, $evidence->id );\n                if ( is_wp_error( $check ) ) {\n                    $provider_failure = true;\n                    if ( ! $adverse ) { $result = sanitize_key( $check->get_error_code() ); }\n                    continue;\n                }\n                $check_result = isset( $check['status'] ) ? sanitize_key( $check['status'] ) : 'provider_error';\n                if ( in_array( $check_result, array( 'revoked','expired','not_matched' ), true ) ) {\n                    $adverse = true;\n                    $result = $check_result;\n                    do_action( 'gdo_continuous_verification_adverse_result', $app->id, $check_result, $check );\n                    continue;\n                }\n                if ( 'provider_error' === $check_result || in_array( $check_result, array( 'provider_unavailable','pending','timeout','malformed_response' ), true ) ) {\n                    $provider_failure = true;\n                    if ( ! $adverse ) { $result = $check_result; }\n                    continue;\n                }\n                if ( ! $adverse && ! $provider_failure ) { $result = $check_result; }\n            }"
     }
   ]
 }
