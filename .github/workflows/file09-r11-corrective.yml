@@ -87,7 +87,7 @@ jobs:
           git rm -r --ignore-unmatch tests/__pycache__
           git rm --ignore-unmatch .github/workflows/file09-r11-static-scan.yml
           git rm --ignore-unmatch .github/workflows/file09-r11-corrective.yml
-          git rm --ignore-unmatch .github/scripts/file09_r11_correct.py
+          git rm -f --ignore-unmatch .github/scripts/file09_r11_correct.py
           git diff --check
           find includes -type f -name '*.php' -print0 | sort -z | xargs -0 -n1 php -l
       - name: Commit source corrections
