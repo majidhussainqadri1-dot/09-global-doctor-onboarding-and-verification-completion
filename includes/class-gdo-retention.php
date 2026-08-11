@@ -55,6 +55,33 @@ final class GDO_Retention {
 		return $error;
 	}
 
+	private function commit_lifecycle_or_reconcile( $operation, $application_id, $target_state, $notice_event, $claim ) {
+		global $wpdb;
+		if ( false !== $wpdb->query( 'COMMIT' ) ) { return true; }
+		$wpdb->query( 'ROLLBACK' );
+		$wpdb->last_error = '';
+		$current = $wpdb->get_row( $wpdb->prepare( 'SELECT state,claim_version FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d LIMIT 1', absint( $application_id ) ) );
+		$app_error = ! empty( $wpdb->last_error );
+		$wpdb->last_error = '';
+		$notice_id = $notice_event ? absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_uuid=%s LIMIT 1', (string) $notice_event ) ) ) : 0;
+		$notice_error = ! empty( $wpdb->last_error );
+		$claim_event = is_array( $claim ) && ! empty( $claim['event_id'] ) ? (string) $claim['event_id'] : '';
+		$wpdb->last_error = '';
+		$claim_outbox_id = $claim_event ? absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_uuid=%s LIMIT 1', $claim_event ) ) ) : 0;
+		$claim_error = ! empty( $wpdb->last_error );
+		if ( $app_error || $notice_error || $claim_error ) {
+			return new WP_Error( 'gdo_retention_' . sanitize_key( $operation ) . '_commit_uncertain', __( 'Retention lifecycle commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) );
+		}
+		$committed = $current && sanitize_key( $current->state ) === sanitize_key( $target_state )
+			&& is_array( $claim ) && absint( $current->claim_version ) === absint( $claim['claim_version'] )
+			&& $notice_id > 0 && $claim_outbox_id > 0;
+		if ( ! $committed ) {
+			return new WP_Error( 'gdo_retention_' . sanitize_key( $operation ) . '_commit', __( 'Retention lifecycle changes could not be committed safely.', 'global-doctor-onboarding' ) );
+		}
+		GDO_Membership_Adapter::audit( 'doctor_retention_lifecycle_commit_reconciled', array( 'application_id'=>absint($application_id), 'operation'=>sanitize_key($operation), 'state'=>sanitize_key($target_state) ) );
+		return true;
+	}
+
 	private function expire_drafts( $now, $apps_table ) {
 		global $wpdb;
 		$warn_at = gmdate( 'Y-m-d H:i:s', time() + 3 * DAY_IN_SECONDS );
@@ -99,10 +126,12 @@ final class GDO_Retention {
 			$result = GDO_State::transition( $app->id, 'renewal_due', 0, 'verification_lifecycle', 'Verification entered the configured renewal window.', $app->row_version, false );
 			$event = is_wp_error( $result ) ? $result : GDO_Notifications::queue( 'doctor_verification_renewal_due', $app->user_id, array( 'application_id'=>absint( $app->id ), 'verified_until'=>$app->verified_until ), false );
 			$claim = is_wp_error( $event ) ? $event : GDO_Claims::issue( $app->id, 'renewal_due', array(), false );
-			if ( is_wp_error( $result ) || is_wp_error( $event ) || is_wp_error( $claim ) || false === $wpdb->query( 'COMMIT' ) ) {
+			if ( is_wp_error( $result ) || is_wp_error( $event ) || is_wp_error( $claim ) ) {
 				$wpdb->query( 'ROLLBACK' );
-				return is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : ( is_wp_error( $claim ) ? $claim : new WP_Error( 'gdo_retention_renewal_commit', __( 'Renewal processing could not be committed safely.', 'global-doctor-onboarding' ) ) ) );
+				return is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : $claim );
 			}
+			$commit = $this->commit_lifecycle_or_reconcile( 'renewal', $app->id, 'renewal_due', $event, $claim );
+			if ( is_wp_error( $commit ) ) { return $commit; }
 			GDO_Audit::publish_transition( $result );
 			GDO_Claims::publish( $claim );
 		}
@@ -123,10 +152,12 @@ final class GDO_Retention {
 			$result = GDO_State::transition( $app->id, 'expired', 0, 'verification_expired', 'Verification validity period ended.', $app->row_version, false );
 			$event = is_wp_error( $result ) ? $result : GDO_Notifications::queue( 'doctor_verification_expired', $app->user_id, array( 'application_id'=>absint( $app->id ) ), false );
 			$claim = is_wp_error( $event ) ? $event : GDO_Claims::issue( $app->id, 'expired', array(), false );
-			if ( is_wp_error( $result ) || is_wp_error( $event ) || is_wp_error( $claim ) || false === $wpdb->query( 'COMMIT' ) ) {
+			if ( is_wp_error( $result ) || is_wp_error( $event ) || is_wp_error( $claim ) ) {
 				$wpdb->query( 'ROLLBACK' );
-				return is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : ( is_wp_error( $claim ) ? $claim : new WP_Error( 'gdo_retention_expiry_commit', __( 'Verification expiry could not be committed safely.', 'global-doctor-onboarding' ) ) ) );
+				return is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : $claim );
 			}
+			$commit = $this->commit_lifecycle_or_reconcile( 'expiry', $app->id, 'expired', $event, $claim );
+			if ( is_wp_error( $commit ) ) { return $commit; }
 			GDO_Audit::publish_transition( $result );
 			GDO_Claims::publish( $claim );
 			do_action( 'gdo_verification_decision_changed', $app->user_id, 'expired', $app->id, array() );
@@ -237,11 +268,24 @@ final class GDO_Retention {
 					$failed = true;
 				}
 			}
-			if ( $failed ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'gdo_retention_evidence_delete', __( 'Credential evidence retention could not complete safely.', 'global-doctor-onboarding' ) ); }
-			if ( false === $wpdb->query( 'COMMIT' ) ) {
+			// Preserve database truth for any credential already physically unlinked.
+			// A later record failure must never roll successful deletions back to
+			// active rows that reference missing ciphertext.
+			$native_commit = $wpdb->query( 'COMMIT' );
+			if ( false === $native_commit ) {
 				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'gdo_retention_predelete_commit', __( 'Retention evidence-deletion checkpoint has an uncertain database commit and requires reconciliation.', 'global-doctor-onboarding' ) );
+				$all_final = true;
+				foreach ( $evidence_rows as $record ) {
+					if ( ! empty( $record->deleted_at ) ) { continue; }
+					$recovered = GDO_Evidence::reconcile_authorized_missing_deletion( $record, 'retention_deleted', $now );
+					if ( false === $recovered || is_wp_error( $recovered ) ) { $all_final = false; }
+				}
+				if ( ! $all_final ) {
+					return new WP_Error( 'gdo_retention_predelete_commit', __( 'Retention evidence-deletion commit required recovery and remaining records must be retried safely.', 'global-doctor-onboarding' ) );
+				}
+				GDO_Membership_Adapter::audit( 'doctor_retention_native_deletion_commit_reconciled', array( 'application_id'=>absint($app->id) ) );
 			}
+			if ( $failed ) { return new WP_Error( 'gdo_retention_evidence_delete', __( 'Credential evidence retention could not complete safely; successful deletions were preserved and failed records remain retryable.', 'global-doctor-onboarding' ) ); }
 			if ( class_exists( 'GDO_Advanced_Trust' ) && ! $this->retire_advanced_trust_for_application( $app, $now ) ) {
 				return new WP_Error( 'gdo_retention_advanced_trust', __( 'Advanced Trust retention could not complete safely.', 'global-doctor-onboarding' ) );
 			}
@@ -268,10 +312,18 @@ final class GDO_Retention {
 			$native_ok = $native_ok && false !== $wpdb->update( GDO_Schema::table( 'risk_signals' ), array( 'related_digest'=>null, 'resolution_reason'=>'anonymized' ), array( 'application_id'=>$app->id ) );
 			$native_ok = $native_ok && false !== $wpdb->update( GDO_Schema::table( 'quality_samples' ), array( 'reason'=>'anonymized' ), array( 'application_id'=>$app->id ) );
 			$native_ok = $native_ok && false !== $wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'application_id'=>$app->id ) );
-			if ( ! $native_ok || false === $wpdb->query( 'COMMIT' ) ) {
+			if ( ! $native_ok ) {
 				$wpdb->query( 'ROLLBACK' );
 				GDO_Membership_Adapter::audit( 'doctor_verification_retention_native_anonymize_failed', array( 'application_id'=>absint( $app->id ) ) );
 				return new WP_Error( 'gdo_retention_native_anonymize', __( 'Related retention records could not be anonymized atomically.', 'global-doctor-onboarding' ) );
+			}
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				$wpdb->last_error = '';
+				$anon = $wpdb->get_row( $wpdb->prepare( "SELECT user_id,profile_json,retention_until FROM {$apps_table} WHERE id=%d LIMIT 1", absint( $app->id ) ) );
+				if ( null === $anon && ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_native_anonymize_uncertain', __( 'Retention anonymization commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) ); }
+				if ( ! $anon || null !== $anon->user_id || '{}' !== (string) $anon->profile_json || null !== $anon->retention_until ) { return new WP_Error( 'gdo_retention_native_anonymize', __( 'Retention anonymization was not committed and will be retried.', 'global-doctor-onboarding' ) ); }
+				GDO_Membership_Adapter::audit( 'doctor_retention_anonymization_commit_reconciled', array( 'application_id'=>absint($app->id) ) );
 			}
 			GDO_Membership_Adapter::audit( 'doctor_verification_retention_anonymized', array( 'application_id'=>absint( $app->id ) ) );
 		}
@@ -328,10 +380,27 @@ final class GDO_Retention {
 		$ok = $ok && false !== $wpdb->update( GDO_Advanced_Trust::table( 'credential_checks' ), array( 'facts_json'=>'{"redacted":"retention"}', 'explanation_json'=>'{"redacted":"retention"}', 'external_reference'=>'', 'updated_at'=>$now ), array( 'application_id'=>$app_id ) );
 		$ok = $ok && false !== $wpdb->update( GDO_Advanced_Trust::table( 'professional_history' ), array( 'user_id'=>0, 'public_safe'=>0, 'event_json'=>'{"redacted":"retention"}', 'source_hash'=>hash( 'sha256', '{"redacted":"retention"}' ) ), array( 'application_id'=>$app_id ) );
 		$ok = $ok && false !== $wpdb->update( GDO_Advanced_Trust::table( 'reviewer_conflicts' ), array( 'applicant_id'=>0 ), array( 'application_id'=>$app_id ) );
-		if ( ! $ok || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( ! $ok ) {
 			$wpdb->query( 'ROLLBACK' );
 			GDO_Membership_Adapter::audit( 'doctor_advanced_trust_retention_failed', array( 'application_id'=>$app_id, 'error'=>'database_anonymization_failed' ) );
 			return false;
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			$tables = array( $upload_table, GDO_Advanced_Trust::table('monitor_state'), GDO_Advanced_Trust::table('verification_passports') );
+			foreach ( $tables as $verify_table ) {
+				$wpdb->last_error = '';
+				$remaining = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$verify_table} WHERE application_id=%d", $app_id ) );
+				if ( null === $remaining || ! empty( $wpdb->last_error ) ) { GDO_Membership_Adapter::audit( 'doctor_advanced_trust_retention_failed', array( 'application_id'=>$app_id, 'error'=>'commit_uncertain' ) ); return false; }
+				if ( absint( $remaining ) > 0 ) { return false; }
+			}
+			$wpdb->last_error = '';
+			$unredacted_checks = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . GDO_Advanced_Trust::table('credential_checks') . " WHERE application_id=%d AND facts_json<>'{\"redacted\":\"retention\"}'", $app_id ) );
+			$checks_error = ! empty( $wpdb->last_error );
+			$wpdb->last_error = '';
+			$unredacted_history = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . GDO_Advanced_Trust::table('professional_history') . " WHERE application_id=%d AND (user_id<>0 OR public_safe<>0 OR event_json<>'{\"redacted\":\"retention\"}')", $app_id ) );
+			if ( $checks_error || null === $unredacted_checks || null === $unredacted_history || ! empty( $wpdb->last_error ) || absint( $unredacted_checks ) > 0 || absint( $unredacted_history ) > 0 ) { return false; }
+			GDO_Membership_Adapter::audit( 'doctor_advanced_trust_retention_commit_reconciled', array( 'application_id'=>$app_id ) );
 		}
 		return true;
 	}
