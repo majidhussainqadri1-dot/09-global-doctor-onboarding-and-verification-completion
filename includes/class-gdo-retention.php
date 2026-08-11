@@ -207,6 +207,31 @@ final class GDO_Retention {
 			if ( in_array( $app->state, array( 'verified','reinstated','under_review','recommended','appeal_pending','submitted','resubmitted','renewal_due' ), true ) ) {
 				continue;
 			}
+
+			// Serialize the destructive-retention authorization point before any
+			// credential file or Advanced Trust state is irreversibly removed.
+			// A legal hold or state change committed before this lock wins and
+			// retention is skipped; later changes are ordered after retention began.
+			if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+				return new WP_Error( 'gdo_retention_predelete_transaction', __( 'Retention eligibility could not be serialized safely before deletion.', 'global-doctor-onboarding' ) );
+			}
+			$wpdb->last_error = '';
+			$predelete = $wpdb->get_row( $wpdb->prepare( "SELECT id,legal_hold,retention_until,state FROM {$apps_table} WHERE id=%d FOR UPDATE", absint( $app->id ) ) );
+			if ( null === $predelete && ! empty( $wpdb->last_error ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'gdo_retention_predelete_query', __( 'Retention eligibility could not be revalidated safely before deletion.', 'global-doctor-onboarding' ) );
+			}
+			$unsafe_states = array( 'verified','reinstated','under_review','recommended','appeal_pending','submitted','resubmitted','renewal_due' );
+			$still_due = $predelete && ! empty( $predelete->retention_until ) && strtotime( $predelete->retention_until . ' UTC' ) < strtotime( $now . ' UTC' );
+			if ( ! $predelete || absint( $predelete->legal_hold ) || ! $still_due || in_array( sanitize_key( $predelete->state ), $unsafe_states, true ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				continue;
+			}
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'gdo_retention_predelete_commit', __( 'Retention eligibility could not be committed safely before deletion.', 'global-doctor-onboarding' ) );
+			}
+
 			$failed = false;
 			$evidence_rows = GDO_Evidence::records_checked( $app->id, false );
 			if ( is_wp_error( $evidence_rows ) ) { return $evidence_rows; }

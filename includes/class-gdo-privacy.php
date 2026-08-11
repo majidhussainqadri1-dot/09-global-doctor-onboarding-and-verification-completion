@@ -155,6 +155,37 @@ final class GDO_Privacy {
 				}
 			}
 
+			// Establish a database-serialized erasure authorization point before
+			// irreversible credential deletion. A legal hold committed first wins.
+			if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+				$retained = true;
+				$messages[] = 'Erasure is paused because legal-hold eligibility could not be serialized safely.';
+				continue;
+			}
+			$wpdb->last_error = '';
+			$erase_gate = $wpdb->get_row( $wpdb->prepare(
+				'SELECT id,user_id,legal_hold FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d AND user_id=%d FOR UPDATE',
+				absint( $app->id ), $user->ID
+			) );
+			if ( null === $erase_gate && ! empty( $wpdb->last_error ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				$retained = true;
+				$messages[] = 'Erasure is paused because legal-hold eligibility could not be read safely.';
+				continue;
+			}
+			if ( ! $erase_gate || absint( $erase_gate->legal_hold ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				$retained = true;
+				$messages[] = 'Erasure is paused because the application is now under legal hold or no longer belongs to this account.';
+				continue;
+			}
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				$retained = true;
+				$messages[] = 'Erasure is paused because legal-hold eligibility could not be committed safely.';
+				continue;
+			}
+
 			$deletion_failed = false;
 			$evidence_rows = GDO_Evidence::records_checked( $app->id, false );
 			if ( is_wp_error( $evidence_rows ) ) { $retained = true; $messages[] = 'Erasure is paused because credential evidence inventory could not be read safely.'; continue; }
