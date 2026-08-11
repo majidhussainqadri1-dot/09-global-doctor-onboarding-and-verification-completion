@@ -441,21 +441,26 @@ final class GDO_Advanced_Trust_Hardening {
                 return new WP_Error( 'gdo_trust_monitor_evidence_query', __( 'Credential evidence could not be read safely for continuous verification.', 'global-doctor-onboarding' ) );
             }
             foreach ( $evidence_rows as $evidence ) {
-                if ( ! in_array( $evidence->document_type, array( 'license','registration','professional_registration' ), true ) ) { continue; }
+                if ( ! in_array( sanitize_key( $evidence->document_type ), array( 'license','registration','professional_registration' ), true ) ) { continue; }
                 $check = GDO_Advanced_Trust::primary_source_verify( $app->id, $evidence->id );
                 if ( is_wp_error( $check ) ) {
-                    $result = $check->get_error_code();
                     $provider_failure = true;
+                    if ( ! $adverse ) { $result = sanitize_key( $check->get_error_code() ); }
                     continue;
                 }
-                $result = isset( $check['status'] ) ? sanitize_key( $check['status'] ) : 'provider_error';
-                if ( 'provider_error' === $result || in_array( $result, array( 'provider_unavailable','pending','timeout','malformed_response' ), true ) ) {
-                    $provider_failure = true;
-                }
-                if ( in_array( $result, array( 'revoked','expired','not_matched' ), true ) ) {
+                $check_result = isset( $check['status'] ) ? sanitize_key( $check['status'] ) : 'provider_error';
+                if ( in_array( $check_result, array( 'revoked','expired','not_matched' ), true ) ) {
                     $adverse = true;
-                    do_action( 'gdo_continuous_verification_adverse_result', $app->id, $result, $check );
+                    $result = $check_result;
+                    do_action( 'gdo_continuous_verification_adverse_result', $app->id, $check_result, $check );
+                    continue;
                 }
+                if ( 'provider_error' === $check_result || in_array( $check_result, array( 'provider_unavailable','pending','timeout','malformed_response' ), true ) ) {
+                    $provider_failure = true;
+                    if ( ! $adverse ) { $result = $check_result; }
+                    continue;
+                }
+                if ( ! $adverse && ! $provider_failure ) { $result = $check_result; }
             }
             $failures = $provider_failure ? min( 20, absint( $row->failure_count ) + 1 ) : 0;
             if ( $adverse ) { $delay = HOUR_IN_SECONDS; $status = 'scheduled'; }
