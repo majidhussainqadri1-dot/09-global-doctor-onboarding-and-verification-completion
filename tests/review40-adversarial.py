@@ -130,7 +130,7 @@ round_check(21,'Notification dedupe/retry/dead-letter',lambda: (
     require('Processing lease expired' in outbox,'crash retry signal missing')
 ))
 round_check(22,'Privacy export/erasure and physical-deletion proof',lambda: (
-    require('delete_verified' in privacy and 'deletion_proof' in retention,'physical deletion proof missing'),
+    require('GDO_Evidence::delete_record_safely' in privacy and 'delete_record_safely' in ev and 'deletion_proof' in ev,'durable physical deletion proof lifecycle missing'),
     require('export' in privacy.lower() and 'erase' in privacy.lower(),'applicant data-rights paths missing')
 ))
 round_check(23,'Retention and legal-hold boundaries',lambda: (
