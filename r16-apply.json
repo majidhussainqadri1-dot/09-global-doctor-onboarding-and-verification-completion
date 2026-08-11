@@ -1,10 +1,20 @@
 {
-  "message": "fix(file09): checkpoint resumable erasure before physical unlink",
+  "message": "fix(file09): keep privacy eraser retryable until selected applications finish",
   "changes": [
     {
-      "path": "includes/class-gdo-advanced-trust-hardening.php",
-      "old": "        $wpdb->last_error='';$uploads=$wpdb->get_results($wpdb->prepare('SELECT upload_uuid,temp_name FROM '.GDO_Advanced_Trust::table('upload_sessions').' WHERE application_id=%d',$application_id));if(null===$uploads||!empty($wpdb->last_error)){return new WP_Error('gdo_privacy_upload_inventory',__('Private resumable upload inventory could not be verified before erasure.','global-doctor-onboarding'));}\n        foreach((array)$uploads as $row){$path=trailingslashit($dir).'.chunk-'.basename(sanitize_file_name($row->temp_name));if(self::unsafe_chunk_path($path)){return new WP_Error('gdo_privacy_upload_unsafe_path',__('A private resumable upload has an unsafe path; erasure is paused for operator review.','global-doctor-onboarding'));}if(is_file($path)&&(!@unlink($path)||file_exists($path))){return new WP_Error('gdo_privacy_upload_cleanup',__('A private resumable upload could not be deleted.','global-doctor-onboarding'));}}\n        if(false===$wpdb->query('START TRANSACTION')){return new WP_Error('gdo_privacy_advanced_transaction',__('Advanced Trust privacy erasure could not start a safe database transaction.','global-doctor-onboarding'));}",
-      "new": "        $upload_table=GDO_Advanced_Trust::table('upload_sessions');\n        $wpdb->last_error='';$uploads=$wpdb->get_results($wpdb->prepare('SELECT upload_uuid,temp_name,state FROM '.$upload_table.' WHERE application_id=%d',$application_id));if(null===$uploads||!empty($wpdb->last_error)){return new WP_Error('gdo_privacy_upload_inventory',__('Private resumable upload inventory could not be verified before erasure.','global-doctor-onboarding'));}\n        foreach((array)$uploads as $row){$path=trailingslashit($dir).'.chunk-'.basename(sanitize_file_name($row->temp_name));if(self::unsafe_chunk_path($path)){return new WP_Error('gdo_privacy_upload_unsafe_path',__('A private resumable upload has an unsafe path; erasure is paused for operator review.','global-doctor-onboarding'));}}\n        if($uploads){\n            $wpdb->last_error='';\n            $checkpoint=$wpdb->update($upload_table,array('state'=>'erasure_pending','updated_at'=>$now),array('application_id'=>$application_id),array('%s','%s'),array('%d'));\n            if(false===$checkpoint||!empty($wpdb->last_error)){return new WP_Error('gdo_privacy_upload_checkpoint',__('Private resumable upload erasure could not persist its durable checkpoint.','global-doctor-onboarding'));}\n            $wpdb->last_error='';\n            $not_pending=$wpdb->get_var($wpdb->prepare(\"SELECT COUNT(*) FROM {$upload_table} WHERE application_id=%d AND state<>'erasure_pending'\",$application_id));\n            if(null===$not_pending||!empty($wpdb->last_error)||absint($not_pending)>0){return new WP_Error('gdo_privacy_upload_checkpoint_verify',__('Private resumable upload erasure checkpoint could not be verified safely.','global-doctor-onboarding'));}\n        }\n        foreach((array)$uploads as $row){$path=trailingslashit($dir).'.chunk-'.basename(sanitize_file_name($row->temp_name));if(is_file($path)&&(!@unlink($path)||file_exists($path))){return new WP_Error('gdo_privacy_upload_cleanup',__('A private resumable upload could not be deleted after its durable erasure checkpoint.','global-doctor-onboarding'));}}\n        if(false===$wpdb->query('START TRANSACTION')){return new WP_Error('gdo_privacy_advanced_transaction',__('Advanced Trust privacy erasure could not start a safe database transaction after resumable-upload checkpointing.','global-doctor-onboarding'));}"
+      "path": "includes/class-gdo-privacy.php",
+      "old": "\t\t$removed = false;\n\t\t$retained = $held > 0;",
+      "new": "\t\t$removed = false;\n\t\t$completed_apps = 0;\n\t\t$retained = $held > 0;"
+    },
+    {
+      "path": "includes/class-gdo-privacy.php",
+      "old": "\t\t\t$removed = true;\n\t\t\t$retained = true;\n\t\t\t$messages[] = 'Personal credential and Advanced Trust data were erased or anonymized; minimal accountability evidence was retained.';",
+      "new": "\t\t\t$removed = true;\n\t\t\t++$completed_apps;\n\t\t\t$retained = true;\n\t\t\t$messages[] = 'Personal credential and Advanced Trust data were erased or anonymized; minimal accountability evidence was retained.';"
+    },
+    {
+      "path": "includes/class-gdo-privacy.php",
+      "old": "\t\treturn array( 'items_removed'=>$removed, 'items_retained'=>$retained, 'messages'=>array_values( array_unique( $messages ) ), 'done'=>count( $apps ) < $limit );",
+      "new": "\t\treturn array( 'items_removed'=>$removed, 'items_retained'=>$retained, 'messages'=>array_values( array_unique( $messages ) ), 'done'=>count( $apps ) < $limit && $completed_apps === count( $apps ) );"
     }
   ]
 }
