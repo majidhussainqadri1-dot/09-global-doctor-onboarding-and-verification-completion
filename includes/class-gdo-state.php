@@ -111,8 +111,34 @@ final class GDO_State {
             return $audit;
         }
         if ( $manage_transaction && false === $wpdb->query( 'COMMIT' ) ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_Error( 'gdo_transition_commit_failed', __( 'The verification transition could not be committed.', 'global-doctor-onboarding' ) );
+            // COMMIT acknowledgement may be lost after a durable state+audit
+            // commit. Reconcile both canonical state and the exact audit event
+            // before deciding whether a retry is safe.
+            $wpdb->last_error = '';
+            $committed_app = $wpdb->get_row( $wpdb->prepare(
+                'SELECT state,row_version FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d LIMIT 1',
+                $application_id
+            ) );
+            $app_read_error = ! empty( $wpdb->last_error );
+            $wpdb->last_error = '';
+            $committed_hash = $wpdb->get_var( $wpdb->prepare(
+                'SELECT event_hash FROM ' . GDO_Schema::table( 'transitions' ) . ' WHERE application_id=%d AND trace_id=%s LIMIT 1',
+                $application_id, $audit['trace_id']
+            ) );
+            $audit_read_error = ! empty( $wpdb->last_error );
+            if ( $app_read_error || $audit_read_error ) {
+                return new WP_Error( 'gdo_transition_commit_uncertain', __( 'The verification transition commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) );
+            }
+            $committed = $committed_app
+                && sanitize_key( $committed_app->state ) === $to
+                && absint( $committed_app->row_version ) === absint( $app->row_version ) + 1
+                && is_string( $committed_hash )
+                && hash_equals( (string) $audit['event_hash'], $committed_hash );
+            if ( ! $committed ) {
+                $wpdb->query( 'ROLLBACK' );
+                return new WP_Error( 'gdo_transition_commit_failed', __( 'The verification transition could not be committed.', 'global-doctor-onboarding' ) );
+            }
+            GDO_Membership_Adapter::audit( 'doctor_state_transition_commit_reconciled', array( 'application_id'=>$application_id, 'to_state'=>$to, 'trace_id'=>$audit['trace_id'] ) );
         }
         if ( $manage_transaction ) {
             GDO_Audit::publish_transition( $audit );
