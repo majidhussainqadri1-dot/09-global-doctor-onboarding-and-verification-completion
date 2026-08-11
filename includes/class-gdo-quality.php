@@ -3,7 +3,9 @@ defined( 'ABSPATH' ) || exit;
 
 final class GDO_Quality {
 	public static function create_sample( $application_id, $reviewer_id, $decision, $source = 'automatic' ) {
-		if ( ! GDO_Operations::mutation_allowed() ) { return 0; }
+		if ( ! GDO_Operations::mutation_allowed() ) {
+			return new WP_Error( 'gdo_quality_runtime_not_ready', __( 'Quality sampling is unavailable until the File 09 runtime is healthy.', 'global-doctor-onboarding' ) );
+		}
 		global $wpdb;
 		$rate = max( 1, min( 100, absint( apply_filters( 'gdo_quality_sample_percent', 10 ) ) ) );
 		if ( 'automatic' === $source && random_int( 1, 100 ) > $rate ) {
@@ -14,7 +16,7 @@ final class GDO_Quality {
 			'original_decision'=>sanitize_key( $decision ), 'status'=>'pending', 'source'=>sanitize_key( $source ),
 			'created_at'=>current_time( 'mysql', true ), 'updated_at'=>current_time( 'mysql', true ),
 		), array( '%d','%d','%s','%s','%s','%s','%s' ) );
-		return 1 === $ok ? absint( $wpdb->insert_id ) : 0;
+		return 1 === $ok ? absint( $wpdb->insert_id ) : new WP_Error( 'gdo_quality_sample_store', __( 'The quality sample could not be stored safely.', 'global-doctor-onboarding' ) );
 	}
 
 	public static function complete_sample( $sample_id, $auditor_id, $outcome, $reason ) {

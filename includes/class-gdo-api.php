@@ -3,9 +3,19 @@ defined( 'ABSPATH' ) || exit;
 
 final class GDO_API {
 	public static function latest_decision( $user_id ) {
+		global $wpdb;
 		$user_id = absint( $user_id );
-		$app = GDO_Application::verification_record_for_user( $user_id );
 		$checked_at = gmdate( 'c' );
+		$wpdb->last_error = '';
+		$app = GDO_Application::verification_record_for_user( $user_id );
+		if ( ! empty( $wpdb->last_error ) ) {
+			return array(
+				'state'       => 'unavailable',
+				'verified'    => false,
+				'reason_code' => 'database_unavailable',
+				'checked_at'  => $checked_at,
+			);
+		}
 		if ( ! $app ) {
 			return array(
 				'state'      => 'not_applied',
@@ -15,7 +25,9 @@ final class GDO_API {
 		}
 		$expires = $app->verified_until ? strtotime( $app->verified_until . ' UTC' ) : 0;
 		$expired = $expires && $expires <= time();
-		$snapshot = GDO_Application::approved_snapshot( $app->id );
+		// Reuse the already-read application row. A second database read here would
+		// create another avoidable uncertainty window in a public trust projection.
+		$snapshot = GDO_Application::stored_approved_snapshot( $app );
 		$claim_current = 'accepted' === sanitize_key( $app->claim_status );
 		$verified = GDO_State::public_verified( $app->state )
 			&& $claim_current

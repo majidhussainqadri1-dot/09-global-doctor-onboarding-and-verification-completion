@@ -47,7 +47,12 @@ final class GDO_Admin {
 
 	private function lock_application( $application_id ) {
 		global $wpdb;
-		return $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE', absint( $application_id ) ) );
+		$wpdb->last_error = '';
+		$app = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE', absint( $application_id ) ) );
+		if ( null === $app && ! empty( $wpdb->last_error ) ) {
+			$this->rollback_die( __( 'The doctor application could not be locked/read safely.', 'global-doctor-onboarding' ), 503 );
+		}
+		return $app;
 	}
 
 	private function rollback_die( $message, $response = 400 ) {
@@ -226,7 +231,11 @@ final class GDO_Admin {
 		if ( ! $reviewer_id || $reviewer_id === absint( $app->user_id ) || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) ) {
 			return new WP_Error( 'gdo_reviewer_scope', __( 'The reviewer is outside the authorized File 00 scope or has a self-review conflict.', 'global-doctor-onboarding' ) );
 		}
+		$wpdb->last_error = '';
 		$profile = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'reviewer_profiles' ) . " WHERE user_id=%d AND status='active'", $reviewer_id ) );
+		if ( null === $profile && ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_reviewer_profile_query', __( 'The reviewer qualification profile could not be read safely.', 'global-doctor-onboarding' ) );
+		}
 		if ( ! $profile ) {
 			return new WP_Error( 'gdo_reviewer_profile', __( 'The reviewer does not have an active qualified File 09 reviewer profile.', 'global-doctor-onboarding' ) );
 		}
@@ -238,10 +247,12 @@ final class GDO_Admin {
 		if ( $app->preferred_language && ! in_array( $app->preferred_language, (array) $languages, true ) && ! in_array( 'en-US', (array) $languages, true ) ) {
 			return new WP_Error( 'gdo_reviewer_language', __( 'The reviewer does not cover the application language.', 'global-doctor-onboarding' ) );
 		}
+		$wpdb->last_error = '';
 		$open_apps = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . GDO_Schema::table( 'applications' ) . " WHERE assigned_reviewer_id=%d AND state IN ('under_review','more_information','recommended')", $reviewer_id ) );
 		if ( null === $open_apps || ! empty( $wpdb->last_error ) ) {
 			return new WP_Error( 'gdo_reviewer_workload_unknown', __( 'Reviewer workload could not be verified safely.', 'global-doctor-onboarding' ) );
 		}
+		$wpdb->last_error = '';
 		$open_appeals = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . GDO_Schema::table( 'appeals' ) . " WHERE assigned_reviewer_id=%d AND status='open'", $reviewer_id ) );
 		if ( null === $open_appeals || ! empty( $wpdb->last_error ) ) {
 			return new WP_Error( 'gdo_reviewer_workload_unknown', __( 'Reviewer appeal workload could not be verified safely.', 'global-doctor-onboarding' ) );
@@ -262,7 +273,9 @@ final class GDO_Admin {
 		$expected_version = absint( isset( $_POST['row_version'] ) ? $_POST['row_version'] : 0 );
 		$actor = get_current_user_id();
 		$this->begin_transaction_or_die();
+		$wpdb->last_error = '';
 		$wpdb->get_var( $wpdb->prepare( 'SELECT user_id FROM ' . GDO_Schema::table( 'reviewer_profiles' ) . ' WHERE user_id=%d FOR UPDATE', $reviewer_id ) );
+		if ( ! empty( $wpdb->last_error ) ) { $this->rollback_die( __( 'The reviewer profile could not be locked safely for assignment.', 'global-doctor-onboarding' ), 503 ); }
 		$app = $this->lock_application( $id );
 		$reopened = $app && 'under_review' === $app->state && empty( $app->assigned_reviewer_id );
 		$initial = $app && in_array( $app->state, array( 'submitted','resubmitted' ), true );
@@ -297,8 +310,12 @@ final class GDO_Admin {
 		global $wpdb;
 		$id = absint( isset( $_POST['evidence_id'] ) ? $_POST['evidence_id'] : 0 );
 		check_admin_referer( 'gdo_review_evidence_' . $id );
+		$wpdb->last_error = '';
 		$record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id=%d', $id ) );
+		if ( null === $record && ! empty( $wpdb->last_error ) ) { wp_die( esc_html__( 'Credential evidence could not be read safely.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
+		$wpdb->last_error = '';
 		$app = $record ? GDO_Application::get( $record->application_id ) : null;
+		if ( $record && null === $app && ! empty( $wpdb->last_error ) ) { wp_die( esc_html__( 'The credential application could not be read safely.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) ); }
 		$reviewer = get_current_user_id();
 		if ( ! $app || absint( $app->assigned_reviewer_id ) !== $reviewer || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer, $app->user_id, $app->id ) ) {
 			wp_die( esc_html__( 'Evidence review access denied.', 'global-doctor-onboarding' ), '', array( 'response'=>403 ) );
@@ -422,7 +439,10 @@ final class GDO_Admin {
 		}
 		GDO_Audit::publish_transition( $result );
 		GDO_Claims::publish( $claim );
-		GDO_Quality::create_sample( $id, absint( $app->recommender_id ), $decision );
+		$quality_sample = GDO_Quality::create_sample( $id, absint( $app->recommender_id ), $decision );
+		if ( is_wp_error( $quality_sample ) ) {
+			GDO_Membership_Adapter::audit( 'doctor_verification_quality_sample_failed', array( 'application_id'=>$id, 'reviewer_id'=>absint( $app->recommender_id ), 'error'=>$quality_sample->get_error_code() ) );
+		}
 		GDO_Notifications::process( 2 );
 		do_action( 'gdo_verification_decision_changed', $app->user_id, $decision, $id, 'verified' === $decision ? $snapshot : array() );
 		$this->redirect();
@@ -520,10 +540,13 @@ final class GDO_Admin {
 		$reviewer_id = absint( isset( $_POST['reviewer_id'] ) ? $_POST['reviewer_id'] : 0 );
 		check_admin_referer( 'gdo_assign_appeal_' . $appeal_id );
 		$this->begin_transaction_or_die();
+		$wpdb->last_error = '';
 		$wpdb->get_var( $wpdb->prepare( 'SELECT user_id FROM ' . GDO_Schema::table( 'reviewer_profiles' ) . ' WHERE user_id=%d FOR UPDATE', $reviewer_id ) );
-		$locked_app = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE', $application_id ) );
-		$app = $locked_app ? GDO_Application::get( $application_id ) : null;
+		if ( ! empty( $wpdb->last_error ) ) { $this->rollback_die( __( 'The appeal reviewer profile could not be locked safely.', 'global-doctor-onboarding' ), 503 ); }
+		$app = $this->lock_application( $application_id );
+		$wpdb->last_error = '';
 		$appeal = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE id=%d AND application_id=%d AND status='open' FOR UPDATE", $appeal_id, $application_id ) );
+		if ( null === $appeal && ! empty( $wpdb->last_error ) ) { $this->rollback_die( __( 'The appeal assignment state could not be read safely.', 'global-doctor-onboarding' ), 503 ); }
 		$conflicts = $app ? array_filter( array( absint( $app->user_id ), absint( $app->assigned_reviewer_id ), absint( $app->recommender_id ), absint( $app->finalizer_id ) ) ) : array();
 		$eligible = $app ? $this->reviewer_eligible( $reviewer_id, $app ) : new WP_Error( 'gdo_application_missing', __( 'Application unavailable.', 'global-doctor-onboarding' ) );
 		if ( ! $app || ! $appeal || 'appeal_pending' !== $app->state || ! empty( $appeal->assigned_reviewer_id ) || in_array( $reviewer_id, $conflicts, true ) || is_wp_error( $eligible ) || ! GDO_Membership_Adapter::can( 'sabri_finalize_doctor_verification', $reviewer_id ) ) {
@@ -556,7 +579,9 @@ final class GDO_Admin {
 		$allowed = array( 'rejected'=>array( 'under_review','rejected','revoked' ), 'suspended'=>array( 'under_review','reinstated','suspended','revoked' ), 'revoked'=>array( 'under_review','reinstated','revoked' ) );
 		$this->begin_transaction_or_die();
 		$app = $this->lock_application( $id );
+		$wpdb->last_error = '';
 		$appeal = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE application_id=%d AND status='open' ORDER BY id DESC LIMIT 1 FOR UPDATE", $id ) );
+		if ( null === $appeal && ! empty( $wpdb->last_error ) ) { $this->rollback_die( __( 'The appeal resolution state could not be read safely.', 'global-doctor-onboarding' ), 503 ); }
 		$conflict = $app && in_array( $actor, array( absint( $app->assigned_reviewer_id ), absint( $app->recommender_id ), absint( $app->finalizer_id ), absint( $app->user_id ) ), true );
 		$assigned_to_actor = $appeal && absint( $appeal->assigned_reviewer_id ) === $actor;
 		if ( ! $app || $expected_version !== absint( $app->row_version ) || ! $appeal || 'appeal_pending' !== $app->state || ! $assigned_to_actor || $conflict || strlen( $reason ) < 20 || empty( $allowed[ $appeal->source_state ] ) || ! in_array( $decision, $allowed[ $appeal->source_state ], true ) || ! GDO_State::can_transition( $app->state, $decision ) || ! GDO_Membership_Adapter::reviewer_case_allows( $actor, $app->user_id, $id ) ) {

@@ -172,8 +172,13 @@ final class GDO_Application {
 	}
 
 	public static function ensure_draft( $user_id ) {
+		global $wpdb;
 		$user_id = absint( $user_id );
+		$wpdb->last_error = '';
 		$latest = self::latest_for_user( $user_id );
+		if ( ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_application_latest_query', __( 'The current doctor application state could not be read safely.', 'global-doctor-onboarding' ) );
+		}
 		if ( $latest && in_array( $latest->state, array( 'draft','more_information' ), true ) ) {
 			if ( 'draft' === $latest->state && $latest->draft_expires_at && strtotime( $latest->draft_expires_at . ' UTC' ) < time() ) {
 				return new WP_Error( 'gdo_draft_expired', __( 'This draft expired. Start a new application after the expired draft is safely closed.', 'global-doctor-onboarding' ) );
@@ -258,11 +263,16 @@ final class GDO_Application {
 		if ( $manage_transaction && false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'gdo_consent_transaction', __( 'The consent transaction could not be started safely.', 'global-doctor-onboarding' ) );
 		}
+		$wpdb->last_error = '';
 		$app = $wpdb->get_row( $wpdb->prepare(
 			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d AND user_id=%d FOR UPDATE',
 			$application_id,
 			$user_id
 		) );
+		if ( null === $app && ! empty( $wpdb->last_error ) ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_consent_application_query', __( 'The consent application state could not be read safely.', 'global-doctor-onboarding' ) );
+		}
 		if ( ! $app || ! in_array( $app->state, array( 'draft','more_information' ), true ) || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user_id, $app->jurisdiction ) ) {
 			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
 			return new WP_Error( 'gdo_consent_access', __( 'Consent cannot be recorded for this application.', 'global-doctor-onboarding' ) );
@@ -271,12 +281,17 @@ final class GDO_Application {
 		$text = self::consent_text();
 		$wording_hash = hash( 'sha256', $text['wording'] );
 		$table = GDO_Schema::table( 'consents' );
+		$wpdb->last_error = '';
 		$existing = $wpdb->get_row( $wpdb->prepare(
 			"SELECT * FROM {$table} WHERE application_id=%d AND user_id=%d AND consent_version=%s FOR UPDATE",
 			$application_id,
 			$user_id,
 			$text['version']
 		) );
+		if ( null === $existing && ! empty( $wpdb->last_error ) ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_consent_history_query', __( 'Existing consent evidence could not be read safely.', 'global-doctor-onboarding' ) );
+		}
 		if ( $existing && ( ! empty( $existing->withdrawn_at ) || ! hash_equals( $wording_hash, (string) $existing->wording_hash ) ) ) {
 			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
 			return new WP_Error( 'gdo_consent_history_conflict', __( 'Existing consent evidence cannot be overwritten. Reload or begin a new application if consent terms changed.', 'global-doctor-onboarding' ) );
@@ -328,11 +343,16 @@ final class GDO_Application {
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'gdo_submit_transaction', __( 'The application submission transaction could not be started safely.', 'global-doctor-onboarding' ) );
 		}
+		$wpdb->last_error = '';
 		$app = $wpdb->get_row( $wpdb->prepare(
 			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d AND user_id=%d FOR UPDATE',
 			$application_id,
 			$user_id
 		) );
+		if ( null === $app && ! empty( $wpdb->last_error ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'gdo_submit_application_query', __( 'The application submission state could not be read safely.', 'global-doctor-onboarding' ) );
+		}
 		if ( ! $app || ! GDO_Membership_Adapter::is_active_doctor_candidate( $user_id, $app->jurisdiction ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'gdo_submit_access', __( 'The application cannot be submitted.', 'global-doctor-onboarding' ) );

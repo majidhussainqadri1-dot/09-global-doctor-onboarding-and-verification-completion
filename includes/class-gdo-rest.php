@@ -26,7 +26,8 @@ final class GDO_REST {
 	}
 
 	public function operator() {
-		return GDO_Membership_Adapter::can( 'sabri_manage_doctor_verification' );
+		$user_id = get_current_user_id();
+		return $user_id && GDO_Membership_Adapter::can( 'sabri_manage_doctor_verification', $user_id ) && GDO_Membership_Adapter::recent_step_up( $user_id );
 	}
 
 	public function eligibility( WP_REST_Request $request ) {
@@ -34,7 +35,12 @@ final class GDO_REST {
 	}
 
 	public function application() {
+		global $wpdb;
+		$wpdb->last_error = '';
 		$app = GDO_Application::latest_for_user( get_current_user_id() );
+		if ( ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_application_read_failed', __( 'The private doctor application could not be read safely.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );
+		}
 		return rest_ensure_response( GDO_API::application_edit_model( $app, get_current_user_id() ) );
 	}
 
@@ -42,7 +48,12 @@ final class GDO_REST {
 		if ( ! GDO_Operations::mutation_allowed() ) {
 			return new WP_Error( 'gdo_safe_mode', __( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );
 		}
+		global $wpdb;
+		$wpdb->last_error = '';
 		$app = GDO_Application::get( absint( $request->get_param( 'application_id' ) ) );
+		if ( ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_application_autosave_read_failed', __( 'The private doctor application could not be read safely for autosave.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );
+		}
 		if ( ! $app || absint( $app->user_id ) !== get_current_user_id() ) {
 			return new WP_Error( 'gdo_application_denied', __( 'Application access denied.', 'global-doctor-onboarding' ), array( 'status'=>403 ) );
 		}

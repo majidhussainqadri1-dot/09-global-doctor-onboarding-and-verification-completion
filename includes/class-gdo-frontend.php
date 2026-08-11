@@ -33,7 +33,12 @@ final class GDO_Frontend {
 			return $this->notice( __( 'Log in with a File 00-approved doctor account to start professional verification.', 'global-doctor-onboarding' ), 'warning' );
 		}
 		$user = get_current_user_id();
+		global $wpdb;
+		$wpdb->last_error = '';
 		$latest = GDO_Application::latest_for_user( $user );
+		if ( ! empty( $wpdb->last_error ) ) {
+			return $this->status_panel( null, new WP_Error( 'gdo_frontend_application_query', __( 'The private doctor application state could not be read safely.', 'global-doctor-onboarding' ) ) );
+		}
 		$eligibility = GDO_Policy::eligibility( $user );
 		if ( empty( $eligibility['eligible'] ) && ! ( $latest && in_array( $latest->state, array( 'draft','more_information','expired','renewal_due' ), true ) ) ) {
 			return $this->status_panel( $latest, new WP_Error( 'gdo_eligibility_' . sanitize_key( $eligibility['reason_code'] ), __( 'This account is not currently eligible to start a new doctor application.', 'global-doctor-onboarding' ) ) );
@@ -151,10 +156,15 @@ final class GDO_Frontend {
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			wp_die( esc_html__( 'The appeal could not start a safe database transaction.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
 		}
+		$wpdb->last_error = '';
 		$app = $wpdb->get_row( $wpdb->prepare(
 			'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE',
 			$id
 		) );
+		if ( null === $app && ! empty( $wpdb->last_error ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			wp_die( esc_html__( 'The appeal application state could not be read safely.', 'global-doctor-onboarding' ), '', array( 'response'=>503 ) );
+		}
 		if ( ! $app || absint( $app->user_id ) !== get_current_user_id() || ! in_array( $app->state, array( 'rejected','suspended','revoked' ), true ) || strlen( $reason ) < 20 || ! GDO_State::can_transition( $app->state, 'appeal_pending' ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			wp_die( esc_html__( 'This appeal is not valid.', 'global-doctor-onboarding' ), '', array( 'response'=>400 ) );

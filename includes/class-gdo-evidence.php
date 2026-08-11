@@ -160,11 +160,16 @@ final class GDO_Evidence {
         // Re-read the entire application under row lock. The caller-supplied
         // object is only a preflight hint and must not authorize a write after a
         // concurrent submit/state/jurisdiction change.
+        $wpdb->last_error = '';
         $locked_app = $wpdb->get_row( $wpdb->prepare(
             'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d AND user_id=%d FOR UPDATE',
             absint( $application->id ),
             $actor_id
         ) );
+        if ( null === $locked_app && ! empty( $wpdb->last_error ) ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+            return new WP_Error( 'gdo_evidence_application_query', __( 'The credential application could not be locked/read safely.', 'global-doctor-onboarding' ) );
+        }
         $locked_types = $locked_app ? self::types( $locked_app->jurisdiction, $locked_app->application_type ) : array();
         if ( ! $locked_app
             || ! in_array( $locked_app->state, array( 'draft', 'more_information' ), true )
@@ -174,7 +179,12 @@ final class GDO_Evidence {
             return new WP_Error( 'gdo_evidence_application_changed', __( 'The application changed before the credential could be stored. Reload and try again.', 'global-doctor-onboarding' ) );
         }
 
+        $wpdb->last_error = '';
         $current = self::current( $locked_app->id, $type );
+        if ( null === $current && ! empty( $wpdb->last_error ) ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+            return new WP_Error( 'gdo_evidence_current_query', __( 'Existing credential evidence could not be read safely before replacement.', 'global-doctor-onboarding' ) );
+        }
         if ( ! self::quota_allows( $locked_app->user_id, $normalized['size'], $current ? $current->file_size : 0 ) ) {
             if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
             return new WP_Error( 'gdo_storage_quota', __( 'The private credential storage quota has been reached.', 'global-doctor-onboarding' ) );
@@ -307,7 +317,12 @@ final class GDO_Evidence {
     }
 
     public static function decrypt_record( $record ) {
+        global $wpdb;
+        $wpdb->last_error = '';
         $app = GDO_Application::get( $record->application_id );
+        if ( null === $app && ! empty( $wpdb->last_error ) ) {
+            return new WP_Error( 'gdo_decrypt_application_query', __( 'The credential application could not be read safely.', 'global-doctor-onboarding' ) );
+        }
         if ( ! $app ) {
             return new WP_Error( 'gdo_application_missing', __( 'The credential application is unavailable.', 'global-doctor-onboarding' ) );
         }
@@ -337,9 +352,14 @@ final class GDO_Evidence {
 
     public static function rotate_key( $evidence_id ) {
         global $wpdb;
+        $wpdb->last_error = '';
         $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id=%d', absint( $evidence_id ) ) );
+        if ( null === $record && ! empty( $wpdb->last_error ) ) {
+            return new WP_Error( 'gdo_rotation_evidence_query', __( 'Credential key-rotation state could not be read safely.', 'global-doctor-onboarding' ) );
+        }
         $ring = GDO_Crypto::keyring();
-        if ( ! $record || is_wp_error( $ring ) || $record->key_id === $ring['active'] || 'GDO2' !== $record->envelope_version ) {
+        if ( is_wp_error( $ring ) ) { return $ring; }
+        if ( ! $record || $record->key_id === $ring['active'] || 'GDO2' !== $record->envelope_version ) {
             return true;
         }
         $app = GDO_Application::get( $record->application_id );
