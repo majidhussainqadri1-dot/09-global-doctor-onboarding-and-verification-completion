@@ -1,10 +1,30 @@
 {
-  "message": "fix(file09): degrade primary-source provider exceptions safely",
+  "message": "fix(file09): contain all trust assistance adapter exceptions",
   "changes": [
     {
       "path": "includes/class-gdo-advanced-trust.php",
-      "old": "        $result = apply_filters( 'gdo_primary_source_verification', null, $request, $issuer_context );\n        if ( ! is_array( $result ) || empty( $result['status'] ) ) {",
-      "new": "        try {\n            $result = apply_filters( 'gdo_primary_source_verification', null, $request, $issuer_context );\n        } catch ( Throwable $e ) {\n            unset( $e );\n            return self::record_check( $app->id, $record->id, 'primary_source', $issuer->adapter_key ? $issuer->adapter_key : 'configured', 'provider_unavailable', 0, array( 'issuer_uuid'=>$issuer->issuer_uuid ), array( 'reason'=>'provider_exception' ) );\n        }\n        if ( ! is_array( $result ) || empty( $result['status'] ) ) {"
+      "old": "        $request = (array) apply_filters( 'gdo_primary_source_request_minimized', $request, absint( $app->id ), absint( $record->id ), sanitize_text_field( $issuer->issuer_uuid ) );",
+      "new": "        try {\n            $request = (array) apply_filters( 'gdo_primary_source_request_minimized', $request, absint( $app->id ), absint( $record->id ), sanitize_text_field( $issuer->issuer_uuid ) );\n        } catch ( Throwable $e ) {\n            unset( $e );\n            return self::record_check( $app->id, $record->id, 'primary_source', $issuer->adapter_key ? $issuer->adapter_key : 'configured', 'provider_unavailable', 0, array( 'issuer_uuid'=>$issuer->issuer_uuid ), array( 'reason'=>'request_filter_exception' ) );\n        }"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "        $result = apply_filters( 'gdo_credential_equivalency_assessment', null, $request );\n        if ( ! is_array($result) ) { $result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'no_equivalency_adapter')); }",
+      "new": "        try {\n            $result = apply_filters( 'gdo_credential_equivalency_assessment', null, $request );\n        } catch ( Throwable $e ) {\n            unset( $e );\n            $result = array( 'status'=>'manual_review_required', 'facts'=>$request, 'explanation'=>array( 'reason'=>'provider_exception' ) );\n        }\n        if ( ! is_array($result) ) { $result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'no_equivalency_adapter')); }"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "        $result=apply_filters('gdo_institutional_affiliation_verification',null,$request);\n        if(!is_array($result)){$result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'no_affiliation_adapter'));}",
+      "new": "        try {\n            $result=apply_filters('gdo_institutional_affiliation_verification',null,$request);\n        } catch ( Throwable $e ) {\n            unset( $e );\n            $result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'provider_exception'));\n        }\n        if(!is_array($result)){$result=array('status'=>'manual_review_required','facts'=>$request,'explanation'=>array('reason'=>'no_affiliation_adapter'));}"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "        $result=apply_filters('gdo_credential_translation_assistance',null,$payload);\n        if(!is_array($result)){$result=array('status'=>'unavailable','translation'=>'','provider'=>'unconfigured');}",
+      "new": "        try {\n            $result=apply_filters('gdo_credential_translation_assistance',null,$payload);\n        } catch ( Throwable $e ) {\n            unset( $e );\n            $result=array('status'=>'unavailable','translation'=>'','provider'=>'exception');\n        }\n        if(!is_array($result)){$result=array('status'=>'unavailable','translation'=>'','provider'=>'unconfigured');}"
+    },
+    {
+      "path": "includes/class-gdo-advanced-trust.php",
+      "old": "        $result=apply_filters('gdo_ai_evidence_assistance',null,$payload);\n        if(!is_array($result)){$result=array('status'=>'unavailable','provider'=>'unconfigured','hints'=>array());}",
+      "new": "        try {\n            $result=apply_filters('gdo_ai_evidence_assistance',null,$payload);\n        } catch ( Throwable $e ) {\n            unset( $e );\n            $result=array('status'=>'unavailable','provider'=>'exception','hints'=>array());\n        }\n        if(!is_array($result)){$result=array('status'=>'unavailable','provider'=>'unconfigured','hints'=>array());}"
     }
   ]
 }
