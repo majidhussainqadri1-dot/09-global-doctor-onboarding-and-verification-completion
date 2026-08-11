@@ -325,7 +325,7 @@ final class GDO_Evidence {
             if ( ! $record || 'accepted' !== $record->status || empty( $record->reviewer_id ) || empty( $record->reviewed_at ) || ( ! empty( $record->expires_at ) && strtotime( $record->expires_at . ' UTC' ) <= time() ) ) {
                 return false;
             }
-            if ( 'license' === $type && ( empty( $record->validity_until ) || strtotime( $record->validity_until . ' 23:59:59 UTC' ) <= time() ) ) {
+            if ( in_array( $type, array( 'license', 'registration', 'professional_registration' ), true ) && ( empty( $record->validity_until ) || strtotime( $record->validity_until . ' 23:59:59 UTC' ) <= time() ) ) {
                 return false;
             }
         }
