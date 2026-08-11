@@ -5,6 +5,7 @@ final class GDO_Migration {
 	const LOCK_OPTION = 'gdo_schema_migration_lock';
 
 	public static function maybe_run() {
+		global $wpdb;
 		$current = absint( get_option( 'gdo_schema_version', 0 ) );
 		if ( $current > GDO_SCHEMA_VERSION ) {
 			return new WP_Error( 'gdo_schema_future_version', __( 'The File 09 database schema is newer than this plugin and cannot be mutated safely.', 'global-doctor-onboarding' ) );
@@ -13,15 +14,28 @@ final class GDO_Migration {
 			return GDO_Schema::verify_installation();
 		}
 		$token = wp_generate_uuid4();
-		if ( ! add_option( self::LOCK_OPTION, array( 'token'=>$token, 'started_at'=>time() ), '', false ) ) {
+		$new_lock = array( 'token'=>$token, 'started_at'=>time() );
+		if ( ! add_option( self::LOCK_OPTION, $new_lock, '', false ) ) {
 			$lock = (array) get_option( self::LOCK_OPTION, array() );
 			if ( empty( $lock['started_at'] ) || absint( $lock['started_at'] ) > time() - 15 * MINUTE_IN_SECONDS ) {
 				return new WP_Error( 'gdo_migration_locked', __( 'Another File 09 schema migration is already running.', 'global-doctor-onboarding' ) );
 			}
-			delete_option( self::LOCK_OPTION );
-			if ( ! add_option( self::LOCK_OPTION, array( 'token'=>$token, 'started_at'=>time() ), '', false ) ) {
-				return new WP_Error( 'gdo_migration_locked', __( 'File 09 could not acquire its migration lock.', 'global-doctor-onboarding' ) );
+
+			// Stale takeover is an atomic compare-and-swap. Never delete the
+			// option after a stale read because another worker may already have
+			// replaced it with a fresh lock in that interval.
+			$wpdb->last_error = '';
+			$swapped = $wpdb->update(
+				$wpdb->options,
+				array( 'option_value'=>maybe_serialize( $new_lock ) ),
+				array( 'option_name'=>self::LOCK_OPTION, 'option_value'=>maybe_serialize( $lock ) ),
+				array( '%s' ),
+				array( '%s','%s' )
+			);
+			if ( 1 !== $swapped || ! empty( $wpdb->last_error ) ) {
+				return new WP_Error( 'gdo_migration_locked', __( 'File 09 could not acquire the stale migration lock safely.', 'global-doctor-onboarding' ) );
 			}
+			wp_cache_delete( self::LOCK_OPTION, 'options' );
 		}
 		try {
 			$schema = GDO_Schema::install();
