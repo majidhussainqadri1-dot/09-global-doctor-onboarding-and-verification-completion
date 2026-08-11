@@ -636,6 +636,16 @@ final class GDO_Advanced_Trust {
         return $row;
     }
 
+    private static function application_record( $application_id ) {
+        global $wpdb;
+        $wpdb->last_error = '';
+        $app = GDO_Application::get( absint( $application_id ) );
+        if ( ! $app && ! empty( $wpdb->last_error ) ) {
+            return new WP_Error( 'gdo_trust_application_query', __( 'Professional application state could not be read safely.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );
+        }
+        return $app;
+    }
+
     private static function evidence_record( $application_id, $evidence_id ) {
         $records = GDO_Evidence::records_checked( absint( $application_id ), true );
         if ( is_wp_error( $records ) ) {
@@ -650,7 +660,8 @@ final class GDO_Advanced_Trust {
     }
 
     public static function primary_source_verify( $application_id, $evidence_id ) {
-        $app = GDO_Application::get( $application_id );
+        $app = self::application_record( $application_id );
+        if ( is_wp_error( $app ) ) { return $app; }
         $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;
         if ( is_wp_error( $record ) ) { return $record; }
         if ( ! $app || ! $record ) {
@@ -698,7 +709,8 @@ final class GDO_Advanced_Trust {
         );
     }
     public static function authenticity_assessment( $application_id, $evidence_id ) {
-        $app = GDO_Application::get( $application_id );
+        $app = self::application_record( $application_id );
+        if ( is_wp_error( $app ) ) { return $app; }
         $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;
         if ( is_wp_error( $record ) ) { return $record; }
         if ( ! $app || ! $record ) { return new WP_Error( 'gdo_evidence_missing', __( 'Application or evidence was not found.', 'global-doctor-onboarding' ) ); }
@@ -716,7 +728,8 @@ final class GDO_Advanced_Trust {
     }
 
     public static function equivalency_assessment( $application_id ) {
-        $app = GDO_Application::get( $application_id );
+        $app = self::application_record( $application_id );
+        if ( is_wp_error( $app ) ) { return $app; }
         if ( ! $app ) { return new WP_Error( 'gdo_app_missing', __( 'Application not found.', 'global-doctor-onboarding' ) ); }
         $profile = json_decode( $app->profile_json, true ); $profile = is_array($profile) ? $profile : array();
         $request = array( 'qualification'=>isset($profile['qualification'])?substr(sanitize_text_field($profile['qualification']),0,240):'', 'source_jurisdiction'=>isset($profile['license_jurisdiction'])?self::normalize_jurisdiction($profile['license_jurisdiction']):'', 'target_jurisdiction'=>self::normalize_jurisdiction($app->jurisdiction) );
@@ -726,7 +739,8 @@ final class GDO_Advanced_Trust {
     }
 
     public static function verify_affiliation( $application_id, $institution ) {
-        $app=GDO_Application::get($application_id);
+        $app=self::application_record($application_id);
+        if(is_wp_error($app)){return $app;}
         if(!$app){return new WP_Error('gdo_app_missing',__('Application not found.','global-doctor-onboarding'));}
         $request=array('institution'=>substr(sanitize_text_field($institution),0,240),'application_id'=>absint($app->id),'jurisdiction'=>$app->jurisdiction);
         $result=apply_filters('gdo_institutional_affiliation_verification',null,$request);
@@ -735,7 +749,7 @@ final class GDO_Advanced_Trust {
     }
 
     public static function translation_assistance( $application_id, $evidence_id, $target_locale ) {
-        $app=GDO_Application::get($application_id); $record=$app?self::evidence_record($app->id,$evidence_id):null;
+        $app=self::application_record($application_id); if(is_wp_error($app)){return $app;} $record=$app?self::evidence_record($app->id,$evidence_id):null;
         if(is_wp_error($record)){return $record;}
         if(!$app||!$record){return new WP_Error('gdo_evidence_missing',__('Application or evidence was not found.','global-doctor-onboarding'));}
         $locale=function_exists('sanitize_locale_name')?sanitize_locale_name($target_locale):preg_replace('/[^A-Za-z0-9_-]/','',(string)$target_locale);
@@ -747,7 +761,7 @@ final class GDO_Advanced_Trust {
     }
 
     public static function ai_assistance( $application_id, $evidence_id ) {
-        $app=GDO_Application::get($application_id); $record=$app?self::evidence_record($app->id,$evidence_id):null;
+        $app=self::application_record($application_id); if(is_wp_error($app)){return $app;} $record=$app?self::evidence_record($app->id,$evidence_id):null;
         if(is_wp_error($record)){return $record;}
         if(!$app||!$record){return new WP_Error('gdo_evidence_missing',__('Application or evidence was not found.','global-doctor-onboarding'));}
         if(!GDO_Rate_Limiter::hit('ai-evidence-assist:'.absint($application_id),20,HOUR_IN_SECONDS)){return new WP_Error('gdo_ai_rate',__('Too many AI evidence-assistance requests.','global-doctor-onboarding'));}
@@ -760,7 +774,8 @@ final class GDO_Advanced_Trust {
     }
     public static function fraud_ring_scan( $application_id ) {
         global $wpdb;
-        $app = GDO_Application::get( $application_id );
+        $app = self::application_record( $application_id );
+        if ( is_wp_error( $app ) ) { return $app; }
         if ( ! $app ) { return new WP_Error( 'gdo_app_missing', __( 'Application not found.', 'global-doctor-onboarding' ) ); }
         $wpdb->last_error = '';
         $records = GDO_Evidence::records( $app->id, true );
@@ -818,7 +833,7 @@ final class GDO_Advanced_Trust {
         $type=substr(sanitize_key($type),0,50); $reason=sanitize_textarea_field($reason);
         if(!$reviewer_id||!$applicant_id||!$type||strlen($reason)<8){return new WP_Error('gdo_conflict_invalid',__('A reviewer, applicant, conflict type, and meaningful reason are required.','global-doctor-onboarding'));}
         if($actor!==$reviewer_id && !self::can_manage()){return new WP_Error('gdo_conflict_forbidden',__('Only the reviewer or a privileged verification manager may declare this conflict.','global-doctor-onboarding'));}
-        if($application_id){$app=GDO_Application::get($application_id);if(!$app||absint($app->user_id)!==$applicant_id){return new WP_Error('gdo_conflict_application',__('The conflict application does not match the applicant.','global-doctor-onboarding'));}}
+        if($application_id){$app=self::application_record($application_id);if(is_wp_error($app)){return $app;}if(!$app||absint($app->user_id)!==$applicant_id){return new WP_Error('gdo_conflict_application',__('The conflict application does not match the applicant.','global-doctor-onboarding'));}}
         $wpdb->last_error='';$exists_raw=$wpdb->get_var($wpdb->prepare('SELECT id FROM '.self::table('reviewer_conflicts')." WHERE reviewer_id=%d AND applicant_id=%d AND conflict_type=%s AND status='active' AND (application_id IS NULL OR application_id=0 OR application_id=%d) LIMIT 1",$reviewer_id,$applicant_id,$type,$application_id));
         if(null===$exists_raw&&!empty($wpdb->last_error)){return new WP_Error('gdo_conflict_query',__('Reviewer conflict state could not be verified safely.','global-doctor-onboarding'));}
         if(absint($exists_raw)){return true;}
@@ -1100,7 +1115,8 @@ final class GDO_Advanced_Trust {
         if ( ! GDO_Operations::mutation_allowed() ) {
             return new WP_Error( 'gdo_viewing_room_runtime_not_ready', __( 'Private credential viewing-room grants are temporarily unavailable.', 'global-doctor-onboarding' ) );
         }
-        $app = GDO_Application::get( $application_id );
+        $app = self::application_record( $application_id );
+        if ( is_wp_error( $app ) ) { return $app; }
         $record = $app ? self::evidence_record( $app->id, $evidence_id ) : null;
         if ( is_wp_error( $record ) ) { return $record; }
         if ( ! $app || ! $record ) { return new WP_Error( 'gdo_room_not_found', __( 'The requested credential review room is unavailable.', 'global-doctor-onboarding' ) ); }
