@@ -333,6 +333,7 @@ final class GDO_Advanced_Trust_Hardening {
         $issued = time();
         $exp = min( $issued + GDO_Advanced_Trust::PASSPORT_TTL, $verified_expiry );
         $scope = GDO_Advanced_Trust::verification_matrix( $app->user_id );
+        if ( empty( $scope['data_available'] ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'gdo_passport_scope_unavailable', __( 'Professional verification scope could not be verified safely for passport issuance.', 'global-doctor-onboarding' ) ); }
         $payload = array( 'passport_uuid'=>$uuid, 'version'=>$version, 'scope'=>$scope, 'iat'=>$issued, 'exp'=>$exp );
         $body = rtrim( strtr( base64_encode( wp_json_encode( $payload ) ), '+/', '-_' ), '=' );
         $token = $body . '.' . hash_hmac( 'sha256', $body, $key );
@@ -375,7 +376,8 @@ final class GDO_Advanced_Trust_Hardening {
         $app=GDO_Application::get($row['application_id']);if(!$app&&!empty($wpdb->last_error)){return new WP_Error('gdo_passport_lookup_query',__('Professional verification state is temporarily unavailable.','global-doctor-onboarding'),array('status'=>503));}
         $verified_expiry=GDO_Advanced_Trust::current_verification_expiry($app);$approved_snapshot=$app?GDO_Application::stored_approved_snapshot($app):array();$passport_issued=!empty($row['issued_at'])?strtotime($row['issued_at'].' UTC'):0;$snapshot_captured=!empty($approved_snapshot['captured_at'])?strtotime($approved_snapshot['captured_at'].' UTC'):0;
         if(!$app||!$approved_snapshot||!$passport_issued||!$snapshot_captured||$passport_issued<$snapshot_captured||absint($app->user_id)!==absint($row['user_id'])||!GDO_State::public_verified($app->state)||'accepted'!==sanitize_key($app->claim_status)||!GDO_Membership_Adapter::identity_assurance_current($row['user_id'])||!$verified_expiry){return new WP_Error('gdo_passport_inactive',__('This professional verification passport is not active.','global-doctor-onboarding'),array('status'=>404));}
-        return array('passport_uuid'=>$row['passport_uuid'],'version'=>absint($row['version']),'verification'=>GDO_Advanced_Trust::verification_matrix($row['user_id']),'issued_at'=>$row['issued_at'],'expires_at'=>$row['expires_at'],'cure_guarantee'=>false,'clinical_authorization'=>false,'professional_scope_only'=>true);
+        $verification=GDO_Advanced_Trust::verification_matrix($row['user_id']);if(empty($verification['data_available'])){return new WP_Error('gdo_passport_scope_unavailable',__('Professional verification scope is temporarily unavailable.','global-doctor-onboarding'),array('status'=>503));}
+        return array('passport_uuid'=>$row['passport_uuid'],'version'=>absint($row['version']),'verification'=>$verification,'issued_at'=>$row['issued_at'],'expires_at'=>$row['expires_at'],'cure_guarantee'=>false,'clinical_authorization'=>false,'professional_scope_only'=>true);
     }
 
     private static function release_monitor_claim( $application_id, $last_result, $delay = HOUR_IN_SECONDS ) {

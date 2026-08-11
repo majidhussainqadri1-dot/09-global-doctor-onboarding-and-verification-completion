@@ -337,7 +337,7 @@ final class GDO_Advanced_Trust {
         $matrix = array(
             'identity'=>false, 'qualification'=>false, 'institution'=>false,
             'registration'=>false, 'license'=>false, 'current_status'=>false,
-            'last_reverified'=>null, 'next_review'=>null, 'jurisdiction'=>'',
+            'last_reverified'=>null, 'next_review'=>null, 'jurisdiction'=>'', 'data_available'=>true,
             'scope_status'=>array(
                 'identity'=>'not_verified', 'qualification'=>'not_verified', 'institution'=>'not_applicable',
                 'registration'=>'not_verified', 'license'=>'not_verified', 'current_status'=>'not_verified',
@@ -367,6 +367,7 @@ final class GDO_Advanced_Trust {
             // unverifiable professional-current state during DB uncertainty.
             $matrix['current_status'] = false;
             $matrix['scope_status']['current_status'] = 'not_verified';
+            $matrix['data_available'] = false;
             return $matrix;
         }
         foreach ( $evidence_rows as $evidence ) {
@@ -406,7 +407,15 @@ final class GDO_Advanced_Trust {
     }
 
     public static function verification_matrix( $user_id ) {
-        return self::public_matrix_for_app( GDO_Application::verification_record_for_user( absint( $user_id ) ) );
+        global $wpdb;
+        $wpdb->last_error = '';
+        $app = GDO_Application::verification_record_for_user( absint( $user_id ) );
+        if ( ! empty( $wpdb->last_error ) ) {
+            $matrix = self::public_matrix_for_app( null );
+            $matrix['data_available'] = false;
+            return $matrix;
+        }
+        return self::public_matrix_for_app( $app );
     }
 
     public static function matrix_filter( $matrix, $user_id ) {
@@ -1139,7 +1148,7 @@ final class GDO_Advanced_Trust {
     }
 
     public static function public_card_shortcode( $atts ) {
-        $atts=shortcode_atts(array('user_id'=>0),$atts,'gdo_public_verification_card');$uid=absint($atts['user_id']);if(!$uid){return '';}$matrix=self::verification_matrix($uid);$labels=array('identity'=>__('Identity','global-doctor-onboarding'),'qualification'=>__('Qualification','global-doctor-onboarding'),'institution'=>__('Institution','global-doctor-onboarding'),'registration'=>__('Registration','global-doctor-onboarding'),'license'=>__('License','global-doctor-onboarding'),'current_status'=>__('Current status','global-doctor-onboarding'));$status_labels=array('verified'=>__('Verified','global-doctor-onboarding'),'pending'=>__('Pending','global-doctor-onboarding'),'not_verified'=>__('Not verified','global-doctor-onboarding'),'not_applicable'=>__('Not applicable','global-doctor-onboarding'));ob_start();?><section class="gdo-public-verification-card"><h3><?php esc_html_e('Professional Verification','global-doctor-onboarding');?></h3><ul><?php foreach($labels as $key=>$label):$state=isset($matrix['scope_status'][$key])?$matrix['scope_status'][$key]:'not_verified';?><li><?php echo esc_html($label);?>: <strong><?php echo esc_html(isset($status_labels[$state])?$status_labels[$state]:$status_labels['not_verified']);?></strong></li><?php endforeach;?></ul><?php if($matrix['last_reverified']):?><p><?php echo esc_html($matrix['last_reverified']);?></p><?php endif;?><p><?php esc_html_e('Professional verification does not guarantee treatment outcomes or grant clinical authorization.','global-doctor-onboarding');?></p></section><?php return ob_get_clean();
+        $atts=shortcode_atts(array('user_id'=>0),$atts,'gdo_public_verification_card');$uid=absint($atts['user_id']);if(!$uid){return '';}$matrix=self::verification_matrix($uid);if(empty($matrix['data_available'])){return '<section class="gdo-public-verification-card"><h3>'.esc_html__('Professional Verification','global-doctor-onboarding').'</h3><p role="status">'.esc_html__('Professional verification status is temporarily unavailable.','global-doctor-onboarding').'</p></section>';}$labels=array('identity'=>__('Identity','global-doctor-onboarding'),'qualification'=>__('Qualification','global-doctor-onboarding'),'institution'=>__('Institution','global-doctor-onboarding'),'registration'=>__('Registration','global-doctor-onboarding'),'license'=>__('License','global-doctor-onboarding'),'current_status'=>__('Current status','global-doctor-onboarding'));$status_labels=array('verified'=>__('Verified','global-doctor-onboarding'),'pending'=>__('Pending','global-doctor-onboarding'),'not_verified'=>__('Not verified','global-doctor-onboarding'),'not_applicable'=>__('Not applicable','global-doctor-onboarding'));ob_start();?><section class="gdo-public-verification-card"><h3><?php esc_html_e('Professional Verification','global-doctor-onboarding');?></h3><ul><?php foreach($labels as $key=>$label):$state=isset($matrix['scope_status'][$key])?$matrix['scope_status'][$key]:'not_verified';?><li><?php echo esc_html($label);?>: <strong><?php echo esc_html(isset($status_labels[$state])?$status_labels[$state]:$status_labels['not_verified']);?></strong></li><?php endforeach;?></ul><?php if($matrix['last_reverified']):?><p><?php echo esc_html($matrix['last_reverified']);?></p><?php endif;?><p><?php esc_html_e('Professional verification does not guarantee treatment outcomes or grant clinical authorization.','global-doctor-onboarding');?></p></section><?php return ob_get_clean();
     }
     public static function issue_viewing_room_grant( $application_id, $evidence_id, $reviewer_id, $purpose = 'credential_review' ) {
         if ( ! GDO_Operations::mutation_allowed() ) {
