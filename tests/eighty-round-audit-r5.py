@@ -18,7 +18,7 @@ c(9,'Jurisdiction REST mutation obeys runtime mutation gate',has(hard,'public st
 c(10,'Trust-check REST mutation obeys runtime mutation gate',hard[hard.index('public static function rest_check'):].find('GDO_Operations::mutation_allowed()') < 500)
 c(11,'Continuous monitor propagates schema upgrade/runtime readiness errors',has(hard,'doctor_continuous_verification_runtime_failed','gdo_trust_monitor_runtime_not_ready'))
 c(12,'Continuous monitor fails on monitor/evidence/application DB uncertainty',has(hard,'gdo_trust_monitor_query_failed','gdo_trust_monitor_application_query','gdo_trust_monitor_evidence_query'))
-c(13,'Continuous monitor orphan deletion failure is surfaced',has(hard,'gdo_trust_monitor_orphan_delete','false === $wpdb->delete'))
+c(13,'Continuous monitor orphan deletion failure is surfaced',has(hard,'gdo_trust_monitor_orphan_delete',"'monitor_status'=>'processing'",'orphan_delete_failed'))
 c(14,'Any primary-source WP_Error becomes provider degradation',has(hard,'if ( is_wp_error( $check ) )','$provider_failure = true;','continue;'))
 c(15,'Continuous monitor persistence and cleanup failures propagate',has(hard,'gdo_trust_monitor_store_failed','$cleanup = self::cleanup_upload_sessions()','return $cleanup;'))
 c(16,'Reverification wakeups use a distinct hook',has(hard,'gdo_trust_reverification_wakeup','wp_schedule_single_event'))

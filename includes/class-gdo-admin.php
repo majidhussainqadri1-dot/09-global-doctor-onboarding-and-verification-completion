@@ -206,7 +206,12 @@ final class GDO_Admin {
 		}
 		if ( $manager && 'appeal_pending' === $app->state ) {
 			global $wpdb;
+			$wpdb->last_error = '';
 			$appeal = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'appeals' ) . " WHERE application_id=%d AND status='open' ORDER BY id DESC LIMIT 1", $app->id ) );
+			if ( null === $appeal && ! empty( $wpdb->last_error ) ) {
+				echo '<div class="notice notice-error"><p>' . esc_html__( 'Appeal workflow state is temporarily unavailable because the database read failed. No appeal action has been assumed.', 'global-doctor-onboarding' ) . '</p></div>';
+				return;
+			}
 			if ( $appeal && empty( $appeal->assigned_reviewer_id ) ) {
 				?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="gdo_assign_appeal"><input type="hidden" name="application_id" value="<?php echo absint( $app->id ); ?>"><input type="hidden" name="appeal_id" value="<?php echo absint( $appeal->id ); ?>"><?php wp_nonce_field( 'gdo_assign_appeal_' . $appeal->id ); ?><label><?php esc_html_e( 'Independent senior reviewer user ID', 'global-doctor-onboarding' ); ?><input type="number" min="1" name="reviewer_id" required></label><button class="button"><?php esc_html_e( 'Assign appeal independently', 'global-doctor-onboarding' ); ?></button></form><?php
 			} elseif ( $appeal && absint( $appeal->assigned_reviewer_id ) === absint( $reviewer ) ) {
@@ -642,7 +647,10 @@ final class GDO_Admin {
 	public function replay_outbox() {
 		$this->guard( 'sabri_manage_doctor_verification', true );
 		check_admin_referer( 'gdo_replay_outbox' );
-		GDO_Notifications::process( 100 );
+		$result = GDO_Notifications::process( 100 );
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ), '', array( 'response'=>503, 'back_link'=>true ) );
+		}
 		$this->redirect();
 	}
 

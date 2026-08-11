@@ -377,11 +377,28 @@ final class GDO_Evidence {
 
     public static function review( $evidence_id, $reviewer_id, $status, array $checklist, $registry_result, $validity_from, $validity_until, $review_note, $manage_transaction = true ) {
         global $wpdb;
+        $reviewer_id = absint( $reviewer_id );
+        if ( ! $reviewer_id || $reviewer_id !== get_current_user_id() || ! GDO_Membership_Adapter::can( 'sabri_verify_doctors', $reviewer_id ) || ! GDO_Membership_Adapter::recent_step_up( $reviewer_id ) ) {
+            return new WP_Error( 'gdo_evidence_review_forbidden', __( 'Credential review requires current reviewer authorization and recent step-up.', 'global-doctor-onboarding' ) );
+        }
         if ( $manage_transaction && false === $wpdb->query( 'START TRANSACTION' ) ) {
             return new WP_Error( 'gdo_evidence_review_transaction', __( 'Credential review could not start a safe database transaction.', 'global-doctor-onboarding' ) );
         }
+        $wpdb->last_error = '';
         $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . " WHERE id=%d AND retention_state='active' AND deleted_at IS NULL FOR UPDATE", absint( $evidence_id ) ) );
-        $app = $record ? $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE', absint( $record->application_id ) ) ) : null;
+        if ( null === $record && ! empty( $wpdb->last_error ) ) {
+            if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+            return new WP_Error( 'gdo_evidence_review_query', __( 'Credential evidence could not be read safely for review.', 'global-doctor-onboarding' ) );
+        }
+        $app = null;
+        if ( $record ) {
+            $wpdb->last_error = '';
+            $app = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d FOR UPDATE', absint( $record->application_id ) ) );
+            if ( null === $app && ! empty( $wpdb->last_error ) ) {
+                if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+                return new WP_Error( 'gdo_evidence_review_application_query', __( 'The credential application could not be read safely for review.', 'global-doctor-onboarding' ) );
+            }
+        }
         $status = sanitize_key( $status );
         $review_note = sanitize_textarea_field( $review_note );
         if ( ! $record || ! $app || 'under_review' !== $app->state || absint( $app->assigned_reviewer_id ) !== absint( $reviewer_id ) || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer_id, $app->user_id, $app->id ) || ! in_array( $status, array( 'accepted', 'rejected', 'more_information' ), true ) ) {
@@ -504,16 +521,32 @@ final class GDO_Evidence {
         if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
             return new WP_Error( 'gdo_evidence_grant_transaction', __( 'Credential access could not start a safe database transaction.', 'global-doctor-onboarding' ) );
         }
+        $wpdb->last_error = '';
         $grant = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE grant_hash=%s FOR UPDATE", $hash ) );
+        if ( null === $grant && ! empty( $wpdb->last_error ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'gdo_evidence_grant_query', __( 'Credential access grant state could not be read safely.', 'global-doctor-onboarding' ) );
+        }
         $session = function_exists( 'wp_get_session_token' ) ? (string) wp_get_session_token() : '';
         $session_digest = hash( 'sha256', $reviewer_id . '|' . $session );
         if ( ! $grant || absint( $grant->reviewer_id ) !== $reviewer_id || $grant->used_at || strtotime( $grant->expires_at . ' UTC' ) <= time() || ! hash_equals( (string) $grant->session_digest, $session_digest ) || sanitize_key( $grant->mode ) !== sanitize_key( $expected_mode ) ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'gdo_evidence_grant_invalid', __( 'The credential access grant is invalid or expired.', 'global-doctor-onboarding' ) );
         }
+        $wpdb->last_error = '';
         $record = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . GDO_Schema::table( 'evidence' ) . " WHERE id=%d AND retention_state='active' AND deleted_at IS NULL", absint( $grant->evidence_id ) ) );
+        if ( null === $record && ! empty( $wpdb->last_error ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'gdo_evidence_grant_evidence_query', __( 'Credential evidence could not be read safely for access.', 'global-doctor-onboarding' ) );
+        }
+        $wpdb->last_error = '';
         $app = $record ? GDO_Application::get( $record->application_id ) : null;
-        if ( ! $record || ! $app || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::recent_step_up( $reviewer_id ) ) {
+        if ( $record && ! $app && ! empty( $wpdb->last_error ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'gdo_evidence_grant_application_query', __( 'The credential application could not be read safely for access.', 'global-doctor-onboarding' ) );
+        }
+        $download_authorized = 'download' !== sanitize_key( $expected_mode ) || GDO_Membership_Adapter::can( 'sabri_access_doctor_credentials', $reviewer_id );
+        if ( ! $record || ! $app || ! $download_authorized || ! GDO_Membership_Adapter::reviewer_scope_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer_id, $app->user_id, $app->id ) || ! GDO_Membership_Adapter::recent_step_up( $reviewer_id ) ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'gdo_evidence_missing', __( 'The credential evidence is unavailable or no longer within reviewer scope.', 'global-doctor-onboarding' ) );
         }

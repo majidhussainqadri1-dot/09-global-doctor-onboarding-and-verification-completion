@@ -376,7 +376,10 @@ final class GDO_Application {
 		if ( in_array( $app->state, array( 'submitted','resubmitted' ), true )
 			&& ! empty( $app->submission_hash )
 			&& hash_equals( (string) $app->submission_hash, $submission_hash ) ) {
-			$wpdb->query( 'COMMIT' );
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'gdo_submit_idempotent_commit', __( 'The existing application submission could not be confirmed safely.', 'global-doctor-onboarding' ) );
+			}
 			return true;
 		}
 		if ( ! in_array( $app->state, array( 'draft','more_information' ), true )

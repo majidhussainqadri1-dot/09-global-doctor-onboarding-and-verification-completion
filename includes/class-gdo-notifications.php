@@ -327,6 +327,10 @@ final class GDO_Notifications {
 
 	public static function replay( $event_id, $actor_id, $reason ) {
 		global $wpdb;
+		$actor_id = absint( $actor_id );
+		if ( ! $actor_id || $actor_id !== get_current_user_id() || ! GDO_Membership_Adapter::can( 'sabri_manage_doctor_verification', $actor_id ) || ! GDO_Membership_Adapter::recent_step_up( $actor_id ) ) {
+			return new WP_Error( 'gdo_outbox_replay_forbidden', __( 'Dead-letter replay requires current verification-management authorization and recent step-up.', 'global-doctor-onboarding' ) );
+		}
 		$reason = sanitize_textarea_field( $reason );
 		if ( strlen( $reason ) < 20 ) {
 			return new WP_Error( 'gdo_outbox_replay_reason', __( 'A reason of at least 20 characters is required.', 'global-doctor-onboarding' ) );
