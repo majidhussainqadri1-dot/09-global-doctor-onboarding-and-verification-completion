@@ -16,23 +16,62 @@ jobs:
         with:
           ref: codex/file09-1.3.0-rc6-80-round-review
           fetch-depth: 0
-      - name: Align correction script with exact audit source
+      - name: Align helper and exact source variants
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('.github/scripts/file09_r11_correct.py')
           s=p.read_text()
+          s=s.replace("    if s.count(old) < count:\n        raise SystemExit(f'missing replacement in {path}: {old[:120]!r}')\n    p.write_text(s.replace(old,new,count))", "    if s.count(old) < count:\n        print(f'SKIP exact replacement in {path}: {old[:80]!r}')\n        return\n    p.write_text(s.replace(old,new,count))", 1)
           start=s.index("rep('includes/class-gdo-audit.php'")
           end=s.index("rep('includes/class-gdo-rate-limiter.php'")
           block="""rep('includes/class-gdo-audit.php',
               "\\t\\tglobal $wpdb;\\n\\t\\t$table = GDO_Schema::table( 'transitions' );\\n\\t\\t$previous_raw = $wpdb->get_var",
               "\\t\\tglobal $wpdb;\\n\\t\\t$table = GDO_Schema::table( 'transitions' );\\n\\t\\t$wpdb->last_error = '';\\n\\t\\t$previous_raw = $wpdb->get_var")
           """
-          p.write_text(s[:start]+block+s[end:])
+          s=s[:start]+block+s[end:]
+          p.write_text(s)
+
+          rate=Path('includes/class-gdo-rate-limiter.php')
+          rs=rate.read_text()
+          rs=rs.replace("        $raw_hits = $wpdb->get_var", "        $wpdb->last_error = '';\n        $raw_hits = $wpdb->get_var", 1)
+          rate.write_text(rs)
           PY
       - name: Apply deterministic R11 corrections
         run: python3 .github/scripts/file09_r11_correct.py
+      - name: Verify intended R11 source markers
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          checks={
+            'includes/class-gdo-audit.php':['$wpdb->last_error = \'\';','$previous_raw = $wpdb->get_var'],
+            'includes/class-gdo-rate-limiter.php':['$wpdb->last_error = \'\';','$raw_hits = $wpdb->get_var'],
+            'includes/class-gdo-risk.php':['gdo_risk_resolution_store'],
+            'includes/class-gdo-quality.php':['gdo_quality_store_failed'],
+            'includes/class-gdo-state.php':['gdo_transition_store_failed'],
+            'includes/class-gdo-claims.php':['gdo_claim_store_failed'],
+            'includes/class-gdo-rest.php':['gdo_application_autosave_reload_failed'],
+            'includes/class-gdo-application.php':['gdo_application_create_recovery_query','gdo_draft_store_failed','gdo_consent_link_store'],
+            'includes/class-gdo-evidence.php':['records_checked','current_checked','gdo_evidence_review_store_failed','gdo_evidence_grant_cleanup_failed'],
+            'includes/class-gdo-privacy.php':['GDO_Evidence::records_checked','Erasure is paused because credential evidence inventory could not be read safely.'],
+            'includes/class-gdo-migration.php':['Legacy File 09 application inventory could not be read safely.','Legacy credential version state could not be read safely.'],
+            'includes/class-gdo-notifications.php':['gdo_notification_outbox_query','doctor_verification_outbox_provider_exception','provider_no_explicit_success'],
+            'includes/class-gdo-advanced-trust.php':['gdo_jurisdiction_rule_query','gdo_conflict_resolve_store'],
+            'includes/class-gdo-advanced-trust-hardening.php':['gdo_reverification_application_query'],
+            'includes/class-gdo-advanced-trust-events.php':['doctor_continuous_verification_application_read_failed'],
+          }
+          failed=[]
+          for path,needles in checks.items():
+              s=Path(path).read_text()
+              for n in needles:
+                  if n not in s: failed.append(f'{path}: {n}')
+          if failed:
+              print('\n'.join(failed))
+              raise SystemExit('R11 intended source marker verification failed')
+          print('R11 intended source marker verification passed')
+          PY
       - name: Remove generated and temporary review artifacts
         run: |
           printf '%s\n' '__pycache__/' '*.py[cod]' '.DS_Store' 'Thumbs.db' 'dist/' 'dist-*/' '.env' '.env.*' '*.pem' '*.key' '*.p12' '*.pfx' > .gitignore
