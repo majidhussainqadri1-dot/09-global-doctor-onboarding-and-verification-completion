@@ -68,6 +68,30 @@ final class GDO_Admin {
 		}
 	}
 
+	private function commit_or_reconcile( $operation, $message, $verify ) {
+		global $wpdb;
+		if ( false !== $wpdb->query( 'COMMIT' ) ) { return true; }
+		$verified = is_callable( $verify ) ? call_user_func( $verify ) : false;
+		if ( is_wp_error( $verified ) ) { return $verified; }
+		if ( $verified ) {
+			GDO_Membership_Adapter::audit( 'doctor_admin_commit_reconciled', array( 'operation'=>sanitize_key( $operation ) ) );
+			return true;
+		}
+		$wpdb->query( 'ROLLBACK' );
+		return new WP_Error( 'gdo_' . sanitize_key( $operation ) . '_commit', $message );
+	}
+
+	private function outbox_commit_verified( $event_uuid ) {
+		global $wpdb;
+		if ( ! $event_uuid ) { return false; }
+		$wpdb->last_error = '';
+		$event_id = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_uuid=%s LIMIT 1', (string) $event_uuid ) ) );
+		if ( ! empty( $wpdb->last_error ) ) {
+			return new WP_Error( 'gdo_admin_commit_uncertain', __( 'The verification operation commit outcome is uncertain and requires reconciliation.', 'global-doctor-onboarding' ) );
+		}
+		return $event_id > 0;
+	}
+
 	private function render_step_up() {
 		?>
 		<div class="wrap gdo-admin">
@@ -301,11 +325,13 @@ final class GDO_Admin {
 			$result = 1 === $updated ? GDO_Audit::transition( $id, $actor, 'under_review', 'under_review', 'review_reassigned', 'A new qualified independent reviewer was assigned after an appeal reopened review.' ) : new WP_Error( 'gdo_assignment_conflict', __( 'The reopened review changed before assignment.', 'global-doctor-onboarding' ) );
 		}
 		$event = is_wp_error( $result ) || 1 !== $updated ? new WP_Error( 'gdo_assignment_not_ready', __( 'Reviewer assignment is not ready for notification.', 'global-doctor-onboarding' ) ) : GDO_Notifications::queue( 'doctor_application_assigned', $app->user_id, array( 'application_id'=>$id, 'reopened_after_appeal'=>$reopened ? 1 : 0 ), false );
-		if ( is_wp_error( $result ) || 1 !== $updated || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( is_wp_error( $result ) || 1 !== $updated || is_wp_error( $event ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			$error = is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : new WP_Error( 'gdo_assignment_commit', __( 'Reviewer assignment failed.', 'global-doctor-onboarding' ) ) );
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
 		}
+		$commit = $this->commit_or_reconcile( 'assignment', __( 'Reviewer assignment failed.', 'global-doctor-onboarding' ), function() use ( $event ) { return $this->outbox_commit_verified( $event ); } );
+		if ( is_wp_error( $commit ) ) { wp_die( esc_html( $commit->get_error_message() ), '', array( 'response'=>503 ) ); }
 		GDO_Audit::publish_transition( $result );
 		GDO_Notifications::process( 1, $event );
 		$this->redirect();
@@ -339,11 +365,20 @@ final class GDO_Admin {
 			$event = is_wp_error( $state ) || false === $updated ? new WP_Error( 'gdo_more_info_not_ready', __( 'The information request is not ready for notification.', 'global-doctor-onboarding' ) ) : GDO_Notifications::queue( 'doctor_application_more_information', $app->user_id, array( 'application_id'=>$app->id, 'due_at'=>gmdate( 'c', strtotime( $due . ' UTC' ) ), 'evidence_type'=>$record->document_type ), false );
 			if ( is_wp_error( $state ) ) { $result = $state; }
 		}
-		if ( is_wp_error( $result ) || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( is_wp_error( $result ) || is_wp_error( $event ) ) {
 			$wpdb->query( 'ROLLBACK' );
-			$error = is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : new WP_Error( 'gdo_evidence_review_commit', __( 'The credential review could not be committed.', 'global-doctor-onboarding' ) ) );
+			$error = is_wp_error( $result ) ? $result : $event;
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
 		}
+		$commit = $this->commit_or_reconcile( 'evidence_review', __( 'The credential review could not be committed.', 'global-doctor-onboarding' ), function() use ( $id, $reviewer, $status, $event ) {
+			if ( $event ) { return $this->outbox_commit_verified( $event ); }
+			global $wpdb;
+			$wpdb->last_error = '';
+			$current = $wpdb->get_row( $wpdb->prepare( 'SELECT status,reviewer_id,reviewed_at FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE id=%d LIMIT 1', $id ) );
+			if ( null === $current && ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_evidence_review_commit_uncertain', __( 'The credential review commit outcome is uncertain.', 'global-doctor-onboarding' ) ); }
+			return $current && sanitize_key( $current->status ) === $status && absint( $current->reviewer_id ) === $reviewer && ! empty( $current->reviewed_at );
+		} );
+		if ( is_wp_error( $commit ) ) { wp_die( esc_html( $commit->get_error_message() ), '', array( 'response'=>503 ) ); }
 		if ( is_array( $state ) ) { GDO_Audit::publish_transition( $state ); }
 		GDO_Membership_Adapter::audit( 'doctor_evidence_reviewed', array( 'application_id'=>absint($app->id),'evidence_id'=>$id,'reviewer_id'=>$reviewer,'status'=>$status ) );
 		if ( $event ) { GDO_Notifications::process( 1, $event ); }
@@ -373,11 +408,13 @@ final class GDO_Admin {
 		$result = GDO_State::transition( $id, 'more_information', $reviewer, 'more_information_required', $reason, absint( isset( $_POST['row_version'] ) ? $_POST['row_version'] : 0 ), false );
 		$updated = is_wp_error( $result ) ? false : $wpdb->update( GDO_Schema::table( 'applications' ), array( 'more_info_due_at'=>$due, 'updated_at'=>current_time( 'mysql', true ) ), array( 'id'=>$id ), array( '%s','%s' ), array( '%d' ) );
 		$event = is_wp_error( $result ) || false === $updated ? new WP_Error( 'gdo_more_info_not_ready', __( 'The information request is not ready for notification.', 'global-doctor-onboarding' ) ) : GDO_Notifications::queue( 'doctor_application_more_information', $app->user_id, array( 'application_id'=>$id, 'due_at'=>gmdate( 'c', $due_time ), 'request'=>$reason ), false );
-		if ( is_wp_error( $result ) || false === $updated || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( is_wp_error( $result ) || false === $updated || is_wp_error( $event ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			$error = is_wp_error( $result ) ? $result : ( is_wp_error( $event ) ? $event : new WP_Error( 'gdo_more_info_commit', __( 'The information request could not be committed.', 'global-doctor-onboarding' ) ) );
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
 		}
+		$commit = $this->commit_or_reconcile( 'more_info', __( 'The information request could not be committed.', 'global-doctor-onboarding' ), function() use ( $event ) { return $this->outbox_commit_verified( $event ); } );
+		if ( is_wp_error( $commit ) ) { wp_die( esc_html( $commit->get_error_message() ), '', array( 'response'=>503 ) ); }
 		GDO_Audit::publish_transition( $result );
 		GDO_Notifications::process( 1, $event );
 		$this->redirect();
@@ -399,10 +436,18 @@ final class GDO_Admin {
 		}
 		$result = GDO_State::transition( $id, 'recommended', $reviewer, 'verification_recommended', $reason, $expected_version, false );
 		$updated = is_wp_error( $result ) ? false : $wpdb->update( GDO_Schema::table( 'applications' ), array( 'recommender_id'=>$reviewer, 'recommended_decision'=>$decision, 'recommendation_reason'=>$reason, 'recommendation_at'=>current_time( 'mysql', true ), 'updated_at'=>current_time( 'mysql', true ) ), array( 'id'=>$id ), array( '%d','%s','%s','%s','%s' ), array( '%d' ) );
-		if ( is_wp_error( $result ) || false === $updated || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( is_wp_error( $result ) || false === $updated ) {
 			$wpdb->query( 'ROLLBACK' );
 			wp_die( esc_html( is_wp_error( $result ) ? $result->get_error_message() : __( 'Recommendation failed.', 'global-doctor-onboarding' ) ), '', array( 'response'=>409 ) );
 		}
+		$commit = $this->commit_or_reconcile( 'recommendation', __( 'Recommendation failed.', 'global-doctor-onboarding' ), function() use ( $id, $reviewer, $decision ) {
+			global $wpdb;
+			$wpdb->last_error = '';
+			$current = $wpdb->get_row( $wpdb->prepare( 'SELECT state,recommender_id,recommended_decision FROM ' . GDO_Schema::table( 'applications' ) . ' WHERE id=%d LIMIT 1', $id ) );
+			if ( null === $current && ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_recommendation_commit_uncertain', __( 'Recommendation commit outcome is uncertain.', 'global-doctor-onboarding' ) ); }
+			return $current && 'recommended' === sanitize_key( $current->state ) && absint( $current->recommender_id ) === $reviewer && sanitize_key( $current->recommended_decision ) === $decision;
+		} );
+		if ( is_wp_error( $commit ) ) { wp_die( esc_html( $commit->get_error_message() ), '', array( 'response'=>503 ) ); }
 		GDO_Audit::publish_transition( $result );
 		$this->redirect();
 	}
@@ -451,11 +496,13 @@ final class GDO_Admin {
 		$updated = is_wp_error( $result ) ? false : $wpdb->update( GDO_Schema::table( 'applications' ), $data, array( 'id'=>$id ), array( '%d','%s','%s','%s','%s','%s','%s','%s' ), array( '%d' ) );
 		$claim = is_wp_error( $result ) || false === $updated ? new WP_Error( 'gdo_decision_not_ready', __( 'The final decision is not ready for claim issuance.', 'global-doctor-onboarding' ) ) : GDO_Claims::issue( $id, $decision, 'verified' === $decision ? $snapshot : array(), false );
 		$notice_event = is_wp_error( $claim ) ? $claim : GDO_Notifications::queue( 'doctor_verification_' . $decision, $app->user_id, array( 'application_id'=>$id, 'state'=>$decision, 'verified_until'=>$until ), false );
-		if ( is_wp_error( $result ) || false === $updated || is_wp_error( $claim ) || is_wp_error( $notice_event ) || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( is_wp_error( $result ) || false === $updated || is_wp_error( $claim ) || is_wp_error( $notice_event ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			$error = is_wp_error( $result ) ? $result : ( is_wp_error( $claim ) ? $claim : ( is_wp_error( $notice_event ) ? $notice_event : new WP_Error( 'gdo_decision_commit', __( 'The final decision could not be committed.', 'global-doctor-onboarding' ) ) ) );
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
 		}
+		$commit = $this->commit_or_reconcile( 'decision', __( 'The final decision could not be committed.', 'global-doctor-onboarding' ), function() use ( $notice_event ) { return $this->outbox_commit_verified( $notice_event ); } );
+		if ( is_wp_error( $commit ) ) { wp_die( esc_html( $commit->get_error_message() ), '', array( 'response'=>503 ) ); }
 		GDO_Audit::publish_transition( $result );
 		GDO_Claims::publish( $claim );
 		$quality_sample = GDO_Quality::create_sample( $id, absint( $app->recommender_id ), $decision );
@@ -539,11 +586,13 @@ final class GDO_Admin {
 		$updated = is_wp_error( $result ) ? false : $wpdb->update( GDO_Schema::table( 'applications' ), $data, array( 'id'=>$id ), $formats, array( '%d' ) );
 		$claim = is_wp_error( $result ) || false === $updated ? new WP_Error( 'gdo_lifecycle_not_ready', __( 'The lifecycle decision is not ready for claim issuance.', 'global-doctor-onboarding' ) ) : GDO_Claims::issue( $id, $state, 'reinstated' === $state ? $snapshot_refresh['snapshot'] : array(), false );
 		$notice_event = is_wp_error( $claim ) ? $claim : GDO_Notifications::queue( 'doctor_verification_' . $state, $app->user_id, array( 'application_id'=>$id, 'state'=>$state, 'verified_until'=>$until ), false );
-		if ( is_wp_error( $result ) || false === $updated || is_wp_error( $claim ) || is_wp_error( $notice_event ) || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( is_wp_error( $result ) || false === $updated || is_wp_error( $claim ) || is_wp_error( $notice_event ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			$error = is_wp_error( $result ) ? $result : ( is_wp_error( $claim ) ? $claim : ( is_wp_error( $notice_event ) ? $notice_event : new WP_Error( 'gdo_lifecycle_commit', __( 'The lifecycle decision could not be committed.', 'global-doctor-onboarding' ) ) ) );
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
 		}
+		$commit = $this->commit_or_reconcile( 'lifecycle', __( 'The lifecycle decision could not be committed.', 'global-doctor-onboarding' ), function() use ( $notice_event ) { return $this->outbox_commit_verified( $notice_event ); } );
+		if ( is_wp_error( $commit ) ) { wp_die( esc_html( $commit->get_error_message() ), '', array( 'response'=>503 ) ); }
 		GDO_Audit::publish_transition( $result );
 		GDO_Claims::publish( $claim );
 		GDO_Notifications::process( 2 );
@@ -575,11 +624,13 @@ final class GDO_Admin {
 		}
 		$updated = $wpdb->query( $wpdb->prepare( 'UPDATE ' . GDO_Schema::table( 'appeals' ) . " SET assigned_reviewer_id=%d WHERE id=%d AND application_id=%d AND status='open' AND assigned_reviewer_id IS NULL", $reviewer_id, $appeal_id, $application_id ) );
 		$event = 1 === $updated ? GDO_Notifications::queue( 'doctor_verification_appeal_assigned', $reviewer_id, array( 'application_id'=>$application_id, 'appeal_id'=>$appeal_id ), false ) : new WP_Error( 'gdo_appeal_assignment_conflict', __( 'The appeal assignment changed. Reload and try again.', 'global-doctor-onboarding' ) );
-		if ( 1 !== $updated || is_wp_error( $event ) || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( 1 !== $updated || is_wp_error( $event ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			$error = is_wp_error( $event ) ? $event : new WP_Error( 'gdo_appeal_assignment_commit', __( 'The appeal assignment could not be committed.', 'global-doctor-onboarding' ) );
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
 		}
+		$commit = $this->commit_or_reconcile( 'appeal_assignment', __( 'The appeal assignment could not be committed.', 'global-doctor-onboarding' ), function() use ( $event ) { return $this->outbox_commit_verified( $event ); } );
+		if ( is_wp_error( $commit ) ) { wp_die( esc_html( $commit->get_error_message() ), '', array( 'response'=>503 ) ); }
 		GDO_Membership_Adapter::audit( 'doctor_verification_appeal_assigned', array( 'application_id'=>$application_id, 'appeal_id'=>$appeal_id, 'reviewer_id'=>$reviewer_id, 'actor_id'=>get_current_user_id() ) );
 		GDO_Notifications::process( 1, $event );
 		$this->redirect();
@@ -625,11 +676,13 @@ final class GDO_Admin {
 		$app_updated = is_wp_error( $result ) ? false : $wpdb->update( GDO_Schema::table( 'applications' ), $app_data, array( 'id'=>$id ), $formats, array( '%d' ) );
 		$claim = is_wp_error( $result ) || 1 !== $appeal_updated || false === $app_updated ? new WP_Error( 'gdo_appeal_not_ready', __( 'The appeal decision is not ready for claim issuance.', 'global-doctor-onboarding' ) ) : GDO_Claims::issue( $id, $decision, 'reinstated' === $decision ? $snapshot_refresh['snapshot'] : array(), false );
 		$notice_event = is_wp_error( $claim ) ? $claim : GDO_Notifications::queue( 'doctor_verification_appeal_resolved', $app->user_id, array( 'application_id'=>$id, 'state'=>$decision ), false );
-		if ( is_wp_error( $result ) || 1 !== $appeal_updated || false === $app_updated || is_wp_error( $claim ) || is_wp_error( $notice_event ) || false === $wpdb->query( 'COMMIT' ) ) {
+		if ( is_wp_error( $result ) || 1 !== $appeal_updated || false === $app_updated || is_wp_error( $claim ) || is_wp_error( $notice_event ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			$error = is_wp_error( $result ) ? $result : ( is_wp_error( $claim ) ? $claim : ( is_wp_error( $notice_event ) ? $notice_event : new WP_Error( 'gdo_appeal_commit', __( 'The appeal resolution could not be committed.', 'global-doctor-onboarding' ) ) ) );
 			wp_die( esc_html( $error->get_error_message() ), '', array( 'response'=>409 ) );
 		}
+		$commit = $this->commit_or_reconcile( 'appeal_resolution', __( 'The appeal resolution could not be committed.', 'global-doctor-onboarding' ), function() use ( $notice_event ) { return $this->outbox_commit_verified( $notice_event ); } );
+		if ( is_wp_error( $commit ) ) { wp_die( esc_html( $commit->get_error_message() ), '', array( 'response'=>503 ) ); }
 		GDO_Audit::publish_transition( $result );
 		GDO_Claims::publish( $claim );
 		GDO_Notifications::process( 2 );
