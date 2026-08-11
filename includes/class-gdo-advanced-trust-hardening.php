@@ -580,8 +580,13 @@ final class GDO_Advanced_Trust_Hardening {
         if ( ! GDO_Operations::mutation_allowed() ) {
             return new WP_Error( 'gdo_trust_runtime_not_ready', __( 'Professional trust checks are temporarily unavailable.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );
         }
+        global $wpdb;
         $app_id = absint( $request['application_id'] ); $evidence_id = absint( $request['evidence_id'] );
+        $wpdb->last_error = '';
         $app = GDO_Application::get( $app_id ); $reviewer = get_current_user_id();
+        if ( ! $app && ! empty( $wpdb->last_error ) ) {
+            return new WP_Error( 'gdo_check_application_query', __( 'The professional application could not be read safely for this trust check.', 'global-doctor-onboarding' ), array( 'status'=>503 ) );
+        }
         if ( ! $app || ! GDO_Membership_Adapter::reviewer_case_allows( $reviewer, $app->user_id, $app->id ) ) {
             return new WP_Error( 'gdo_check_forbidden', __( 'The professional trust check is not authorized.', 'global-doctor-onboarding' ), array( 'status'=>403 ) );
         }
