@@ -35,7 +35,9 @@ checks=[]
 
 check(1,'Canonical File09 ownership',has(integ,"'source_of_truth'          => 'file09'","'direct_table_meta_write'=> false"))
 check(2,'Truth status separation',has(status.lower(),'staging accepted: **false**','live deployed: **false**','operationally accepted: **false**'))
-check(3,'RC6 identity and fresh-second review status',has(status,'RC6') and 'fresh second 80-round' in status.lower())
+# R2 is historical evidence. Later current-status rewrites must preserve the R2 row/ledger,
+# not fossilize an old "fresh second" phrase as the current release heading.
+check(3,'RC6 identity and fresh-second historical review status',has(status,'RC6','| R2 | 47 | 33 |') and has(review,'Fresh Second Eighty-Round Re-Review','47 defect-bearing rounds','33 clean rounds'))
 check(4,'Bootstrap trust/hardening/event order',main.index('class-gdo-advanced-trust.php') < main.index('class-gdo-advanced-trust-hardening.php') < main.index('class-gdo-advanced-trust-events.php'))
 check(5,'File00 hard dependency',has(text('includes/class-gdo-plugin.php'),'File 00 Membership Core is required','GDO_Membership_Adapter::available'))
 check(6,'File02 recent step-up',has(member,'SA_Professional_Reauthentication::assertion','recent_step_up'))
@@ -113,7 +115,7 @@ check(76,'Native retention child anonymization failures block completion',has(re
 check(77,'Orphan cleanup covers resumable chunks',has(retention,"0 === strpos( $name, '.chunk-' )"))
 check(78,'Migration/rollback documents schema 2 and non-destructive rollback',('Advanced Trust schema: **2**' in migration or 'Advanced Trust schema `2`' in migration) and 'non-destructive' in migration.lower())
 check(79,'Exact-head workflow executes fresh-second 80-round gate',has(workflow,'eighty-round-audit-r2.py','eighty-round-audit.py','advanced-trust-24.py'))
-check(80,'Review/status/manifest synchronize fresh-second ledger',has(review,'Fresh Second Eighty-Round Re-Review','47 defect-bearing rounds','33 clean rounds') and 'fresh second 80-round' in status.lower() and 'fresh second 80-round' in manifest.lower())
+check(80,'Review/current status preserve fresh-second historical ledger',has(review,'Fresh Second Eighty-Round Re-Review','47 defect-bearing rounds','33 clean rounds') and has(status,'| R2 | 47 | 33 |') and ('fresh second 80-round' in manifest.lower() or 'fresh-second' in manifest.lower()))
 
 if len(checks)!=80 or [n for n,_,_ in checks]!=list(range(1,81)):
     print('FAIL: control list incomplete',file=sys.stderr); sys.exit(1)
