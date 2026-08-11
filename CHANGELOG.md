@@ -1,5 +1,16 @@
 # Changelog
 
+## Twentieth fresh 20-round sequential corrective assurance — R20
+
+- Frozen baseline: `f6ffbc43edf2679590595f5bb1db7c3fec652d25`.
+- R01–R19 completed sequentially; defects corrected in `01,02,03,04,05,08,09,16,17,19`; clean completed rounds `06,07,10,11,12,13,14,15,18`; final R20 exact-head release-integrity round remains pending.
+- Added authoritative lost-COMMIT reconciliation across professional passport issuance, professional claim/outbox issuance, immutable submission and reviewer/admin transaction families.
+- Hardened evidence rotation/review/grant COMMIT recovery and added authorized missing-file recovery so irreversible credential unlink cannot be rolled back into an active DB row.
+- Applied the same physical-deletion durability to privacy erasure and retention; reconciled lifecycle, Advanced Trust and anonymization commits.
+- Made operational expiry reconciliation crash-safe and made temporary professional-claim transport failure retryable without clobbering accepted/rejected acknowledgement.
+- Added permanent R20 ledger, executable gate and release-lock metadata. Final exact-head CI/package evidence is still required before R20 completion.
+- External Hostinger staging, live deployment and operational acceptance remain false and require separate evidence.
+
 ## Nineteenth fresh 20-round corrective assurance — R19
 
 - Froze the green R18 exact head `634bae9795bf6cb744eda333cfdf2a770868c133` and performed a new independent 20-round sequential corrective review.

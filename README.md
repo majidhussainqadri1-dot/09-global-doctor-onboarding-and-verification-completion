@@ -26,9 +26,10 @@ This repository contains the canonical File 09 implementation candidate for the 
 | Fresh 10-round review R16 | 9 defect-bearing corrected; 1 clean |
 | Fresh 10-round review R17 | 7 defect-bearing corrected; 3 clean |
 | Fresh 10-round review R18 | 7 defect-bearing corrected; 3 clean |
-| **Fresh 20-round review R19** | **5 defect-bearing corrected; 15 clean; exact-head gate required** |
+| Fresh 20-round review R19 | 5 defect-bearing corrected; 15 clean |
+| **Fresh 20-round review R20** | **R01–R19 complete: 10 defect-bearing corrected; 9 clean; R20 final exact-head round pending** |
 | Source candidate | `1.3.0`, core schema `6`, Advanced Trust schema `2`, contract `1.1.0`, RC6 candidate |
-| Exact-head automated QA | Must pass on the final exact RC6/R19 commit |
+| Exact-head automated QA | Must pass on the final exact RC6/R20 commit |
 | Deterministic package | 62-entry RC6 allowlist; exact-head workflow output only |
 | Hostinger-equivalent staging | Pending external execution |
 | Production/live/operational | Not authorized |
@@ -37,7 +38,7 @@ This repository contains the canonical File 09 implementation candidate for the 
 
 File 09 owns doctor applications, private professional evidence, professional verification review/decision, renewal, suspension/revocation, appeal, signed professional-decision claims and File 09 professional-trust records. It does **not** own general identity, login, public profiles, directory/search ranking, clinics, notification transport or platform-wide security governance.
 
-Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, all `REVIEW-80-ROUNDS-RC6*.md` ledgers, `REVIEW-10-ROUNDS-RC6-R12.md`, `REVIEW-10-ROUNDS-RC6-R13.md`, `REVIEW-10-ROUNDS-RC6-R14.md`, `REVIEW-10-ROUNDS-RC6-R15.md`, `REVIEW-10-ROUNDS-RC6-R16.md`, `REVIEW-10-ROUNDS-RC6-R17.md`, `REVIEW-10-ROUNDS-RC6-R18.md`, `REVIEW-20-ROUNDS-RC6-R19.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
+Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, all `REVIEW-80-ROUNDS-RC6*.md` ledgers, `REVIEW-10-ROUNDS-RC6-R12.md`, `REVIEW-10-ROUNDS-RC6-R13.md`, `REVIEW-10-ROUNDS-RC6-R14.md`, `REVIEW-10-ROUNDS-RC6-R15.md`, `REVIEW-10-ROUNDS-RC6-R16.md`, `REVIEW-10-ROUNDS-RC6-R17.md`, `REVIEW-10-ROUNDS-RC6-R18.md`, `REVIEW-20-ROUNDS-RC6-R19.md`, `REVIEW-20-ROUNDS-RC6-R20.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
 
 ## 1.3.0 RC6 — Advanced Professional Trust assurance history
 
@@ -144,3 +145,11 @@ R19 froze the green R18 exact head `634bae9795bf6cb744eda333cfdf2a770868c133` an
 R19 makes evidence quota DB uncertainty explicit; makes encrypted evidence compensation and ambiguous COMMIT outcomes fail-visible/reconciled; makes resumable session creation, chunk append and finalize claims reconcile ambiguous COMMIT outcomes instead of speculatively unlinking/truncating; and holds application eligibility row locks through irreversible native evidence deletion so legal-hold writes serialize correctly in privacy erasure and retention. R19 also adds the permanent twenty-round ledger, executable gate, release-lock metadata and authoritative workflow wiring.
 
 The permanent R19 ledger is `REVIEW-20-ROUNDS-RC6-R19.md`; the executable gate is `tests/twenty-round-audit-r19.py` and must report **20 PASS / 0 FAIL**. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced.
+
+## Twentieth fresh 20-round sequential corrective assurance (R20)
+
+R20 froze the green R19 exact head `f6ffbc43edf2679590595f5bb1db7c3fec652d25`. R01–R19 have been completed sequentially; defects were established and corrected in rounds **01, 02, 03, 04, 05, 08, 09, 16, 17 and 19**. Clean completed rounds are **06, 07, 10, 11, 12, 13, 14, 15 and 18**. R20 itself remains the pending final exact-head release-integrity round.
+
+R20 hardens ambiguous COMMIT recovery for professional passports, signed claims/outbox, immutable application submission, reviewer/admin workflows, evidence rotation/review/grants, privacy erasure, retention and operational expiry reconciliation. It also fixes temporary professional-claim delivery so a retry can still reach terminal File 00 acknowledgement without stale failure overwriting accepted/rejected state.
+
+The permanent R20 ledger is `REVIEW-20-ROUNDS-RC6-R20.md`; the executable gate is `tests/twenty-round-audit-r20.py`. Its final required result is **20 PASS / 0 FAIL** after the temporary R20 corrective helper is removed and the exact-head authoritative workflow passes. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced.
