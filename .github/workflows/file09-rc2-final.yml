@@ -76,6 +76,7 @@ jobs:
           python3 tests/ten-round-audit-r14.py
           python3 tests/ten-round-audit-r15.py
           python3 tests/ten-round-audit-r16.py
+          python3 tests/ten-round-audit-r17.py
       - name: Exact-head source evidence
         run: |
           git rev-parse HEAD | tee exact-head.txt
