@@ -1,35 +1,75 @@
 {
-  "message": "fix(file09): contain File00 and File02 contract exceptions",
+  "message": "docs(file09): synchronize R17 current assurance status",
   "changes": [
     {
-      "path": "includes/class-gdo-membership-adapter.php",
-      "old": "\t\t$assertion = SMC_Contracts::assertions( $user_id );\n\t\treturn self::valid_base_assertion( $assertion, $user_id ) ? $assertion : array();",
-      "new": "\t\ttry {\n\t\t\t$assertion = SMC_Contracts::assertions( $user_id );\n\t\t} catch ( Throwable $e ) {\n\t\t\tunset( $e );\n\t\t\treturn array();\n\t\t}\n\t\treturn self::valid_base_assertion( $assertion, $user_id ) ? $assertion : array();"
+      "path": "STATUS.md",
+      "old": "R1–R11 are preserved historical 80-round reviews. R12–R16 are separate fresh **10-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings.",
+      "new": "R1–R11 are preserved historical 80-round reviews. R12–R17 are separate fresh **10-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings."
     },
     {
-      "path": "includes/class-gdo-membership-adapter.php",
-      "old": "\t\t$assertion = SMC_CF01_Contract::membership_assertion( $user_id, $context );\n\t\treturn self::valid_membership_assertion( $assertion ) ? $assertion : array();",
-      "new": "\t\ttry {\n\t\t\t$assertion = SMC_CF01_Contract::membership_assertion( $user_id, $context );\n\t\t} catch ( Throwable $e ) {\n\t\t\tunset( $e );\n\t\t\treturn array();\n\t\t}\n\t\treturn self::valid_membership_assertion( $assertion ) ? $assertion : array();"
+      "path": "STATUS.md",
+      "old": "| **R16** | **10** | **9** | **1** |",
+      "new": "| R16 | 10 | 9 | 1 |\n| **R17** | **10** | **7** | **3** |"
     },
     {
-      "path": "includes/class-gdo-membership-adapter.php",
-      "old": "\t\t$profile = function_exists( 'smc_get_profile' ) ? (array) smc_get_profile( $user_id ) : array();\n\t\t$subject = self::membership_assertion( $user_id );",
-      "new": "\t\t$profile = array();\n\t\tif ( function_exists( 'smc_get_profile' ) ) {\n\t\t\ttry { $profile = (array) smc_get_profile( $user_id ); } catch ( Throwable $e ) { unset( $e ); $profile = array(); }\n\t\t}\n\t\t$subject = self::membership_assertion( $user_id );"
+      "path": "STATUS.md",
+      "old": "- Installable release allowlist remains **62 entries**; R12–R16 ledger/test files are repository QA evidence and intentionally not packaged.\n\n## Completion truth",
+      "new": "- Installable release allowlist remains **62 entries**; R12–R16 ledger/test files are repository QA evidence and intentionally not packaged.\n\n## Seventeenth fresh 10-round corrective assurance\n\n- Frozen R17 baseline: `66e43bcb42904a381728509144cd0a1e6c77c6ac`.\n- Defect-bearing rounds: **01, 03, 05, 06, 08, 09, 10**.\n- Clean rounds: **02, 04, 07**.\n- R17 corrects more-information DB uncertainty; external trust-provider exception containment; resumable-finalize DB retry semantics; public verification/passport unavailable truth; retention crash consistency and completion checkpointing; File00/File02 companion exception containment; and permanent R17 release evidence.\n- Permanent ledger: `REVIEW-10-ROUNDS-RC6-R17.md`.\n- Permanent executable gate: `tests/ten-round-audit-r17.py` — required result **10 PASS / 0 FAIL**.\n- Installable release allowlist remains **62 entries**; R17 ledger/test files are repository QA evidence and intentionally not packaged.\n\n## Completion truth"
     },
     {
-      "path": "includes/class-gdo-membership-adapter.php",
-      "old": "\t\t$receipt = SA_Professional_Reauthentication::assertion( $user_id, self::review_scope( $user_id ) );\n\t\tif ( ! self::valid_reauthentication( $receipt, true ) ) {",
-      "new": "\t\ttry {\n\t\t\t$receipt = SA_Professional_Reauthentication::assertion( $user_id, self::review_scope( $user_id ) );\n\t\t} catch ( Throwable $e ) {\n\t\t\tunset( $e );\n\t\t\treturn false;\n\t\t}\n\t\tif ( ! self::valid_reauthentication( $receipt, true ) ) {"
+      "path": "STATUS.md",
+      "old": "- R16 ten-round repository review/fix: **complete at source-review level**\n- Coded RC6/R16 candidate: **complete at repository-candidate level**\n- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R16 source/evidence changes**",
+      "new": "- R17 ten-round repository review/fix: **complete at source-review level**\n- Coded RC6/R17 candidate: **complete at repository-candidate level**\n- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R17 source/evidence changes**"
     },
     {
-      "path": "includes/class-gdo-membership-adapter.php",
-      "old": "\t\t$receipt = SA_Professional_Reauthentication::verify_and_record(\n\t\t\t$user_id,\n\t\t\t(string) $password,\n\t\t\t(string) $otp,\n\t\t\tarray(\n\t\t\t\t'scope'    => self::review_scope( $user_id ),\n\t\t\t\t'trace_id' => wp_generate_uuid4(),\n\t\t\t)\n\t\t);",
-      "new": "\t\ttry {\n\t\t\t$receipt = SA_Professional_Reauthentication::verify_and_record(\n\t\t\t\t$user_id,\n\t\t\t\t(string) $password,\n\t\t\t\t(string) $otp,\n\t\t\t\tarray(\n\t\t\t\t\t'scope'    => self::review_scope( $user_id ),\n\t\t\t\t\t'trace_id' => wp_generate_uuid4(),\n\t\t\t\t)\n\t\t\t);\n\t\t} catch ( Throwable $e ) {\n\t\t\tunset( $e );\n\t\t\treturn new WP_Error( 'gdo_step_up_dependency_failure', __( 'File 02 professional reauthentication could not be completed safely.', 'global-doctor-onboarding' ) );\n\t\t}"
+      "path": "STATUS.md",
+      "old": "## Authoritative RC6/R16 repository gate",
+      "new": "## Authoritative RC6/R17 repository gate"
     },
     {
-      "path": "includes/class-gdo-membership-adapter.php",
-      "old": "\t\tif ( $user_id && self::authentication_available() && is_callable( array( 'SA_Professional_Reauthentication', 'clear_current_session' ) ) ) {\n\t\t\tSA_Professional_Reauthentication::clear_current_session();\n\t\t}",
-      "new": "\t\tif ( $user_id && self::authentication_available() && is_callable( array( 'SA_Professional_Reauthentication', 'clear_current_session' ) ) ) {\n\t\t\ttry { SA_Professional_Reauthentication::clear_current_session(); } catch ( Throwable $e ) { unset( $e ); }\n\t\t}"
+      "path": "STATUS.md",
+      "old": "**all R1–R11 80-round executable gates plus the R12, R13, R14, R15 and R16 ten-round gates**",
+      "new": "**all R1–R11 80-round executable gates plus the R12, R13, R14, R15, R16 and R17 ten-round gates**"
+    },
+    {
+      "path": "STATUS.md",
+      "old": "are historical after R16 source changes and must not be represented as the current corrected package.",
+      "new": "are historical after R17 source changes and must not be represented as the current corrected package."
+    },
+    {
+      "path": "STATUS.md",
+      "old": "This repository status does not claim RC6/R16 staging or production deployment.",
+      "new": "This repository status does not claim RC6/R17 staging or production deployment."
+    },
+    {
+      "path": "README.md",
+      "old": "| **Fresh 10-round review R16** | **9 defect-bearing corrected; 1 clean; exact-head gate required** |",
+      "new": "| Fresh 10-round review R16 | 9 defect-bearing corrected; 1 clean |\n| **Fresh 10-round review R17** | **7 defect-bearing corrected; 3 clean; exact-head gate required** |"
+    },
+    {
+      "path": "README.md",
+      "old": "| Exact-head automated QA | Must pass on the final exact RC6/R16 commit |",
+      "new": "| Exact-head automated QA | Must pass on the final exact RC6/R17 commit |"
+    },
+    {
+      "path": "README.md",
+      "old": "R12–R16 supersede it only as current repository review evidence, not as historical evidence.",
+      "new": "R12–R17 supersede it only as current repository review evidence, not as historical evidence."
+    },
+    {
+      "path": "README.md",
+      "old": "`REVIEW-10-ROUNDS-RC6-R15.md`, `REVIEW-10-ROUNDS-RC6-R16.md`, `SECURITY-PRIVACY.md`",
+      "new": "`REVIEW-10-ROUNDS-RC6-R15.md`, `REVIEW-10-ROUNDS-RC6-R16.md`, `REVIEW-10-ROUNDS-RC6-R17.md`, `SECURITY-PRIVACY.md`"
+    },
+    {
+      "path": "README.md",
+      "old": "the R12, R13, R14, R15 and R16 ten-round gates",
+      "new": "the R12, R13, R14, R15, R16 and R17 ten-round gates"
+    },
+    {
+      "path": "README.md",
+      "old": "The permanent R16 ledger is `REVIEW-10-ROUNDS-RC6-R16.md`; the executable gate is `tests/ten-round-audit-r16.py` and must report **10 PASS / 0 FAIL**. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced.",
+      "new": "The permanent R16 ledger is `REVIEW-10-ROUNDS-RC6-R16.md`; the executable gate is `tests/ten-round-audit-r16.py` and must report **10 PASS / 0 FAIL**. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced.\n\n## Seventeenth fresh 10-round corrective assurance (R17)\n\nR17 froze the green R16 exact head `66e43bcb42904a381728509144cd0a1e6c77c6ac` and performed ten new sequential review → fix → review controls. Defects were established in rounds **01, 03, 05, 06, 08, 09 and 10**; rounds **02, 04 and 07** were clean. Each established defect was corrected before the next numbered round advanced.\n\nR17 makes more-information application reads DB-fail-visible; contains external primary-source/equivalency/affiliation/translation/AI exceptions; preserves resumable-upload retry under application DB uncertainty; distinguishes unavailable public verification/passport scope from `Not verified`; makes ordinary retention checkpoint filesystem deletion and transactionally anonymize DB state; and contains File00/File02 companion contract exceptions at the File09 boundary. R10 permanently records and executes this assurance.\n\nThe permanent R17 ledger is `REVIEW-10-ROUNDS-RC6-R17.md`; the executable gate is `tests/ten-round-audit-r17.py` and must report **10 PASS / 0 FAIL**. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced."
     }
   ]
 }
