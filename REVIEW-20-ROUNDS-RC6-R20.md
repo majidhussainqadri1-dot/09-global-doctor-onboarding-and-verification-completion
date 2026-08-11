@@ -31,17 +31,17 @@ Repository, Hostinger staging and live are separate realities. This ledger prove
 | R17 | DEFECT — corrected | Temporary professional-claim delivery failure set `claim_status=failed`, preventing later successful outbox retry from being acknowledged and risking stale failure overwrite. Kept failures retryable, allowed historical failed→terminal acknowledgement, and protected terminal accepted/rejected states. |
 | R18 | CLEAN | Personal-data export/withdrawal/erasure remains paginated, failure-aware, legal-hold constrained, public-verification-revoke-first and retryable until all selected application work completes. |
 | R19 | DEFECT — correction in this evidence commit series | R20 had no permanent ledger/executable gate/release-lock/workflow/current-status evidence and temporary corrective plumbing still existed. This ledger, `tests/twenty-round-audit-r20.py`, release metadata/workflow/docs synchronization and removal of temporary R20 plumbing close that release-evidence defect. |
-| R20 | PENDING | Final exact-head release-integrity review: repository hygiene, all historical/regression gates, R20 executable 20/20 result, deterministic double build, generated SPDX SBOM, artifact/checksum truth, and truthful staging/live separation. |
+| R20 | CLEAN | Final numbered review found no new product/source defect. All preserved R1–R19 regression gates and R20 R01–R19 semantic checks were green after QA-harness alignment; R20 is therefore classified clean. Final exact-head CI/package/SBOM is rerun after this evidence closure because any evidence commit creates a new repository HEAD. |
 
-## Current count before R20 final round
+## Final numbered-round count
 
-- Completed numbered rounds: **19 / 20**
+- Completed numbered rounds: **20 / 20**
 - Product/source defect-bearing rounds corrected: **10** — `01,02,03,04,05,08,09,16,17,19`
-- Clean completed rounds: **9** — `06,07,10,11,12,13,14,15,18`
-- Pending: **R20**
+- Clean rounds: **10** — `06,07,10,11,12,13,14,15,18,20`
+- Pending numbered rounds: **0**
 
 ## Final acceptance rule
 
-R20 is not complete until the final exact repository HEAD passes the authoritative `.github/workflows/file09-rc2-final.yml` workflow on PHP 7.4 and PHP 8.3, all preserved R1–R19 gates, the R20 twenty-round executable gate, deterministic double-build/package parity and generated exact-head SPDX SBOM verification. Any later commit reopens that exact-head gate.
+The **20 numbered review rounds are complete**. Repository QA/package status becomes green only when the final exact repository HEAD containing this closed ledger passes the authoritative `.github/workflows/file09-rc2-final.yml` workflow on PHP 7.4 and PHP 8.3, all preserved R1–R19 gates, the R20 twenty-round executable gate, deterministic double-build/package parity and generated exact-head SPDX SBOM verification. Any later commit reopens that exact-head gate.
 
 Hostinger staging remains external and mandatory. `Specified`, `Coded`, `Packaged`, `Automated-QA Green`, `Staging-Accepted`, `Live-Deployed` and `Operational` remain separate statuses.

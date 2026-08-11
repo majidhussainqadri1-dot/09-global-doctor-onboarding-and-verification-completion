@@ -27,7 +27,7 @@ This repository contains the canonical File 09 implementation candidate for the 
 | Fresh 10-round review R17 | 7 defect-bearing corrected; 3 clean |
 | Fresh 10-round review R18 | 7 defect-bearing corrected; 3 clean |
 | Fresh 20-round review R19 | 5 defect-bearing corrected; 15 clean |
-| **Fresh 20-round review R20** | **R01–R19 complete: 10 defect-bearing corrected; 9 clean; R20 final exact-head round pending** |
+| **Fresh 20-round review R20** | **20/20 complete: 10 defect-bearing corrected; 10 clean** |
 | Source candidate | `1.3.0`, core schema `6`, Advanced Trust schema `2`, contract `1.1.0`, RC6 candidate |
 | Exact-head automated QA | Must pass on the final exact RC6/R20 commit |
 | Deterministic package | 62-entry RC6 allowlist; exact-head workflow output only |
@@ -80,7 +80,7 @@ File 09 exposes public-safe current verification facts only. Private application
 
 R1–R11 review ledgers and executable gates remain preserved as historical source assurance. Their exact-head runs/artifacts certify only their corresponding historical source heads.
 
-The final exact HEAD must pass the complete PHP 7.4/8.3 workflow, all R1–R11 executable 80-round gates, the R12, R13, R14, R15, R16, R17 and R18 ten-round gates, the R19 twenty-round gate, deterministic double build, **62-entry** package parity and generated exact-head SPDX SBOM before repository package/QA status can be called green.
+The final exact HEAD must pass the complete PHP 7.4/8.3 workflow, all R1–R11 executable 80-round gates, the R12, R13, R14, R15, R16, R17 and R18 ten-round gates, the R19 and R20 twenty-round gates, deterministic double build, **62-entry** package parity and generated exact-head SPDX SBOM before repository package/QA status can be called green.
 
 External Hostinger staging, real provider failure modes, real applicant/reviewer lifecycle journeys, private storage/key/scanner checks, two fresh staging review→fix→full-retest cycles, backup/restore, rollback and explicit Founder acceptance remain mandatory before any live/operational claim.
 
@@ -148,8 +148,8 @@ The permanent R19 ledger is `REVIEW-20-ROUNDS-RC6-R19.md`; the executable gate i
 
 ## Twentieth fresh 20-round sequential corrective assurance (R20)
 
-R20 froze the green R19 exact head `f6ffbc43edf2679590595f5bb1db7c3fec652d25`. R01–R19 have been completed sequentially; defects were established and corrected in rounds **01, 02, 03, 04, 05, 08, 09, 16, 17 and 19**. Clean completed rounds are **06, 07, 10, 11, 12, 13, 14, 15 and 18**. R20 itself remains the pending final exact-head release-integrity round.
+R20 froze the green R19 exact head `f6ffbc43edf2679590595f5bb1db7c3fec652d25` and completed all twenty sequential review → fix → review rounds. Defects were established and corrected in rounds **01, 02, 03, 04, 05, 08, 09, 16, 17 and 19**. Clean rounds are **06, 07, 10, 11, 12, 13, 14, 15, 18 and 20**.
 
 R20 hardens ambiguous COMMIT recovery for professional passports, signed claims/outbox, immutable application submission, reviewer/admin workflows, evidence rotation/review/grants, privacy erasure, retention and operational expiry reconciliation. It also fixes temporary professional-claim delivery so a retry can still reach terminal File 00 acknowledgement without stale failure overwriting accepted/rejected state.
 
-The permanent R20 ledger is `REVIEW-20-ROUNDS-RC6-R20.md`; the executable gate is `tests/twenty-round-audit-r20.py`. Its final required result is **20 PASS / 0 FAIL** after the temporary R20 corrective helper is removed and the exact-head authoritative workflow passes. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced.
+The permanent R20 ledger is `REVIEW-20-ROUNDS-RC6-R20.md`; the executable gate is `tests/twenty-round-audit-r20.py`. Its required result is **20 PASS / 0 FAIL** on the final exact HEAD after all temporary R20 corrective plumbing is removed. The installable allowlist remains **62 entries**. Staging/live/operational acceptance remain external and false until separately evidenced.

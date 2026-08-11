@@ -10,7 +10,7 @@ Review baseline: `6d5c2850dbf86ce954e0c2fdef8adf36d2dbf1f1`
 
 ## Scope
 
-RC6 preserves the complete prior File 09 application/evidence/review/decision/renewal/suspension/revocation/appeal/privacy implementation and all 24 approved **Advanced Professional Trust & Verification Extensions 2026**. It additionally preserves all repository corrective assurance evidence through R19 and the permanent in-progress R20 sequential review evidence.
+RC6 preserves the complete prior File 09 application/evidence/review/decision/renewal/suspension/revocation/appeal/privacy implementation and all 24 approved **Advanced Professional Trust & Verification Extensions 2026**. It additionally preserves all repository corrective assurance evidence through the completed R20 sequential twenty-round review.
 
 The RC6 corrective layer fixes lifecycle-state drift, issuer/rule governance, monitoring retry/backoff, passport validity/supersession/read semantics, resumable-upload concurrency, viewing-room grant duplication, REST object authorization, provider-data minimization, Advanced Trust privacy/retention coverage, schema/index migration and release/plan evidence drift.
 
@@ -36,7 +36,7 @@ The exact-head source gate runs all legacy suites, Advanced Trust gates, the pre
 
 - Specified: candidate complete
 - Coded: RC6 corrective candidate complete at repository-source level
-- Repository review: R1–R11 historical 80-round series preserved; R12–R18 fresh 10-round reviews and R19 twenty-round review preserved; R20 is the current 20-round sequential review with final exact-head round pending
+- Repository review: R1–R11 historical 80-round series preserved; R12–R18 fresh 10-round reviews and R19–R20 twenty-round reviews preserved; R20 numbered review is complete at **10 defect-bearing corrected / 10 clean**
 - Packaged: determined only by the authoritative exact-final-commit RC6 package job
 - Automated QA: determined only by the authoritative exact-final-commit PHP 7.4/8.3 RC6 workflow
 - Staging Accepted: false
@@ -48,7 +48,7 @@ Hostinger staging remains mandatory for real WordPress/MySQL core-schema-6 + Adv
 ## Twentieth fresh 20-round sequential corrective assurance — R20
 
 - Frozen baseline: `f6ffbc43edf2679590595f5bb1db7c3fec652d25`.
-- R01–R19 complete; defect-bearing corrected rounds: `01,02,03,04,05,08,09,16,17,19`; clean completed rounds: `06,07,10,11,12,13,14,15,18`; final R20 exact-head release-integrity round pending.
+- R01–R20 complete; defect-bearing corrected rounds: `01,02,03,04,05,08,09,16,17,19`; clean rounds: `06,07,10,11,12,13,14,15,18,20`.
 - Permanent ledger: `REVIEW-20-ROUNDS-RC6-R20.md`; executable gate: `tests/twenty-round-audit-r20.py`.
 - Installable release allowlist remains **62 entries**; R20 ledger/test are repository QA evidence outside the package.
 - Staging, live and operational acceptance remain false until separately evidenced.
