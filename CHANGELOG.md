@@ -1,5 +1,17 @@
 # Changelog
 
+## Tenth fresh 80-round corrective assurance — R10
+
+- Froze the R9 exact-head candidate `ec3ca2dd715e05b66cf29c42f2f996c80987fcd7` and performed a new independent 80-control review.
+- Corrected **19** defect-bearing rounds (`04–22`); **61** rounds were clean.
+- Made public verification projection, private application REST/autosave, draft creation/save, consent/submission and completeness checks fail visibly on DB uncertainty.
+- Hardened privileged application/reviewer/evidence/appeal lock/read paths and required recent File 02 step-up for the privileged health endpoint.
+- Hardened evidence upload/replacement/decrypt/key rotation, generic state transition and professional claim issuance against DB-read ambiguity.
+- Made post-decision quality-sampling failure structured and auditable instead of silent.
+- Added R10 permanent ledger/executable gate, 61-entry release parity and R10 release-lock evidence.
+- External staging/live/operational gates remain false.
+
+
 ## Ninth fresh 80-round corrective assurance — R9
 
 - Froze R8 exact-head candidate `75ea54ed5113bf7ee16e90443f17cc1b941933a9` and performed a new 80-control review rather than reusing earlier green evidence.

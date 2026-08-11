@@ -28,7 +28,7 @@ The RC6 corrective layer fixes lifecycle-state drift, issuer/rule governance, mo
 
 ## Deterministic package gate
 
-`tools/build-release.py` builds `global-doctor-onboarding-09-1.3.0-RC6.zip` twice using the exact **60-entry** release allowlist. `tools/verify-release.py` requires identical entry order, fixed ZIP timestamps, source/package SHA-256 parity and an exact-head generated SPDX 2.3 SBOM whose package identity is `1.3.0-RC6`.
+`tools/build-release.py` builds `global-doctor-onboarding-09-1.3.0-RC6.zip` twice using the exact **61-entry** release allowlist. `tools/verify-release.py` requires identical entry order, fixed ZIP timestamps, source/package SHA-256 parity and an exact-head generated SPDX 2.3 SBOM whose package identity is `1.3.0-RC6`.
 
 The exact-head source gate runs all legacy suites plus `tests/advanced-trust-24.py` and `tests/eighty-round-audit.py` on PHP 7.4 and PHP 8.3. No earlier RC5 run can certify RC6. Because this manifest itself is inside the release allowlist, **the authoritative source/package/QA result is always the workflow result for the exact final commit that contains this manifest**; any later commit automatically reopens the gate.
 
@@ -75,3 +75,8 @@ Current RC6 release allowlist after R8: **59 entries**. Frozen review baseline: 
 ## Ninth fresh 80-round corrective assurance — R9
 
 RC6 underwent a ninth independent 80-control repository review against frozen exact-head baseline `75ea54ed5113bf7ee16e90443f17cc1b941933a9`: **10 defect-bearing rounds corrected; 70 clean rounds**. `REVIEW-80-ROUNDS-RC6-R9.md` is the immutable ledger and `tests/eighty-round-audit-r9.py` is mandatory alongside R1–R8. The current deterministic release allowlist is **60-entry**. R9 closes evidence-review method-boundary authorization and DB-uncertainty gaps, credential-grant use-time download authorization, idempotent submission COMMIT truth, appeal/outbox failure visibility, dead-letter replay reauthorization, continuous-monitor exclusive leases, atomic Advanced Trust privacy erasure and release-evidence drift. Repository package/QA is green only after the authoritative exact-final-head PHP 7.4/8.3 workflow passes all nine 80-round gates, deterministic double build, 60-entry source/package parity and generated exact-head SPDX SBOM. Staging accepted, live deployed and operationally accepted remain false until external evidence exists.
+
+
+## Tenth fresh 80-round corrective assurance — R10
+
+RC6 underwent a tenth independent 80-control repository review against frozen exact-head baseline `ec3ca2dd715e05b66cf29c42f2f996c80987fcd7`: **19 defect-bearing rounds corrected; 61 clean rounds**. `REVIEW-80-ROUNDS-RC6-R10.md` is the immutable ledger and `tests/eighty-round-audit-r10.py` is mandatory alongside R1–R9. The current deterministic release allowlist is **61-entry**. R10 closes fail-visible database-uncertainty gaps in verification projection, private application REST/autosave, draft/consent/submission, privileged reviewer/evidence/appeal reads, evidence upload/decrypt/key rotation, state transition, claim issuance and completeness; requires current privileged step-up for health access; and makes post-decision quality-sampling failure observable. Repository package/QA is green only after the authoritative exact-final-head PHP 7.4/8.3 workflow passes all ten 80-round gates, deterministic double build, 61-entry source/package parity and generated exact-head SPDX SBOM. Staging accepted, live deployed and operationally accepted remain false until external evidence exists.

@@ -29,6 +29,15 @@ for key, expected in {'eighth_review_baseline':'f40228d29ffa92e8d27ea84f9b1c1ae4
     if lock.get(key) != expected: fail('release lock R8 mismatch '+key)
 if 'REVIEW-80-ROUNDS-RC6-R8.md' not in release_files: fail('RC6 R8 release ledger missing')
 if not (root/'tests/eighty-round-audit-r8.py').is_file(): fail('RC6 R8 executable gate missing')
+for key, expected in {'ninth_review_baseline':'75ea54ed5113bf7ee16e90443f17cc1b941933a9','ninth_review_rounds':80,'ninth_defect_rounds':10,'ninth_clean_rounds':70}.items():
+    if lock.get(key) != expected: fail('release lock R9 mismatch '+key)
+if 'REVIEW-80-ROUNDS-RC6-R9.md' not in release_files: fail('RC6 R9 release ledger missing')
+if not (root/'tests/eighty-round-audit-r9.py').is_file(): fail('RC6 R9 executable gate missing')
+for key, expected in {'tenth_review_baseline':'ec3ca2dd715e05b66cf29c42f2f996c80987fcd7','tenth_review_rounds':80,'tenth_defect_rounds':19,'tenth_clean_rounds':61}.items():
+    if lock.get(key) != expected: fail('release lock R10 mismatch '+key)
+if lock.get('release_file_count') != 61 or len(release_files) != 61: fail('R10 release file count mismatch')
+if 'REVIEW-80-ROUNDS-RC6-R10.md' not in release_files: fail('RC6 R10 release ledger missing')
+if not (root/'tests/eighty-round-audit-r10.py').is_file(): fail('RC6 R10 executable gate missing')
 builder=(root/'tools/build-release.py').read_text(encoding='utf-8'); verifier=(root/'tools/verify-release.py').read_text(encoding='utf-8')
 for token in ['generate_sbom',"release_candidate = 'RC6'", "version = '1.3.0'",'sabri:source-head','SBOM.spdx.json']:
     if token not in builder: fail('deterministic generated-SBOM builder missing '+token)

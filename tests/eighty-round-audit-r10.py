@@ -41,7 +41,7 @@ c(29,'Credential review bytes retain watermark/download-negative controls',has(e
 c(30,'Private encrypted storage rechecks health before reads/deletes',has(storage,'public static function read','public static function delete_verified','self::health()'))
 c(31,'Private storage rejects public/symlink/path-traversal exposure',has(storage,'outside the public uploads directory','realpath','symlink'))
 c(32,'Core future schema fails closed',has(migration,'gdo_schema_future_version','$current > GDO_SCHEMA_VERSION'))
-c(33,'Core migration remains locked/idempotent with physical postconditions',has(migration,'gdo_schema_migration_lock','gdo_migration_lock','SHOW COLUMNS'))
+c(33,'Core migration remains locked/idempotent with delegated physical postconditions',has(migration,"const LOCK_OPTION = 'gdo_schema_migration_lock'",'gdo_migration_locked','GDO_Schema::verify_installation()'))
 c(34,'Advanced Trust future schema fails closed',has(hard,'gdo_advanced_schema_future_version','$current_schema > self::SCHEMA_VERSION'))
 c(35,'Advanced Trust physical schema/index postconditions remain verified',has(hard,'SHOW INDEX FROM','gdo_advanced_schema_index_read','gdo_advanced_schema_index'))
 c(36,'Continuous verification uses exclusive processing lease and stale recovery',has(hard,"monitor_status='processing'",'processing_lease_expired','gdo_trust_monitor_claim_failed','release_monitor_claim'))

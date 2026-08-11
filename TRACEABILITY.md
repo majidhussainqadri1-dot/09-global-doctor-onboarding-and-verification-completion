@@ -168,3 +168,24 @@ Frozen baseline: `75ea54ed5113bf7ee16e90443f17cc1b941933a9`. Defect-bearing roun
 | 13 | DoD/release evidence | R9 ledger/test/lock/docs + 60-entry allowlist | R9 gate + authoritative workflow |
 
 R9 does not change canonical ownership. File 09 remains professional verification/evidence decision owner; File 00 identity, File 02 authentication/step-up, Files 03/07/26 public profile/search/ranking, File 08 clinic, File 19 notification transport, File 20 shell and File 24 security/privacy assurance remain native owners.
+
+
+## R10 — Tenth fresh 80-round corrective trace
+
+Frozen baseline: `ec3ca2dd715e05b66cf29c42f2f996c80987fcd7`. Defect-bearing rounds: `04–22`; clean rounds: `01–03, 23–80`.
+
+| R10 rounds | Requirement/control family | Corrective evidence | Permanent gate |
+|---|---|---|---|
+| 04–05 | F09-NFR-003/008; public/private read truth | `GDO_API`, `GDO_REST` DB uncertainty | `tests/eighty-round-audit-r10.py` |
+| 06 | F09-NFR-001; privileged access | health permission current actor + File00 capability + File02 step-up | R10 gate |
+| 07–09 | F09-FR-003/005/006; reliability | draft/consent/submission DB uncertainty | R10 gate |
+| 10–13 | F09-FR-007/008/014; reviewer/appeal operability | hardened application/reviewer/evidence/appeal locks and reads | R10 gate |
+| 14–15 | F09-FR-004/008; F09-AT-23; privacy | evidence replacement/decrypt/key-rotation DB truth | R10 gate |
+| 16 | F09-FR-017; reviewer quality | structured/audited post-decision quality-sample failure | R10 gate |
+| 17–18 | F09-FR-003/014; applicant UI | front-end state/appeal DB failure visibility | R10 gate |
+| 19 | F09-NFR-003; lifecycle state machine | transition row-lock DB uncertainty | R10 gate |
+| 20 | F09-FR-010/011; File00 claim boundary | claim-issuance application DB uncertainty | R10 gate |
+| 21–22 | F09-FR-003/005/006; operability | completeness query truth + draft-save DB truth | R10 gate |
+| 23–80 | FR/NFR/AT/CEN/DoD regression | clean fresh controls | R10 gate + exact-head workflow |
+
+R10 does not change canonical ownership. File 09 remains professional verification/evidence decision owner; File 00 identity, File 02 authentication/step-up, Files 03/07/26 public profile/search/ranking, File 08 clinic, File 19 notification transport, File 20 shell and File 24 security/privacy assurance remain native owners.
