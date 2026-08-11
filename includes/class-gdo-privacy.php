@@ -179,16 +179,12 @@ final class GDO_Privacy {
 				$messages[] = 'Erasure is paused because the application is now under legal hold or no longer belongs to this account.';
 				continue;
 			}
-			if ( false === $wpdb->query( 'COMMIT' ) ) {
-				$wpdb->query( 'ROLLBACK' );
-				$retained = true;
-				$messages[] = 'Erasure is paused because legal-hold eligibility could not be committed safely.';
-				continue;
-			}
-
+			// Keep the application row lock through the irreversible native evidence
+			// deletion phase. A legal-hold writer must serialize either before this
+			// lock (and block erasure) or after this authorized deletion phase.
 			$deletion_failed = false;
 			$evidence_rows = GDO_Evidence::records_checked( $app->id, false );
-			if ( is_wp_error( $evidence_rows ) ) { $retained = true; $messages[] = 'Erasure is paused because credential evidence inventory could not be read safely.'; continue; }
+			if ( is_wp_error( $evidence_rows ) ) { $wpdb->query( 'ROLLBACK' ); $retained = true; $messages[] = 'Erasure is paused because credential evidence inventory could not be read safely.'; continue; }
 			foreach ( $evidence_rows as $record ) {
 				if ( ! empty( $record->deleted_at ) ) {
 					$updated = $wpdb->update( GDO_Schema::table( 'evidence' ), array( 'user_id'=>0 ), array( 'id'=>absint( $record->id ) ), array( '%d' ), array( '%d' ) );
@@ -209,6 +205,13 @@ final class GDO_Privacy {
 				$removed = true;
 			}
 			if ( $deletion_failed ) {
+				$wpdb->query( 'ROLLBACK' );
+				continue;
+			}
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				$retained = true;
+				$messages[] = 'Erasure native-evidence deletion checkpoint has an uncertain database commit and requires reconciliation.';
 				continue;
 			}
 
