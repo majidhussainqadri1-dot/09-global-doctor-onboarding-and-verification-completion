@@ -208,6 +208,7 @@ final class GDO_Retention {
 		global $wpdb;
 		$ring = GDO_Crypto::keyring();
 		if ( is_wp_error( $ring ) ) { return $ring; }
+		$wpdb->last_error = '';
 		$ids = $wpdb->get_col( $wpdb->prepare(
 			"SELECT id FROM {$evidence_table} WHERE envelope_version='GDO2' AND key_id<>%s AND deleted_at IS NULL LIMIT 25",
 			$ring['active']
@@ -439,6 +440,7 @@ final class GDO_Retention {
 		$health = GDO_Storage::health();
 		if ( is_wp_error( $health ) ) { return false; }
 		$dir = GDO_Storage::directory();
+		$wpdb->last_error = '';
 		$known_rows = $wpdb->get_col( 'SELECT storage_name FROM ' . GDO_Schema::table( 'evidence' ) . ' WHERE deleted_at IS NULL' );
 		if ( null === $known_rows || ! empty( $wpdb->last_error ) ) {
 			GDO_Membership_Adapter::audit( 'doctor_credential_orphan_inventory_failed', array( 'reason'=>'database_inventory_unavailable' ) );
