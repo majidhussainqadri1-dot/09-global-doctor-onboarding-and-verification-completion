@@ -25,7 +25,7 @@ required={
 'includes/class-gdo-advanced-trust.php':['primary_source_verify','trusted_issuers','jurisdiction_rules','continuous_monitor','issue_passport','ai_assistance','risk_explanation','requires_dual_review','smart_reviewer_candidates','create_upload_session','issue_viewing_room_grant','transparency_snapshot','human_final_decision_required'],
 'includes/class-gdo-advanced-trust-hardening.php':['SCHEMA_VERSION = 2','CONTRACT_VERSION = \'1.1.0\'','verify_passport_uuid','monitor_status IN'],
 'includes/class-gdo-advanced-trust-events.php':['gdo_canonical_audit_event','gdo_professional_reverification_required'],
-'TRACEABILITY.md':['F09-FR-001','F09-FR-017','F09-NFR-010','F09-AT-01','F09-AT-24','DoD-13'],
+'TRACEABILITY.md':['F09-FR-001','F09-FR-017','F09-NFR-010','F09-AT-01','F09-AT-24','DoD-12'],
 }
 for path,tokens in required.items(): have(path,*tokens)
 runtime_paths=[root/'global-doctor-onboarding.php',root/'uninstall.php']+list((root/'includes').glob('*.php'))
