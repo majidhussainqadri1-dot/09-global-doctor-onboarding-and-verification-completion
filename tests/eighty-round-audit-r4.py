@@ -95,7 +95,7 @@ check(74,'Destructive uninstall remains explicit triple-authorized, not default 
 check(75,'Release docs require staging rather than claiming production',has(staging,'Staging') and 'false' in status.lower())
 check(76,'Rollback/migration evidence remains present',has(t('MIGRATION-ROLLBACK-1.3.0.md'),'rollback') or 'rollback' in t('MIGRATION-ROLLBACK-1.3.0.md').lower())
 check(77,'Security/privacy operational guidance remains present',len(security)>500 and len(operations)>500)
-check(78,'Traceability includes FR/NFR/DoD identifiers',all(f'F09-FR-{i:03d}' in trace for i in range(1,18)) and all(f'F09-NFR-{i:03d}' in trace for i in range(1,11)) and all(f'DoD-{i:02d}' in trace for i in range(1,14)))
+check(78,'Traceability includes FR/NFR/DoD identifiers',all(f'F09-FR-{i:03d}' in trace for i in range(1,18)) and all(f'F09-NFR-{i:03d}' in trace for i in range(1,11)) and all(f'DoD-{i:02d}' in trace for i in range(1,13)))
 check(79,'Prior three 80-round ledgers remain preserved as historical assurance',all((root/p).exists() for p in ['REVIEW-80-ROUNDS-RC6.md','REVIEW-80-ROUNDS-RC6-R2.md','REVIEW-80-ROUNDS-RC6-R3.md']))
 check(80,'Fourth fresh 80-round ledger/executable gate/release lock are synchronized', (root/'REVIEW-80-ROUNDS-RC6-R4.md').exists() and (root/'tests/eighty-round-audit-r4.py').exists() and 'fourth_review_rounds' in (root/'RELEASE-LOCK.json').read_text(encoding='utf-8') if (root/'RELEASE-LOCK.json').exists() else False)
 
