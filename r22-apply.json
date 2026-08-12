@@ -1,0 +1,6 @@
+{
+  "insert_last_error_resets": [
+    "includes/class-gdo-retention.php"
+  ],
+  "replacements": []
+}
