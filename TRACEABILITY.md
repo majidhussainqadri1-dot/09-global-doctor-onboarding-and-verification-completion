@@ -109,21 +109,22 @@ RC6 extends AJ-03/AJ-33/AJ-34/AJ-35/AJ-36/AJ-37/AJ-40 with schema-2 migration, p
 
 ## Definition of Done mapping
 
-| DoD | RC6 evidence |
-|---|---|
-| DoD-01 | F09-FR/F09-NFR/F09-CEN/F09-AT trace + canonical ownership. |
-| DoD-02 | `RELEASE-MANIFEST-1.3.0.md`, deterministic RC6 exact-head package/SBOM after CI. |
-| DoD-03 | Core schema 6 + Advanced Trust schema 2 + `MIGRATION-ROLLBACK-1.3.0.md`; staging migration pending. |
-| DoD-04 | Existing suites + `tests/advanced-trust-24.py` + `tests/eighty-round-audit.py`. |
-| DoD-05 | File 00/File 02/cross-file authorization + conflict/step-up/object-scope matrix. |
-| DoD-06 | Privacy export/erasure/retention + passport/transparency minimization. |
-| DoD-07 | Provider failure/private storage/viewing-room/resumable security acceptance. |
-| DoD-08 | Manual responsive/zoom/keyboard/screen-reader/RTL acceptance. |
-| DoD-09 | Outbox + monitor retry/backoff + provider/SLO/outage staging. |
-| DoD-10 | Backup/restore/decrypt + schema/passport/upload-session restore drill. |
-| DoD-11 | Historical RC3/RC4/RC5 + RC6 80-round corrective evidence. |
-| DoD-12 | `STAGING-ACCEPTANCE.md` + explicit Founder staging acceptance. |
-| DoD-13 | Exact-head CI zero blockers; staging/live/operational never inferred from repository success. |
+The current File 09 governing plan defines exactly **DoD-01 through DoD-12**. Repository evidence and external staging evidence remain explicitly separate.
+
+| DoD | Current governing requirement | RC6/R22 evidence boundary |
+|---|---|---|
+| DoD-01 | Approved requirement IDs; no unresolved scope/owner contradiction | F09-FR/F09-NFR/F09-CEN/F09-AT trace + canonical ownership matrix; later R22 review evidence is additive. |
+| DoD-02 | Exact repository/head/version/package/checksum/manifest; reproducible build | `RELEASE-MANIFEST-1.3.0.md`, exact-head CI, deterministic double build, source/package checksums and generated SPDX SBOM. |
+| DoD-03 | Fresh install, every supported upgrade, deactivation/reactivation and non-destructive uninstall | Core schema 6 + Advanced Trust schema 2 migration/physical postconditions, activation/uninstall gates and `MIGRATION-ROLLBACK-1.3.0.md`; real-environment install/upgrade lifecycle remains a staging acceptance item. |
+| DoD-04 | Canonical ownership; no duplicate data/workflow/UI owner or direct companion writes | `GDO_Integration_Contracts`, File00/File02 adapters, File19 event boundary, File20 page contract and File26 public-safe projection; companion native tables are not mutated. |
+| DoD-05 | Role/capability/object/field/state/IDOR, age/guardian, suspension and entitlement tests | File00/File02 authorization, reviewer case binding, conflict/step-up/object-scope, applicant ownership and state/version gates. |
+| DoD-06 | Public/private/noindex/no-cache/cache-key/search-index/export/erase/retention/provider-deletion tests | Private encrypted evidence, noindex/no-store private/public passport paths, File26 private-index exclusion, export/erasure/legal-hold/retention controls and provider-data minimization. |
+| DoD-07 | Security/upload/provider/secrets/rate/replay/concurrency/abuse and File24 assurance evidence | Security/adversarial suites, private storage, resumable upload, viewing-room grants, provider failure/minimization, rate limits, outbox idempotency and concurrency controls; File24/staging assurance remains external where required. |
+| DoD-08 | All user states, 320–1920px, RTL, keyboard/focus/zoom/contrast/reduced-motion/captions where relevant | Repository UI/accessibility hooks and automated/static checks; real browser/device accessibility acceptance remains staging/manual evidence. |
+| DoD-09 | Performance/load/provider outage/queue retry/dead-letter/cache/DB failure and measured SLO evidence | Bounded queries/indexes/background jobs, outbox retry/dead-letter, monitor backoff and DB-failure visibility; measured load/SLO/provider-outage evidence remains staging. |
+| DoD-10 | Verified backup restore, key decrypt, cache/index rebuild and rollback drill | Backup/restore/rollback runbooks and crypto/schema/package evidence exist; actual restore/decrypt/rollback drill remains staging evidence. |
+| DoD-11 | Two separate fresh review/fix rounds after final coding change; affected regression suite passed | Sequential corrective reviews, including R22 rounds after source changes, plus exact-head affected/full regression gates before release-candidate closure. |
+| DoD-12 | Staging real-role journeys, Founder acceptance, production plan/monitoring/rollback window | `STAGING-ACCEPTANCE.md` defines the external gate; staging acceptance, Founder acceptance, production deployment and live verification remain false until separately evidenced. |
 
 ## Trace-chain law
 
