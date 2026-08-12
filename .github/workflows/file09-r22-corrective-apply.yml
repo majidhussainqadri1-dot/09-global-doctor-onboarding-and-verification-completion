@@ -30,7 +30,7 @@ jobs:
               p = Path(path)
               lines = p.read_text(encoding='utf-8').splitlines(True)
               out = []
-              read_tokens = ('$wpdb->get_results(', '$wpdb->get_row(', '$wpdb->get_var(')
+              read_tokens = ('$wpdb->get_results(', '$wpdb->get_row(', '$wpdb->get_var(', '$wpdb->get_col(')
               for line in lines:
                   stripped = line.lstrip()
                   if any(tok in line for tok in read_tokens):
