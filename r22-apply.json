@@ -1,11 +1,6 @@
 {
-  "insert_last_error_resets": [],
-  "replacements": [
-    {
-      "path": "includes/class-gdo-migration.php",
-      "count": 1,
-      "old": "\t\t} finally {\n\t\t\t$lock = (array) get_option( self::LOCK_OPTION, array() );\n\t\t\tif ( isset( $lock['token'] ) && hash_equals( $token, (string) $lock['token'] ) ) {\n\t\t\t\tdelete_option( self::LOCK_OPTION );\n\t\t\t}\n\t\t}\n",
-      "new": "\t\t} finally {\n\t\t\t$lock = (array) get_option( self::LOCK_OPTION, array() );\n\t\t\tif ( isset( $lock['token'] ) && hash_equals( $token, (string) $lock['token'] ) ) {\n\t\t\t\t// Release is also compare-and-delete. A migration that exceeded the\n\t\t\t\t// stale threshold must never delete a successor worker's fresh lock\n\t\t\t\t// if that successor CAS-replaced this serialized value after our read.\n\t\t\t\t$wpdb->last_error = '';\n\t\t\t\t$deleted = $wpdb->delete(\n\t\t\t\t\t$wpdb->options,\n\t\t\t\t\tarray( 'option_name'=>self::LOCK_OPTION, 'option_value'=>maybe_serialize( $lock ) ),\n\t\t\t\t\tarray( '%s','%s' )\n\t\t\t\t);\n\t\t\t\twp_cache_delete( self::LOCK_OPTION, 'options' );\n\t\t\t\tif ( false === $deleted || ! empty( $wpdb->last_error ) ) {\n\t\t\t\t\tGDO_Membership_Adapter::audit( 'doctor_verification_schema_migration_lock_release_failed', array( 'token_digest'=>hash( 'sha256', $token ) ) );\n\t\t\t\t}\n\t\t\t}\n\t\t}\n"
-    }
-  ]
+  "insert_last_error_resets": [
+    "includes/class-gdo-retention.php"
+  ],
+  "replacements": []
 }
