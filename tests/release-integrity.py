@@ -52,8 +52,9 @@ for i in range(1,18):
     if f'F09-FR-{i:03d}' not in trace: fail(f'missing FR {i}')
 for i in range(1,11):
     if f'F09-NFR-{i:03d}' not in trace: fail(f'missing NFR {i}')
-for i in range(1,14):
+for i in range(1,13):
     if f'DoD-{i:02d}' not in trace: fail(f'missing DoD {i}')
+if 'DoD-13' in trace: fail('obsolete DoD-13 must not reappear in current traceability')
 for i in range(1,25):
     if f'F09-AT-{i:02d}' not in trace: fail(f'missing advanced trust trace {i}')
 for tok in ['F09-CEN-01','F09-CEN-02','CEN-SEARCH-001','AJ-03','AJ-40']:
