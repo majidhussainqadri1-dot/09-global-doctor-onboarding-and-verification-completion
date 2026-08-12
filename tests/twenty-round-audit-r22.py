@@ -8,9 +8,6 @@ ROOT = Path(__file__).resolve().parents[1]
 def text(path):
     return (ROOT / path).read_text(encoding='utf-8')
 
-def compact(value):
-    return ''.join(value.split())
-
 def has(source, *tokens):
     return all(token in source for token in tokens)
 
@@ -81,8 +78,7 @@ checks.append(require(11,
     has(ops, 'mutation_allowed', 'required_schedules_ready', 'gdo_reconcile_commit_uncertain', 'recent_step_up', 'record_metric'),
     'Safe Mode/runtime readiness, schedules, controlled reconciliation and operator authorization remain fail safe'))
 checks.append(require(12,
-    has(rest, 'gdo_application_autosave_read_failed', 'gdo_application_autosave_reload_failed', 'mutation_allowed', 'row_version')
-    and 'status'=>503 if False else True,
+    has(rest, 'gdo_application_autosave_read_failed', 'gdo_application_autosave_reload_failed', 'mutation_allowed', 'row_version', "'status'=>503"),
     'REST private reads/autosave remain owner-scoped, DB-failure-aware and mutation gated'))
 checks.append(require(13,
     has(risk, 'gdo_risk_query_failed', 'false_positive', 'recent_step_up')
