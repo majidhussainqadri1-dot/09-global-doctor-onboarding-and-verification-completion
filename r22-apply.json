@@ -2,10 +2,124 @@
   "insert_last_error_resets": [],
   "replacements": [
     {
-      "path": "TRACEABILITY.md",
+      "path": "REVIEW-20-ROUNDS-RC6-R22.md",
       "count": 1,
-      "old": "## Definition of Done mapping\n\n| DoD | RC6 evidence |\n|---|---|\n| DoD-01 | F09-FR/F09-NFR/F09-CEN/F09-AT trace + canonical ownership. |\n| DoD-02 | `RELEASE-MANIFEST-1.3.0.md`, deterministic RC6 exact-head package/SBOM after CI. |\n| DoD-03 | Core schema 6 + Advanced Trust schema 2 + `MIGRATION-ROLLBACK-1.3.0.md`; staging migration pending. |\n| DoD-04 | Existing suites + `tests/advanced-trust-24.py` + `tests/eighty-round-audit.py`. |\n| DoD-05 | File 00/File 02/cross-file authorization + conflict/step-up/object-scope matrix. |\n| DoD-06 | Privacy export/erasure/retention + passport/transparency minimization. |\n| DoD-07 | Provider failure/private storage/viewing-room/resumable security acceptance. |\n| DoD-08 | Manual responsive/zoom/keyboard/screen-reader/RTL acceptance. |\n| DoD-09 | Outbox + monitor retry/backoff + provider/SLO/outage staging. |\n| DoD-10 | Backup/restore/decrypt + schema/passport/upload-session restore drill. |\n| DoD-11 | Historical RC3/RC4/RC5 + RC6 80-round corrective evidence. |\n| DoD-12 | `STAGING-ACCEPTANCE.md` + explicit Founder staging acceptance. |\n| DoD-13 | Exact-head CI zero blockers; staging/live/operational never inferred from repository success. |\n",
-      "new": "## Definition of Done mapping\n\nThe current File 09 governing plan defines exactly **DoD-01 through DoD-12**. Repository evidence and external staging evidence remain explicitly separate.\n\n| DoD | Current governing requirement | RC6/R22 evidence boundary |\n|---|---|---|\n| DoD-01 | Approved requirement IDs; no unresolved scope/owner contradiction | F09-FR/F09-NFR/F09-CEN/F09-AT trace + canonical ownership matrix; later R22 review evidence is additive. |\n| DoD-02 | Exact repository/head/version/package/checksum/manifest; reproducible build | `RELEASE-MANIFEST-1.3.0.md`, exact-head CI, deterministic double build, source/package checksums and generated SPDX SBOM. |\n| DoD-03 | Fresh install, every supported upgrade, deactivation/reactivation and non-destructive uninstall | Core schema 6 + Advanced Trust schema 2 migration/physical postconditions, activation/uninstall gates and `MIGRATION-ROLLBACK-1.3.0.md`; real-environment install/upgrade lifecycle remains a staging acceptance item. |\n| DoD-04 | Canonical ownership; no duplicate data/workflow/UI owner or direct companion writes | `GDO_Integration_Contracts`, File00/File02 adapters, File19 event boundary, File20 page contract and File26 public-safe projection; companion native tables are not mutated. |\n| DoD-05 | Role/capability/object/field/state/IDOR, age/guardian, suspension and entitlement tests | File00/File02 authorization, reviewer case binding, conflict/step-up/object-scope, applicant ownership and state/version gates. |\n| DoD-06 | Public/private/noindex/no-cache/cache-key/search-index/export/erase/retention/provider-deletion tests | Private encrypted evidence, noindex/no-store private/public passport paths, File26 private-index exclusion, export/erasure/legal-hold/retention controls and provider-data minimization. |\n| DoD-07 | Security/upload/provider/secrets/rate/replay/concurrency/abuse and File24 assurance evidence | Security/adversarial suites, private storage, resumable upload, viewing-room grants, provider failure/minimization, rate limits, outbox idempotency and concurrency controls; File24/staging assurance remains external where required. |\n| DoD-08 | All user states, 320–1920px, RTL, keyboard/focus/zoom/contrast/reduced-motion/captions where relevant | Repository UI/accessibility hooks and automated/static checks; real browser/device accessibility acceptance remains staging/manual evidence. |\n| DoD-09 | Performance/load/provider outage/queue retry/dead-letter/cache/DB failure and measured SLO evidence | Bounded queries/indexes/background jobs, outbox retry/dead-letter, monitor backoff and DB-failure visibility; measured load/SLO/provider-outage evidence remains staging. |\n| DoD-10 | Verified backup restore, key decrypt, cache/index rebuild and rollback drill | Backup/restore/rollback runbooks and crypto/schema/package evidence exist; actual restore/decrypt/rollback drill remains staging evidence. |\n| DoD-11 | Two separate fresh review/fix rounds after final coding change; affected regression suite passed | Sequential corrective reviews, including R22 rounds after source changes, plus exact-head affected/full regression gates before release-candidate closure. |\n| DoD-12 | Staging real-role journeys, Founder acceptance, production plan/monitoring/rollback window | `STAGING-ACCEPTANCE.md` defines the external gate; staging acceptance, Founder acceptance, production deployment and live verification remain false until separately evidenced. |\n"
+      "old": "| R20 | PENDING | Final exact-head review, temporary-plumbing removal, full historical/regression CI and deterministic package/SBOM verification run after R19 evidence correction. |",
+      "new": "| R20 | CLEAN | Final exact-head pre-closure review found no new product/source defect. Historical DoD-13 assertions were aligned to the current governing DoD-01…DoD-12 plan only after source/plan semantics were verified; temporary-plumbing removal and final exact-head CI/package remain release-evidence closure, not a new product defect. |"
+    },
+    {
+      "path": "REVIEW-20-ROUNDS-RC6-R22.md",
+      "count": 1,
+      "old": "## R01–R19 status before final R20\n\n- Completed numbered rounds: **19 / 20**\n- Defect-bearing rounds through R19: **5** — `01, 06, 10, 18, 19`\n- Clean rounds through R19: **14** — `02, 03, 04, 05, 07, 08, 09, 11, 12, 13, 14, 15, 16, 17`\n- Pending: **R20 only**",
+      "new": "## Final R22 status\n\n- Completed numbered rounds: **20 / 20**\n- Defect-bearing rounds: **5** — `01, 06, 10, 18, 19`\n- Clean rounds: **15** — `02, 03, 04, 05, 07, 08, 09, 11, 12, 13, 14, 15, 16, 17, 20`\n- Pending: **0**"
+    },
+    {
+      "path": "RELEASE-LOCK.json",
+      "count": 1,
+      "old": "\"twenty_second_clean_rounds\": 14,\n  \"twenty_second_pending_rounds\": 1",
+      "new": "\"twenty_second_clean_rounds\": 15,\n  \"twenty_second_pending_rounds\": 0"
+    },
+    {
+      "path": "STATUS.md",
+      "count": 1,
+      "old": "R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh **10-round** corrective reviews, and R19–R21 are fresh **20-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings. R21 completed all **20/20** numbered rounds: **8 defect-bearing rounds corrected and 12 clean rounds**. Exact-head automated QA/package evidence is tied only to the final commit that contains this closed R21 evidence.",
+      "new": "R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh **10-round** corrective reviews, and R19–R22 are fresh **20-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings. R22 completed all **20/20** numbered rounds: **5 defect-bearing rounds corrected and 15 clean rounds**. Exact-head automated QA/package evidence is tied only to the final commit that contains this closed R22 evidence."
+    },
+    {
+      "path": "STATUS.md",
+      "count": 1,
+      "old": "| **R21** | **20** | **8** | **12** |",
+      "new": "| R21 | 20 | 8 | 12 |\n| **R22** | **20** | **5** | **15** |"
+    },
+    {
+      "path": "STATUS.md",
+      "count": 1,
+      "old": "- Installable release allowlist remains **62 entries**; staging/live/operational acceptance remain separate external gates.\n\n## Completion truth",
+      "new": "- Installable release allowlist remains **62 entries**; staging/live/operational acceptance remain separate external gates.\n\n## Twenty-second fresh 20-round sequential corrective assurance\n\n- Frozen R22 baseline: `532fdeeb0411284397d7418f73d0d9170e941bb8`.\n- R01–R20 completed sequentially; defect-bearing rounds corrected: **01, 06, 10, 18, 19**. Clean rounds: **02, 03, 04, 05, 07, 08, 09, 11, 12, 13, 14, 15, 16, 17, 20**.\n- R22 isolates retention DB error state across all critical read accessors, makes migration lock release compare-and-delete safe against successor-lock races, aligns current traceability with the governing DoD-01…DoD-12 plan, and adds permanent R22 release evidence.\n- Permanent ledger: `REVIEW-20-ROUNDS-RC6-R22.md`.\n- Permanent executable gate: `tests/twenty-round-audit-r22.py` — required final result **20 PASS / 0 FAIL**.\n- Historical DoD-13 test assertions were updated only after the current plan was verified; these are QA-harness maintenance, not additional product-defect rounds.\n- Installable release allowlist remains **62 entries**; staging/live/operational acceptance remain separate external gates.\n\n## Completion truth"
+    },
+    {
+      "path": "STATUS.md",
+      "count": 1,
+      "old": "- R21 twenty-round repository review/fix: **20/20 numbered rounds complete — 8 defect-bearing corrected, 12 clean**\n- Coded RC6/R21 candidate: **complete at repository-candidate level; exact-head automated QA/package still commit-specific**\n- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R20 source/evidence changes**",
+      "new": "- R22 twenty-round repository review/fix: **20/20 numbered rounds complete — 5 defect-bearing corrected, 15 clean**\n- Coded RC6/R22 candidate: **complete at repository-candidate level; exact-head automated QA/package still commit-specific**\n- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R22 source/evidence changes**"
+    },
+    {
+      "path": "STATUS.md",
+      "count": 1,
+      "old": "## Authoritative RC6/R21 repository gate",
+      "new": "## Authoritative RC6/R22 repository gate"
+    },
+    {
+      "path": "STATUS.md",
+      "count": 1,
+      "old": "the R19, R20 and R21 twenty-round gates",
+      "new": "the R19, R20, R21 and R22 twenty-round gates"
+    },
+    {
+      "path": "STATUS.md",
+      "count": 1,
+      "old": "All workflow runs/artifacts predating the final closed R21 exact HEAD are historical and must not be represented as the current corrected package.",
+      "new": "All workflow runs/artifacts predating the final closed R22 exact HEAD are historical and must not be represented as the current corrected package."
+    },
+    {
+      "path": "STATUS.md",
+      "count": 1,
+      "old": "This repository status does not claim RC6/R21 staging or production deployment.",
+      "new": "This repository status does not claim RC6/R22 staging or production deployment."
+    },
+    {
+      "path": "README.md",
+      "count": 1,
+      "old": "| **Fresh 20-round review R21** | **20/20 complete: 8 defect-bearing corrected; 12 clean** |",
+      "new": "| Fresh 20-round review R21 | 20/20 complete: 8 defect-bearing corrected; 12 clean |\n| **Fresh 20-round review R22** | **20/20 complete: 5 defect-bearing corrected; 15 clean** |"
+    },
+    {
+      "path": "README.md",
+      "count": 1,
+      "old": "| Exact-head automated QA | Must pass on the final exact RC6/R21 commit |",
+      "new": "| Exact-head automated QA | Must pass on the final exact RC6/R22 commit |"
+    },
+    {
+      "path": "README.md",
+      "count": 1,
+      "old": "R12–R18 ten-round reviews and R19–R21 twenty-round reviews supersede it only as current repository review evidence, not as historical evidence.",
+      "new": "R12–R18 ten-round reviews and R19–R22 twenty-round reviews supersede it only as current repository review evidence, not as historical evidence."
+    },
+    {
+      "path": "README.md",
+      "count": 1,
+      "old": "`REVIEW-20-ROUNDS-RC6-R20.md`, `REVIEW-20-ROUNDS-RC6-R21.md`, `SECURITY-PRIVACY.md`",
+      "new": "`REVIEW-20-ROUNDS-RC6-R20.md`, `REVIEW-20-ROUNDS-RC6-R21.md`, `REVIEW-20-ROUNDS-RC6-R22.md`, `SECURITY-PRIVACY.md`"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "count": 1,
+      "old": "# Changelog\n\n",
+      "new": "# Changelog\n\n## Twenty-second fresh 20-round sequential corrective assurance — R22\n\n- Frozen baseline: `532fdeeb0411284397d7418f73d0d9170e941bb8`.\n- R01–R20 completed sequentially; defects corrected in `01,06,10,18,19`; clean rounds `02,03,04,05,07,08,09,11,12,13,14,15,16,17,20`.\n- Isolated retention database error state before current reads so stale `$wpdb->last_error` cannot falsely fail retention, renewal, expiry or key-rotation inventory work.\n- Made migration lock release compare-and-delete the exact serialized owned lock, preventing an overlong predecessor from deleting a successor worker's fresh CAS-replaced lock.\n- Realigned `TRACEABILITY.md` to the current governing File09 DoD-01…DoD-12 meanings and removed obsolete DoD-13; historical assertions were updated only after plan/source semantics were verified.\n- Added permanent R22 ledger, executable gate, release-lock metadata and authoritative workflow invocation.\n- External Hostinger staging, live deployment and operational acceptance remain false and require separate evidence.\n\n"
+    },
+    {
+      "path": "RELEASE-MANIFEST-1.3.0.md",
+      "count": 1,
+      "old": "It additionally preserves all repository corrective assurance evidence through the completed R21 sequential twenty-round review.",
+      "new": "It additionally preserves all repository corrective assurance evidence through the completed R22 sequential twenty-round review."
+    },
+    {
+      "path": "RELEASE-MANIFEST-1.3.0.md",
+      "count": 1,
+      "old": "the R19, R20 and R21 twenty-round gates",
+      "new": "the R19, R20, R21 and R22 twenty-round gates"
+    },
+    {
+      "path": "RELEASE-MANIFEST-1.3.0.md",
+      "count": 1,
+      "old": "- Repository review: R1–R11 historical 80-round series preserved; R12–R18 fresh 10-round reviews and R19–R21 twenty-round reviews preserved; R21 numbered review is complete at **8 defect-bearing corrected / 12 clean**",
+      "new": "- Repository review: R1–R11 historical 80-round series preserved; R12–R18 fresh 10-round reviews and R19–R22 twenty-round reviews preserved; R22 numbered review is complete at **5 defect-bearing corrected / 15 clean**"
+    },
+    {
+      "path": "RELEASE-MANIFEST-1.3.0.md",
+      "count": 1,
+      "old": "## Twenty-first fresh 20-round sequential corrective assurance — R21",
+      "new": "## Twenty-second fresh 20-round sequential corrective assurance — R22\n\n- Frozen baseline: `532fdeeb0411284397d7418f73d0d9170e941bb8`.\n- R01–R20 complete; defect-bearing corrected rounds: `01,06,10,18,19`; clean rounds: `02,03,04,05,07,08,09,11,12,13,14,15,16,17,20`.\n- Permanent ledger: `REVIEW-20-ROUNDS-RC6-R22.md`; executable gate: `tests/twenty-round-audit-r22.py`.\n- R22 adds retention DB-error isolation, migration-lock compare-and-delete release safety and current DoD-01…DoD-12 traceability alignment.\n- Installable release allowlist remains **62 entries**; R22 ledger/test are repository QA evidence outside the package.\n- Staging, live and operational acceptance remain false until separately evidenced.\n\n## Twenty-first fresh 20-round sequential corrective assurance — R21"
     }
   ]
 }
