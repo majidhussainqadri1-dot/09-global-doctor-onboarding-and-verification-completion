@@ -85,6 +85,7 @@ final class GDO_Retention {
 	private function expire_drafts( $now, $apps_table ) {
 		global $wpdb;
 		$warn_at = gmdate( 'Y-m-d H:i:s', time() + 3 * DAY_IN_SECONDS );
+		$wpdb->last_error = '';
 		$warning_rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT id,user_id,draft_expires_at FROM {$apps_table} WHERE state='draft' AND draft_expires_at>%s AND draft_expires_at<=%s LIMIT 100",
 			$now, $warn_at
@@ -92,6 +93,7 @@ final class GDO_Retention {
 		if ( null === $warning_rows || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_draft_warning_query', __( 'Draft expiry warnings could not be read safely.', 'global-doctor-onboarding' ) ); }
 		foreach ( $warning_rows as $app ) {
 			$dedupe = hash( 'sha256', 'draft-warning|' . absint( $app->id ) . '|' . substr( $app->draft_expires_at, 0, 10 ) );
+			$wpdb->last_error = '';
 			$exists_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . GDO_Schema::table( 'outbox' ) . ' WHERE event_type=%s AND payload_json LIKE %s LIMIT 1', 'doctor_application_draft_expiring', '%' . $wpdb->esc_like( $dedupe ) . '%' ) );
 			if ( ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_draft_warning_dedupe', __( 'Draft expiry notification state could not be verified safely.', 'global-doctor-onboarding' ) ); }
 			if ( ! absint( $exists_raw ) ) {
@@ -99,6 +101,7 @@ final class GDO_Retention {
 				if ( is_wp_error( $queued ) ) { return $queued; }
 			}
 		}
+		$wpdb->last_error = '';
 		$expired = $wpdb->get_results( $wpdb->prepare(
 			"SELECT id,user_id,row_version FROM {$apps_table} WHERE state='draft' AND draft_expires_at IS NOT NULL AND draft_expires_at<%s LIMIT 100",
 			$now
@@ -114,6 +117,7 @@ final class GDO_Retention {
 	private function open_renewals( $now, $apps_table ) {
 		global $wpdb;
 		$window = gmdate( 'Y-m-d H:i:s', time() + absint( apply_filters( 'gdo_renewal_window_days', 45 ) ) * DAY_IN_SECONDS );
+		$wpdb->last_error = '';
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT id,user_id,row_version,verified_until FROM {$apps_table} WHERE state IN ('verified','reinstated') AND verified_until IS NOT NULL AND verified_until>%s AND verified_until<=%s LIMIT 100",
 			$now, $window
@@ -140,6 +144,7 @@ final class GDO_Retention {
 
 	private function expire_verifications( $now, $apps_table ) {
 		global $wpdb;
+		$wpdb->last_error = '';
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT id,user_id,row_version FROM {$apps_table} WHERE state IN ('verified','reinstated','renewal_due') AND verified_until IS NOT NULL AND verified_until<%s LIMIT 100",
 			$now
@@ -168,6 +173,7 @@ final class GDO_Retention {
 	private function reconcile_pending_claims( $now, $apps_table ) {
 		global $wpdb;
 		$stale = gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS );
+		$wpdb->last_error = '';
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT id,state,claim_version FROM {$apps_table} WHERE claim_status IN ('pending','failed') AND updated_at<%s ORDER BY updated_at ASC LIMIT 50",
 			$stale
@@ -175,6 +181,7 @@ final class GDO_Retention {
 		if ( null === $rows || ! empty( $wpdb->last_error ) ) { return new WP_Error( 'gdo_retention_claim_query', __( 'Pending professional claims could not be read safely.', 'global-doctor-onboarding' ) ); }
 		foreach ( $rows as $app ) {
 			$pattern = '%"application_id":' . absint( $app->id ) . ',%';
+			$wpdb->last_error = '';
 			$event = $wpdb->get_row( $wpdb->prepare(
 				"SELECT id,status,event_uuid FROM " . GDO_Schema::table( 'outbox' ) . " WHERE event_type='doctor_professional_claim' AND payload_json LIKE %s ORDER BY id DESC LIMIT 1",
 				$pattern
@@ -216,6 +223,7 @@ final class GDO_Retention {
 	private function delete_superseded( $now, $evidence_table ) {
 		global $wpdb;
 		$before = gmdate( 'Y-m-d H:i:s', time() - absint( apply_filters( 'gdo_superseded_evidence_grace_days', 30 ) ) * DAY_IN_SECONDS );
+		$wpdb->last_error = '';
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT * FROM {$evidence_table} WHERE deleted_at IS NULL AND ((retention_state='superseded' AND updated_at<%s) OR retention_state='deletion_pending_superseded') LIMIT 100",
 			$before
@@ -229,6 +237,7 @@ final class GDO_Retention {
 
 	private function apply_retention( $now, $apps_table ) {
 		global $wpdb;
+		$wpdb->last_error = '';
 		$apps = $wpdb->get_results( $wpdb->prepare(
 			"SELECT * FROM {$apps_table} WHERE legal_hold=0 AND retention_until IS NOT NULL AND retention_until<%s LIMIT 100",
 			$now
