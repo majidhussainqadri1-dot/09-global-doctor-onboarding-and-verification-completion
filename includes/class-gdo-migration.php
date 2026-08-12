@@ -57,7 +57,19 @@ final class GDO_Migration {
 		} finally {
 			$lock = (array) get_option( self::LOCK_OPTION, array() );
 			if ( isset( $lock['token'] ) && hash_equals( $token, (string) $lock['token'] ) ) {
-				delete_option( self::LOCK_OPTION );
+				// Release is also compare-and-delete. A migration that exceeded the
+				// stale threshold must never delete a successor worker's fresh lock
+				// if that successor CAS-replaced this serialized value after our read.
+				$wpdb->last_error = '';
+				$deleted = $wpdb->delete(
+					$wpdb->options,
+					array( 'option_name'=>self::LOCK_OPTION, 'option_value'=>maybe_serialize( $lock ) ),
+					array( '%s','%s' )
+				);
+				wp_cache_delete( self::LOCK_OPTION, 'options' );
+				if ( false === $deleted || ! empty( $wpdb->last_error ) ) {
+					GDO_Membership_Adapter::audit( 'doctor_verification_schema_migration_lock_release_failed', array( 'token_digest'=>hash( 'sha256', $token ) ) );
+				}
 			}
 		}
 	}
