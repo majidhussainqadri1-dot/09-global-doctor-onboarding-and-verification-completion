@@ -31,14 +31,14 @@
 | R17 | CLEAN | Runtime/schema/contracts, 62-entry release allowlist, exact-head workflow, deterministic package/SBOM and staging/live status separation reviewed; no new defect. |
 | R18 | DEFECT | `TRACEABILITY.md` used an outdated/misaligned DoD map: DoD-03/04 meanings did not match the current governing plan and an unsupported DoD-13 row was present. Replaced with the current exact DoD-01…DoD-12 meanings and repository-vs-staging evidence boundaries. |
 | R19 | DEFECT | R22 source/document corrections lacked a permanent R22 ledger, executable regression gate, release-lock metadata and authoritative workflow invocation; temporary corrective plumbing was still present. Permanent R22 evidence is added before R20 closure. |
-| R20 | PENDING | Final exact-head review, temporary-plumbing removal, full historical/regression CI and deterministic package/SBOM verification run after R19 evidence correction. |
+| R20 | CLEAN | Final exact-head pre-closure review found no new product/source defect. Historical DoD-13 assertions were aligned to the current governing DoD-01…DoD-12 plan only after source/plan semantics were verified; temporary-plumbing removal and final exact-head CI/package remain release-evidence closure, not a new product defect. |
 
-## R01–R19 status before final R20
+## Final R22 status
 
-- Completed numbered rounds: **19 / 20**
-- Defect-bearing rounds through R19: **5** — `01, 06, 10, 18, 19`
-- Clean rounds through R19: **14** — `02, 03, 04, 05, 07, 08, 09, 11, 12, 13, 14, 15, 16, 17`
-- Pending: **R20 only**
+- Completed numbered rounds: **20 / 20**
+- Defect-bearing rounds: **5** — `01, 06, 10, 18, 19`
+- Clean rounds: **15** — `02, 03, 04, 05, 07, 08, 09, 11, 12, 13, 14, 15, 16, 17, 20`
+- Pending: **0**
 
 ## Evidence boundary
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## Twenty-second fresh 20-round sequential corrective assurance — R22
+
+- Frozen baseline: `532fdeeb0411284397d7418f73d0d9170e941bb8`.
+- R01–R20 completed sequentially; defects corrected in `01,06,10,18,19`; clean rounds `02,03,04,05,07,08,09,11,12,13,14,15,16,17,20`.
+- Isolated retention database error state before current reads so stale `$wpdb->last_error` cannot falsely fail retention, renewal, expiry or key-rotation inventory work.
+- Made migration lock release compare-and-delete the exact serialized owned lock, preventing an overlong predecessor from deleting a successor worker's fresh CAS-replaced lock.
+- Realigned `TRACEABILITY.md` to the current governing File09 DoD-01…DoD-12 meanings and removed obsolete DoD-13; historical assertions were updated only after plan/source semantics were verified.
+- Added permanent R22 ledger, executable gate, release-lock metadata and authoritative workflow invocation.
+- External Hostinger staging, live deployment and operational acceptance remain false and require separate evidence.
+
 ## Twenty-first fresh 20-round sequential corrective assurance — R21
 
 - Frozen baseline: `a4191a0c693ba7dd95770fcdfee46804a8645a67`.
