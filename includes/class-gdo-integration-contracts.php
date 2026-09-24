@@ -164,7 +164,7 @@ final class GDO_Integration_Contracts {
 			'reviewed_at' => $reviewed_at,
 			'generated_at' => gmdate( 'c', $now ),
 			'valid_until' => gmdate( 'c', $now + 300 ),
-			'claim_version' => (string) max( 1, absint( $decision['claim_version'] ?? 1 ) ),
+			'claim_version' => '1.0.' . max( 1, absint( $decision['claim_version'] ?? 1 ) ),
 			'contract_version' => self::VERSION,
 			'issuer' => 'file09',
 		);
