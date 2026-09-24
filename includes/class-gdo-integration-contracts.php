@@ -25,6 +25,8 @@ final class GDO_Integration_Contracts {
 		add_filter( 'sabri_file26_connector_manifests', array( __CLASS__, 'file26_connector_manifests' ) );
 		add_filter( 'sabri_file26_doctor_verification_projection', array( __CLASS__, 'file26_projection_filter' ), 10, 2 );
 		add_filter( 'sabri_shell_page_contracts', array( __CLASS__, 'file20_page_contracts' ) );
+		add_filter( 'sabri_doctor_verification_public_projection_v1', array( __CLASS__, 'file03_public_projection' ), 10, 3 );
+		add_filter( 'sabri_file09_verifiable_credentials_v1', array( __CLASS__, 'file03_verifiable_credentials' ), 10, 4 );
 	}
 
 	/**
@@ -128,6 +130,82 @@ final class GDO_Integration_Contracts {
 			'clinical_authorization'  => false,
 			'donor_rank_advantage'    => false,
 			'checked_at'              => isset( $decision['checked_at'] ) ? (string) $decision['checked_at'] : gmdate( 'c' ),
+		);
+	}
+
+	/**
+	 * Exact File 03 verification projection adapter.
+	 * Raw evidence never leaves File 09; only the immutable approved snapshot is projected.
+	 */
+	public static function file03_public_projection( $claim, $user_id, $consumer_contract = '' ) {
+		unset( $claim, $consumer_contract );
+		$user_id = absint( $user_id );
+		$decision = self::projection( $user_id, 'file03' );
+		if ( is_wp_error( $decision ) || ! is_array( $decision ) ) { return array(); }
+		$snapshot = ! empty( $decision['verified'] ) ? GDO_API::snapshot( $user_id ) : array();
+		$profile = is_array( $snapshot['profile'] ?? null ) ? $snapshot['profile'] : array();
+		$status_map = array(
+			'verified' => 'verified', 'reinstated' => 'verified', 'renewal_due' => 'verified',
+			'under_review' => 'under_review', 'submitted' => 'under_review', 'resubmitted' => 'under_review',
+			'more_information' => 'more_info', 'rejected' => 'rejected', 'suspended' => 'suspended',
+			'revoked' => 'suspended', 'expired' => 'expired',
+		);
+		$state = sanitize_key( (string) ( $decision['state'] ?? 'pending' ) );
+		$status = $status_map[ $state ] ?? 'pending';
+		$reviewer_id = absint( $snapshot['finalizer_id'] ?? 0 );
+		$reviewed_at = sanitize_text_field( (string) ( $snapshot['captured_at'] ?? '' ) );
+		if ( 'verified' === $status && ( ! $reviewer_id || ! $reviewed_at || empty( $profile ) ) ) { return array(); }
+		$now = time();
+		return array(
+			'user_id' => $user_id,
+			'status' => $status,
+			'approved_fields' => $profile,
+			'reviewer_id' => $reviewer_id,
+			'reviewed_at' => $reviewed_at,
+			'generated_at' => gmdate( 'c', $now ),
+			'valid_until' => gmdate( 'c', $now + 300 ),
+			'claim_version' => '1.0.' . max( 1, absint( $decision['claim_version'] ?? 1 ) ),
+			'contract_version' => self::VERSION,
+			'issuer' => 'file09',
+		);
+	}
+
+	/** Public-safe credential wallet projection for File 03 Future Superset. */
+	public static function file03_verifiable_credentials( $claim, $user_id, $viewer_id = 0, $consumer_contract = '' ) {
+		unset( $claim, $viewer_id, $consumer_contract );
+		$user_id = absint( $user_id );
+		$decision = self::projection( $user_id, 'file03' );
+		if ( is_wp_error( $decision ) || empty( $decision['verified'] ) ) { return array(); }
+		$snapshot = GDO_API::snapshot( $user_id );
+		$profile = is_array( $snapshot['profile'] ?? null ) ? $snapshot['profile'] : array();
+		if ( empty( $profile ) ) { return array(); }
+		$items = array();
+		$push = static function ( $type, $name, $issuer, $issued_at, $expires_at, $reference = '' ) use ( &$items, $decision ) {
+			$name = sanitize_text_field( (string) $name );
+			if ( '' === $name ) { return; }
+			$items[] = array(
+				'id' => substr( hash( 'sha256', sanitize_key( (string) $type ) . '|' . $name . '|' . (string) $reference ), 0, 32 ),
+				'type' => sanitize_key( (string) $type ),
+				'name' => $name,
+				'issuer' => sanitize_text_field( (string) $issuer ),
+				'issued_at' => sanitize_text_field( (string) $issued_at ),
+				'expires_at' => sanitize_text_field( (string) $expires_at ),
+				'verification_reference' => sanitize_text_field( (string) $reference ),
+				'verified' => true,
+				'status' => 'current',
+			);
+		};
+		$issuer = $profile['institution'] ?? ( $profile['licensing_authority'] ?? 'File 09 verified professional record' );
+		$push( 'qualification', $profile['qualification'] ?? ( $profile['degree'] ?? '' ), $issuer, $profile['credential_issued_at'] ?? '', $profile['credential_expires_at'] ?? ( $decision['verified_until'] ?? '' ), $decision['application_uuid'] ?? '' );
+		$push( 'registration', $profile['licence_number'] ?? '', $profile['licensing_authority'] ?? $issuer, $profile['credential_issued_at'] ?? '', $profile['credential_expires_at'] ?? ( $decision['verified_until'] ?? '' ), $decision['application_uuid'] ?? '' );
+		$now = time();
+		return array(
+			'contract_version' => self::VERSION,
+			'user_id' => $user_id,
+			'generated_at' => gmdate( 'c', $now ),
+			'valid_until' => gmdate( 'c', $now + 300 ),
+			'items' => array_slice( $items, 0, 25 ),
+			'raw_evidence_exposed' => false,
 		);
 	}
 
@@ -267,3 +345,21 @@ function gdo_file08_clinic_eligibility( $user_id ) { return GDO_Integration_Cont
 function gdo_file21_publishing_eligibility( $user_id ) { return GDO_Integration_Contracts::projection( $user_id, 'file21' ); }
 function gdo_file23_dashboard_eligibility( $user_id ) { return GDO_Integration_Contracts::projection( $user_id, 'file23' ); }
 function gdo_file26_search_eligibility( $user_id ) { return GDO_Integration_Contracts::projection( $user_id, 'file26' ); }
+
+
+/** Validate the exact File 03 public verification projection without trusting caller input. */
+function gdo_validate_public_projection( $projection, $user_id, $consumer_contract = '' ) {
+	unset( $consumer_contract );
+	if ( ! is_array( $projection ) || absint( $projection['user_id'] ?? 0 ) !== absint( $user_id ) ) { return false; }
+	if ( 'file09' !== sanitize_key( (string) ( $projection['issuer'] ?? '' ) ) ) { return false; }
+	if ( empty( $projection['contract_version'] ) || version_compare( (string) $projection['contract_version'], GDO_Integration_Contracts::VERSION, '<' ) ) { return false; }
+	$generated = strtotime( (string) ( $projection['generated_at'] ?? '' ) );
+	$valid_until = strtotime( (string) ( $projection['valid_until'] ?? '' ) );
+	if ( false === $generated || false === $valid_until || $generated > time() + 300 || $valid_until <= time() || $valid_until <= $generated ) { return false; }
+	$current = GDO_Integration_Contracts::file03_public_projection( null, absint( $user_id ), (string) $consumer_contract );
+	if ( ! is_array( $current ) || sanitize_key( (string) ( $current['status'] ?? '' ) ) !== sanitize_key( (string) ( $projection['status'] ?? '' ) ) ) { return false; }
+	return hash_equals(
+		hash( 'sha256', wp_json_encode( (array) ( $current['approved_fields'] ?? array() ) ) ),
+		hash( 'sha256', wp_json_encode( (array) ( $projection['approved_fields'] ?? array() ) ) )
+	);
+}
