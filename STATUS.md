@@ -156,6 +156,7 @@ R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh
 - R20 replaced the token-only File 03 check with behavioral privacy/mapping coverage and added both that PHP test and the permanent R23 twenty-round gate to authoritative exact-head CI.
 - Permanent ledger: `REVIEW-20-ROUNDS-RC6-R23.md`.
 - Permanent executable gate: `tests/twenty-round-audit-r23.py` — required final result **20 PASS / 0 FAIL**.
+- Two mandatory post-fix fresh reviews are recorded in the R23 ledger: **2 CLEAN / 0 product-source defects**. The initial R23 CI R11/R12/R14 failures were QA-harness literal-token mismatches, corrected without changing product source.
 - Installable release allowlist remains **62 entries**; R23 ledger/test are repository QA evidence and intentionally not packaged.
 - Staging/live/operational acceptance remain separate external gates and are still false.
 
