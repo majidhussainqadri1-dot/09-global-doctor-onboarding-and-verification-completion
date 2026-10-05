@@ -411,7 +411,7 @@ final class GDO_Integration_Contracts {
 	public static function file14_onboarding_destination( $projection = null ) {
 		unset( $projection );
 		$page_id = GDO_Plugin::page_id();
-		$route_ready = $page_id > 0;
+		$route_ready = $page_id > 0 && 'publish' === get_post_status( $page_id );
 		$membership_ready = GDO_Membership_Adapter::available();
 		$reauth_ready = GDO_Membership_Adapter::authentication_available();
 		$core_schema_ready = absint( get_option( 'gdo_schema_version', 0 ) ) === GDO_SCHEMA_VERSION;
