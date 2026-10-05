@@ -78,20 +78,22 @@ checks.append(require(10,
     and has(file03_test, 'LIC-12345', 'Private clinic address', 'gdo_validate_public_projection', 'registration'),
     'File 03 credential wallet consumes canonical File 09 license_number, avoids VC overclaim and is behaviorally regression-tested'))
 checks.append(require(11,
-    has(integration, 'FILE07', "gdo_file07_directory_eligibility", "'consumer'    => 'file07'"),
-    'File 07 directory receives only a current public verification projection; File 09 does not own directory ranking'))
+    has(integration, "const FILE07 = 'gdo.file07.directory-eligibility';", "'file07' => self::FILE07", "gdo_file07_directory_eligibility", "'direction'   => 'read'", "'source_of_truth'          => 'file09'")
+    and 'directory_rank' not in integration.lower(),
+    'File 07 directory receives only a current read-only verification projection; File 09 does not own directory ranking'))
 checks.append(require(12,
-    has(integration, 'FILE08', "gdo_file08_clinic_eligibility", "'consumer'    => 'file08'")
-    and 'clinical_authorization' in integration,
+    has(integration, "const FILE08 = 'gdo.file08.clinic-eligibility';", "'file08' => self::FILE08", "gdo_file08_clinic_eligibility", "'clinical_authorization'  => false")
+    and 'appointment_write' not in integration.lower(),
     'File 08 clinic boundary remains verification-only and cannot turn File 09 into clinical/appointment owner'))
 checks.append(require(13,
     has(integration, 'FILE19_EVENT', "'consumer'       => 'file19'", "'payload'        => 'minimized-no-evidence'")
     and 'wp_mail(' not in notifications,
     'File 19 remains notification transport owner and File 09 emits minimized domain facts only'))
 checks.append(require(14,
-    has(integration, 'file20_page_contracts', "'shell_owner'", "'file20'")
-    and "'primary_brand_owner'=> 'file25'" in integration,
-    'File 20 remains sole shell owner and File 25 remains visual/brand owner without a duplicate File 09 shell'))
+    has(integration, "add_filter( 'sabri_shell_page_contracts'", 'file20_page_contracts', "$contracts['doctor_application']", "'primary_brand_owner'=> 'file25'")
+    and 'global_header' not in integration.lower()
+    and 'mobile_drawer' not in integration.lower(),
+    'File 09 contributes a File 20 page contract only; File 20 remains sole shell owner and File 25 remains visual/brand owner'))
 checks.append(require(15,
     has(integration, 'FILE21', 'FILE23', 'gdo_file21_publishing_eligibility', 'gdo_file23_dashboard_eligibility'),
     'Files 21/23 receive verification eligibility without File 09 owning publishing workflow or dashboard truth'))
