@@ -86,9 +86,9 @@ results.append(check(9,
     "All 24 Advanced Trust requirements remain traceable to implemented owner-side capabilities"))
 
 results.append(check(10,
-    has(privacy, "export", "eras")
+    has(privacy, "export", "eras", "legal_hold")
     and has(retention, "legal_hold", "retention_pending")
-    and has(hardening, "privacy", "legal_hold"),
+    and has(hardening, "privacy_erase_application", "erasure_pending"),
     "Privacy export/erasure/legal-hold/retention remains native and Advanced-Trust aware"))
 
 results.append(check(11,
