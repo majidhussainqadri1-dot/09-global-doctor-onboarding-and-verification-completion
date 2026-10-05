@@ -4,11 +4,11 @@ Runtime version: **1.3.0 RC6 candidate**
 Core schema: **6**
 Advanced Trust schema: **2**
 Advanced Trust contract: **1.1.0**
-Candidate branch: `codex/file09-1.3.0-rc6-80-round-review`
+Candidate branch: `codex/file09-r23-20-round-plan-crossfile-completion-20261005`
 
 ## Repository assurance history
 
-R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh **10-round** corrective reviews, and R19–R22 are fresh **20-round** corrective reviews; each later review freezes the last green exact-head baseline and does not renumber earlier findings. R22 completed all **20/20** numbered rounds: **5 defect-bearing rounds corrected and 15 clean rounds**. Exact-head automated QA/package evidence is tied only to the final commit that contains this closed R22 evidence.
+R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh **10-round** corrective reviews, and R19–R23 are fresh **20-round** corrective reviews; each later review freezes its exact repository baseline and does not renumber earlier findings. R23 completed all **20/20** numbered rounds against the post-R22 File 03 changes: **3 defect-bearing rounds corrected and 17 clean rounds**. Exact-head automated QA/package evidence is tied only to the final commit that contains this closed R23 evidence.
 
 **Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected, 63 clean, final 80/80 PASS on its own exact historical head.
 
@@ -35,7 +35,8 @@ R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh
 | R19 | 20 | 5 | 15 |
 | R20 | 20 | 10 | 10 |
 | R21 | 20 | 8 | 12 |
-| **R22** | **20** | **5** | **15** |
+| R22 | 20 | 5 | 15 |
+| **R23** | **20** | **3** | **17** |
 
 ## Twelfth fresh 10-round corrective assurance
 
@@ -145,12 +146,26 @@ R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh
 - Historical DoD-13 test assertions were updated only after the current plan was verified; these are QA-harness maintenance, not additional product-defect rounds.
 - Installable release allowlist remains **62 entries**; staging/live/operational acceptance remain separate external gates.
 
+## Twenty-third fresh 20-round plan + cross-file corrective assurance
+
+- Frozen R23 baseline: `d35eb982becdf0224a5b850a0c6fb4ace8bf075b`.
+- R01–R20 completed against the File 09 plan, Definitive Central Master Plan v3.0, Advanced Trust 24 amendment and current repository-level companion contracts.
+- Defect-bearing rounds corrected: **09, 10, 20**. Clean rounds: **01–08, 11–19**.
+- R09 corrected the post-R22 File 03 provider boundary: raw approved application fields are no longer forwarded wholesale; the exact public contract now uses an explicit allowlist and maps canonical File 09 `license_number/license_jurisdiction` to File 03 `licence_number/jurisdiction`.
+- R10 corrected the File 03 credential wallet: registration reads canonical `license_number`, the item is explicitly `platform_record` rather than an overclaimed VC, and an already-active File 09 passport may supply the public verification URL without read-time issuance/mutation.
+- R20 replaced the token-only File 03 check with behavioral privacy/mapping coverage and added both that PHP test and the permanent R23 twenty-round gate to authoritative exact-head CI.
+- Permanent ledger: `REVIEW-20-ROUNDS-RC6-R23.md`.
+- Permanent executable gate: `tests/twenty-round-audit-r23.py` — required final result **20 PASS / 0 FAIL**.
+- Two mandatory post-fix fresh reviews are recorded in the R23 ledger: **2 CLEAN / 0 product-source defects**. The initial R23 CI R11/R12/R14 failures were QA-harness literal-token mismatches, corrected without changing product source.
+- Installable release allowlist remains **62 entries**; R23 ledger/test are repository QA evidence and intentionally not packaged.
+- Staging/live/operational acceptance remain separate external gates and are still false.
+
 ## Completion truth
 
 - Latest central + File 09 plan trace: **candidate complete**
 - Advanced Trust 24 approved amendment trace: **candidate complete**
-- R22 twenty-round repository review/fix: **20/20 numbered rounds complete — 5 defect-bearing corrected, 15 clean**
-- Coded RC6/R22 candidate: **complete at repository-candidate level; exact-head automated QA/package still commit-specific**
+- R23 twenty-round repository review/fix: **20/20 numbered rounds complete — 3 defect-bearing corrected, 17 clean**
+- Coded RC6/R23 candidate: **corrections complete at repository-candidate level; exact-head automated QA/package still commit-specific**
 - Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R22 source/evidence changes**
 - Deterministic package: **GREEN only when that same exact-head workflow completes the double-build, 62-entry package parity and generated exact-head SPDX 2.3 SBOM verification**
 - Staging accepted: **false**
@@ -163,11 +178,11 @@ Staging accepted: false
 Live deployed: false
 Operationally accepted: false
 
-## Authoritative RC6/R22 repository gate
+## Authoritative RC6/R23 repository gate
 
-The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12, R13, R14, R15, R16, R17 and R18 ten-round gates and the R19, R20, R21 and R22 twenty-round gates**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
+The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12, R13, R14, R15, R16, R17 and R18 ten-round gates and the R19, R20, R21, R22 and R23 twenty-round gates**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
 
-All workflow runs/artifacts predating the final closed R22 exact HEAD are historical and must not be represented as the current corrected package.
+All workflow runs/artifacts predating the final closed R23 exact HEAD are historical and must not be represented as the current corrected package.
 
 ## External gates still pending
 

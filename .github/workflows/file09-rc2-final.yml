@@ -52,6 +52,7 @@ jobs:
           php tests/cf01-practitioner-contract.php
           php tests/cf01-practitioner.php
           php tests/cross-file-contracts.php
+          php tests/file03-profile-contracts.php
           python3 tests/architecture-check.py
           python3 tests/completion-security.py
           python3 tests/release-integrity.py
@@ -82,6 +83,7 @@ jobs:
           python3 tests/twenty-round-audit-r20.py
           python3 tests/twenty-round-audit-r21.py
           python3 tests/twenty-round-audit-r22.py
+          python3 tests/twenty-round-audit-r23.py
       - name: Exact-head source evidence
         run: |
           git rev-parse HEAD | tee exact-head.txt

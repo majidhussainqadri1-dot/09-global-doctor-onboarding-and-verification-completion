@@ -1,5 +1,17 @@
 # File 09 — Release Manifest 1.3.0 RC6
 
+## R23 plan/cross-file corrective evidence — 2026-10-05
+
+- Frozen baseline: `d35eb982becdf0224a5b850a0c6fb4ace8bf075b`.
+- Fresh review: **20 rounds — 3 defect-bearing corrected, 17 clean**.
+- Corrected File 03 public projection privacy/field parity and credential-wallet canonical license mapping.
+- `tests/file03-profile-contracts.php` is now behavioral and runs in authoritative PHP 7.4/8.3 CI.
+- Added `tests/twenty-round-audit-r23.py` and `REVIEW-20-ROUNDS-RC6-R23.md`.
+- Two fresh post-fix reviews: **2 CLEAN / 0 product-source defects**; three first-run R23 assertion failures were QA-harness-only and corrected to test the actual published contract shape.
+- Installable allowlist remains **62 entries**; R23 QA evidence is repository-only.
+- Staging accepted: **false**; live deployed: **false**; operationally accepted: **false**.
+
+
 Canonical plugin: **Global Doctor Onboarding and Verification**  
 Package root: `global-doctor-onboarding-09/`  
 Runtime: `1.3.0`  

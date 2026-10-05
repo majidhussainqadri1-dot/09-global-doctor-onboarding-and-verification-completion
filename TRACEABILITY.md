@@ -51,6 +51,23 @@ A requirement is not accepted merely because a class/function exists. Repository
 | F09-CEN-02 | Owner-only mutations, versioned read/projection/event contracts, action-time authorization recheck, File 19 event and File 20 page contract. |
 | CEN-SEARCH-001 | File 26 consumes public-safe current verification only; File 26 owns search/ranking and never indexes File 09 private application/evidence. |
 
+## R23 current cross-file parity corrections
+
+| Relationship | Current File 09 evidence | R23 disposition |
+|---|---|---|
+| File 03 public doctor profile | `GDO_Integration_Contracts::file03_public_fields()`, `file03_public_projection()`, `gdo_validate_public_projection()` | Public allowlist only; maps `license_number → licence_number` and `license_jurisdiction → jurisdiction`; contact/declaration/clinic application fields are excluded. |
+| File 03 credential wallet | `file03_verifiable_credentials()` | Reads canonical `license_number`; emits `platform_record`; raw evidence remains excluded; already-active File 09 passport URL may be exposed without read-time issuance. |
+| File 07 | `gdo_file07_directory_eligibility()` | Verification projection only; directory/ranking remains File 07. |
+| File 08 | `gdo_file08_clinic_eligibility()`, public verification API | Verification prerequisite only; clinic/appointment truth remains File 08. |
+| File 19 | `gdo.file19.notification-event`, durable File 09 outbox | Minimized domain facts only; transport/delivery remains File 19. |
+| File 20 / File 25 | File 20 page contract + File 25 owner metadata | File 09 creates no second shell/theme or visual ownership. |
+| Files 21/23 | verification eligibility projections | Publication/dashboard truth remains external. |
+| File 24 | native File 09 controls + assurance evidence/docs | File 24 coordinates assurance; native authorization/encryption/privacy do not fail open if File 24 is unavailable. |
+| File 26 | C0 verification connector/projection | Private applications/evidence are never search documents; File 26 owns search/ranking lifecycle. |
+| CF-04 | no File 09 runtime ownership transfer | Conditional future media capability remains inactive until separate Change-Control/activation/migration/staging evidence. |
+
+Permanent regression evidence: `tests/file03-profile-contracts.php`, `tests/twenty-round-audit-r23.py`, `REVIEW-20-ROUNDS-RC6-R23.md`.
+
 ## Advanced Professional Trust requirements — 24 approved enhancements
 
 | ID | Approved enhancement | RC6 repository implementation | Permanent gate / external acceptance |
