@@ -7,6 +7,7 @@
 - Corrected File 03 public projection privacy/field parity and credential-wallet canonical license mapping.
 - `tests/file03-profile-contracts.php` is now behavioral and runs in authoritative PHP 7.4/8.3 CI.
 - Added `tests/twenty-round-audit-r23.py` and `REVIEW-20-ROUNDS-RC6-R23.md`.
+- Two fresh post-fix reviews: **2 CLEAN / 0 product-source defects**; three first-run R23 assertion failures were QA-harness-only and corrected to test the actual published contract shape.
 - Installable allowlist remains **62 entries**; R23 QA evidence is repository-only.
 - Staging accepted: **false**; live deployed: **false**; operationally accepted: **false**.
 
