@@ -14,6 +14,7 @@ final class GDO_Integration_Contracts {
 	const FILE03 = 'gdo.file03.doctor-profile-eligibility';
 	const FILE07 = 'gdo.file07.directory-eligibility';
 	const FILE08 = 'gdo.file08.clinic-eligibility';
+	const FILE14 = 'gdo.file14.onboarding-destination';
 	const FILE21 = 'gdo.file21.publishing-eligibility';
 	const FILE23 = 'gdo.file23.publishing-dashboard-eligibility';
 	const FILE26 = 'gdo.file26.doctor-verification-projection';
@@ -25,6 +26,7 @@ final class GDO_Integration_Contracts {
 		add_filter( 'sabri_file26_connector_manifests', array( __CLASS__, 'file26_connector_manifests' ) );
 		add_filter( 'sabri_file26_doctor_verification_projection', array( __CLASS__, 'file26_projection_filter' ), 10, 2 );
 		add_filter( 'sabri_shell_page_contracts', array( __CLASS__, 'file20_page_contracts' ) );
+		add_filter( 'sabri_file09_onboarding_destination_v1', array( __CLASS__, 'file14_onboarding_destination' ), 10, 1 );
 		add_filter( 'sabri_doctor_verification_public_projection_v1', array( __CLASS__, 'file03_public_projection' ), 10, 3 );
 		add_filter( 'sabri_file09_verifiable_credentials_v1', array( __CLASS__, 'file03_verifiable_credentials' ), 10, 4 );
 	}
@@ -74,6 +76,20 @@ final class GDO_Integration_Contracts {
 			);
 		}
 
+		$contracts[ self::FILE14 ] = array(
+			'owner'                  => 'file09',
+			'consumer'               => 'file14',
+			'version'                => self::VERSION,
+			'direction'              => 'read',
+			'query'                  => 'gdo_file14_onboarding_destination',
+			'availability_event'     => 'DoctorOnboardingAvailable.v1',
+			'fail_closed'            => true,
+			'authorization_recheck'  => 'owner_runtime_health',
+			'writes_data'            => false,
+			'automatic_enrollment'   => false,
+			'automatic_verification' => false,
+		);
+
 		$contracts['gdo.file19.notification-event'] = array(
 			'owner'          => 'file09',
 			'consumer'       => 'file19',
@@ -97,6 +113,24 @@ final class GDO_Integration_Contracts {
 	 * @param string $consumer Consumer key.
 	 * @return array|WP_Error
 	 */
+	/**
+	 * Public verification contracts use a calendar date for verification validity.
+	 * File 09 stores the same owner truth in a DATETIME column, so normalize only
+	 * at the public contract edge without mutating canonical storage.
+	 *
+	 * @param mixed $value Owner-stored validity value.
+	 * @return string
+	 */
+	private static function public_date( $value ) {
+		$value = trim( (string) $value );
+		if ( '' === $value ) { return ''; }
+		if ( ! preg_match( '/^(\\d{4}-\\d{2}-\\d{2})(?:[ T]\\d{2}:\\d{2}:\\d{2})?$/', $value, $matches ) ) {
+			return '';
+		}
+		$date = GDO_Policy::normalize_date( $matches[1] );
+		return is_wp_error( $date ) ? '' : $date;
+	}
+
 	public static function projection( $user_id, $consumer ) {
 		$consumer = sanitize_key( $consumer );
 		$identities = self::identities();
@@ -120,7 +154,7 @@ final class GDO_Integration_Contracts {
 			'limited'                 => ! empty( $decision['limited'] ),
 			'eligible'                => $verified,
 			'reason_code'             => $reason,
-			'verified_until'          => isset( $decision['verified_until'] ) ? (string) $decision['verified_until'] : '',
+			'verified_until'          => self::public_date( $decision['verified_until'] ?? '' ),
 			'fingerprint'             => $verified && isset( $decision['fingerprint'] ) ? (string) $decision['fingerprint'] : '',
 			'claim_version'           => isset( $decision['claim_version'] ) ? absint( $decision['claim_version'] ) : 0,
 			'claim_status'            => isset( $decision['claim_status'] ) ? sanitize_key( $decision['claim_status'] ) : '',
@@ -362,6 +396,56 @@ final class GDO_Integration_Contracts {
 	 * @param array $contracts File 20 page contracts.
 	 * @return array
 	 */
+	/**
+	 * File 14 consumes only a stable destination/readiness contract. This endpoint
+	 * never creates an application and never grants verification; those actions
+	 * remain File 09 owner commands after the user reaches the canonical route.
+	 *
+	 * @param mixed $projection Existing filter value.
+	 * @return array
+	 */
+	public static function file14_onboarding_destination( $projection = null ) {
+		unset( $projection );
+		$page_id = GDO_Plugin::page_id();
+		$route_ready = $page_id > 0;
+		$membership_ready = GDO_Membership_Adapter::available();
+		$reauth_ready = GDO_Membership_Adapter::authentication_available();
+		$core_schema_ready = absint( get_option( 'gdo_schema_version', 0 ) ) === GDO_SCHEMA_VERSION;
+		$advanced_schema_ready = ! class_exists( 'GDO_Advanced_Trust_Hardening' )
+			|| absint( get_option( 'gdo_advanced_trust_schema', 0 ) ) === GDO_Advanced_Trust_Hardening::SCHEMA_VERSION;
+		$safe_mode = GDO_Operations::safe_mode();
+		$accepting = $route_ready && $membership_ready && $reauth_ready && $core_schema_ready && $advanced_schema_ready && ! $safe_mode && GDO_Operations::mutation_allowed();
+
+		$reason = 'available';
+		if ( ! $route_ready ) {
+			$reason = 'application_route_unavailable';
+		} elseif ( ! $membership_ready ) {
+			$reason = 'identity_dependency_unavailable';
+		} elseif ( ! $reauth_ready ) {
+			$reason = 'reauthentication_unavailable';
+		} elseif ( ! $core_schema_ready || ! $advanced_schema_ready ) {
+			$reason = 'schema_unavailable';
+		} elseif ( $safe_mode ) {
+			$reason = 'safe_mode';
+		} elseif ( ! $accepting ) {
+			$reason = 'verification_temporarily_unavailable';
+		}
+
+		return array(
+			'contract_version'       => self::VERSION,
+			'owner'                  => 'file09',
+			'consumer'               => 'file14',
+			'canonical_url'          => $route_ready ? GDO_Plugin::application_url() : '',
+			'available'              => (bool) $accepting,
+			'accepting_applications' => (bool) $accepting,
+			'reason_code'            => $reason,
+			'checked_at'             => gmdate( 'c' ),
+			'writes_data'            => false,
+			'automatic_enrollment'   => false,
+			'automatic_verification' => false,
+		);
+	}
+
 	public static function file20_page_contracts( $contracts ) {
 		$contracts = is_array( $contracts ) ? $contracts : array();
 		$contracts['doctor_application'] = array( array( 'gdo_page_map', 'apply' ) );
@@ -416,6 +500,7 @@ final class GDO_Integration_Contracts {
 function gdo_file03_doctor_eligibility( $user_id ) { return GDO_Integration_Contracts::projection( $user_id, 'file03' ); }
 function gdo_file07_directory_eligibility( $user_id ) { return GDO_Integration_Contracts::projection( $user_id, 'file07' ); }
 function gdo_file08_clinic_eligibility( $user_id ) { return GDO_Integration_Contracts::projection( $user_id, 'file08' ); }
+function gdo_file14_onboarding_destination() { return GDO_Integration_Contracts::file14_onboarding_destination(); }
 function gdo_file21_publishing_eligibility( $user_id ) { return GDO_Integration_Contracts::projection( $user_id, 'file21' ); }
 function gdo_file23_dashboard_eligibility( $user_id ) { return GDO_Integration_Contracts::projection( $user_id, 'file23' ); }
 function gdo_file26_search_eligibility( $user_id ) { return GDO_Integration_Contracts::projection( $user_id, 'file26' ); }
