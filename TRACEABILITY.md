@@ -68,6 +68,16 @@ A requirement is not accepted merely because a class/function exists. Repository
 
 Permanent regression evidence: `tests/file03-profile-contracts.php`, `tests/twenty-round-audit-r23.py`, `REVIEW-20-ROUNDS-RC6-R23.md`.
 
+## R24 current-plan/current-companion corrections
+
+| Relationship | R24 requirement | File 09 implementation/evidence |
+|---|---|---|
+| File 14 Global Clinic USP | `Start Your Global Clinic → File 09`; stable destination/readiness contract; honest unavailable state; no automatic enrollment/verification | `GDO_Integration_Contracts::FILE14`, `file14_onboarding_destination()`, `gdo_file14_onboarding_destination()`, filter `sabri_file09_onboarding_destination_v1`; metadata declares `DoctorOnboardingAvailable.v1`; no writes/auto-enrollment/auto-verification. |
+| File 25 public doctor verification | Current File 25 consumer requires public `verified_until` as `YYYY-MM-DD` while File 09 owner storage remains DATETIME | `GDO_Integration_Contracts::public_date()` normalizes only the public contract edge; `tests/cross-file-contracts.php` seeds a DATETIME and requires exact calendar-date output. |
+| Current release evidence | No branch-stale status; every new correction gets a permanent exact-head gate | `REVIEW-20-ROUNDS-RC6-R24.md`, `tests/twenty-round-audit-r24.py`, authoritative workflow invocation and R24 release-lock/status/manifest evidence. |
+
+R24 does **not** change File 09 canonical ownership or activate File 14/CF-04 runtime. File 14 runtime consumption remains external/unverified; the provider-side File 09 contract is now available for its future/current consumer implementation.
+
 ## Advanced Professional Trust requirements — 24 approved enhancements
 
 | ID | Approved enhancement | RC6 repository implementation | Permanent gate / external acceptance |
