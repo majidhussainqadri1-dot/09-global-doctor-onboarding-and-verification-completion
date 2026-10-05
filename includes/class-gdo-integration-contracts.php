@@ -134,8 +134,60 @@ final class GDO_Integration_Contracts {
 	}
 
 	/**
+	 * Map the immutable File 09 approved snapshot to File 03's public professional
+	 * contract. Never pass the raw application profile: phone/WhatsApp, declarations,
+	 * clinic/address text and other application-only fields are not public verification
+	 * facts and remain owned/private in File 09 or their canonical companion.
+	 *
+	 * File 03's current contract intentionally uses `licence_number` and
+	 * `jurisdiction`; File 09 stores the canonical source fields as
+	 * `license_number` and `license_jurisdiction`.
+	 *
+	 * @param array $profile Immutable approved File 09 profile snapshot.
+	 * @return array
+	 */
+	private static function file03_public_fields( array $profile ) {
+		$out = array();
+		foreach ( array(
+			'professional_title',
+			'qualification',
+			'licensing_authority',
+			'experience_years',
+			'specialty',
+			'languages',
+			'consultation_modes',
+			'country',
+			'city',
+			'bio',
+		) as $key ) {
+			if ( ! array_key_exists( $key, $profile ) || ! is_scalar( $profile[ $key ] ) ) {
+				continue;
+			}
+			if ( 'experience_years' === $key ) {
+				$out[ $key ] = absint( $profile[ $key ] );
+				continue;
+			}
+			$value = 'bio' === $key ? sanitize_textarea_field( (string) $profile[ $key ] ) : sanitize_text_field( (string) $profile[ $key ] );
+			if ( '' !== $value ) {
+				$out[ $key ] = $value;
+			}
+		}
+
+		$licence_number = isset( $profile['license_number'] ) ? $profile['license_number'] : ( $profile['licence_number'] ?? '' );
+		if ( is_scalar( $licence_number ) && '' !== trim( (string) $licence_number ) ) {
+			$out['licence_number'] = sanitize_text_field( (string) $licence_number );
+		}
+		$jurisdiction = isset( $profile['license_jurisdiction'] ) ? $profile['license_jurisdiction'] : ( $profile['jurisdiction'] ?? '' );
+		if ( is_scalar( $jurisdiction ) && '' !== trim( (string) $jurisdiction ) ) {
+			$out['jurisdiction'] = sanitize_text_field( (string) $jurisdiction );
+		}
+		return $out;
+	}
+
+	/**
 	 * Exact File 03 verification projection adapter.
-	 * Raw evidence never leaves File 09; only the immutable approved snapshot is projected.
+	 * Raw application/evidence data never leaves File 09; only a contract-specific
+	 * public allowlist from the immutable approved snapshot is projected.
 	 */
 	public static function file03_public_projection( $claim, $user_id, $consumer_contract = '' ) {
 		unset( $claim, $consumer_contract );
@@ -143,7 +195,7 @@ final class GDO_Integration_Contracts {
 		$decision = self::projection( $user_id, 'file03' );
 		if ( is_wp_error( $decision ) || ! is_array( $decision ) ) { return array(); }
 		$snapshot = ! empty( $decision['verified'] ) ? GDO_API::snapshot( $user_id ) : array();
-		$profile = is_array( $snapshot['profile'] ?? null ) ? $snapshot['profile'] : array();
+		$profile = is_array( $snapshot['profile'] ?? null ) ? self::file03_public_fields( $snapshot['profile'] ) : array();
 		$status_map = array(
 			'verified' => 'verified', 'reinstated' => 'verified', 'renewal_due' => 'verified',
 			'under_review' => 'under_review', 'submitted' => 'under_review', 'resubmitted' => 'under_review',
@@ -170,34 +222,56 @@ final class GDO_Integration_Contracts {
 		);
 	}
 
-	/** Public-safe credential wallet projection for File 03 Future Superset. */
+	/**
+	 * Public-safe credential-wallet projection for File 03 Future Superset.
+	 * This read path never issues a passport. If a current File 09 passport already
+	 * exists, its tracking-free public verification URL is attached.
+	 */
 	public static function file03_verifiable_credentials( $claim, $user_id, $viewer_id = 0, $consumer_contract = '' ) {
 		unset( $claim, $viewer_id, $consumer_contract );
 		$user_id = absint( $user_id );
-		$decision = self::projection( $user_id, 'file03' );
-		if ( is_wp_error( $decision ) || empty( $decision['verified'] ) ) { return array(); }
-		$snapshot = GDO_API::snapshot( $user_id );
+		$owner_decision = GDO_API::latest_decision( $user_id );
+		if ( ! is_array( $owner_decision ) || empty( $owner_decision['verified'] ) || empty( $owner_decision['application_id'] ) ) { return array(); }
+		$snapshot = GDO_Application::approved_snapshot( absint( $owner_decision['application_id'] ) );
 		$profile = is_array( $snapshot['profile'] ?? null ) ? $snapshot['profile'] : array();
 		if ( empty( $profile ) ) { return array(); }
+
+		$verification_url = '';
+		if ( class_exists( 'GDO_Advanced_Trust' ) && is_callable( array( 'GDO_Advanced_Trust', 'active_passport_for_application' ) ) ) {
+			$passport = GDO_Advanced_Trust::active_passport_for_application( absint( $owner_decision['application_id'] ) );
+			if ( ! is_wp_error( $passport ) && $passport && ! empty( $passport->passport_uuid ) ) {
+				$verified_passport = class_exists( 'GDO_Advanced_Trust_Hardening' ) && is_callable( array( 'GDO_Advanced_Trust_Hardening', 'verify_passport_uuid' ) )
+					? GDO_Advanced_Trust_Hardening::verify_passport_uuid( $passport->passport_uuid )
+					: GDO_Advanced_Trust::verify_passport_uuid( $passport->passport_uuid );
+				if ( ! is_wp_error( $verified_passport ) ) {
+					$verification_url = rest_url( GDO_Advanced_Trust::REST_NAMESPACE . '/public/passport/' . rawurlencode( (string) $passport->passport_uuid ) );
+				}
+			}
+		}
+
 		$items = array();
-		$push = static function ( $type, $name, $issuer, $issued_at, $expires_at, $reference = '' ) use ( &$items, $decision ) {
+		$push = static function ( $type, $name, $issuer, $issued_at, $expires_at, $verification_url = '' ) use ( &$items ) {
 			$name = sanitize_text_field( (string) $name );
 			if ( '' === $name ) { return; }
+			$issuer = sanitize_text_field( (string) $issuer );
+			$url = $verification_url ? esc_url_raw( (string) $verification_url, array( 'https' ) ) : '';
 			$items[] = array(
-				'id' => substr( hash( 'sha256', sanitize_key( (string) $type ) . '|' . $name . '|' . (string) $reference ), 0, 32 ),
+				'id' => substr( hash( 'sha256', sanitize_key( (string) $type ) . '|' . $name . '|' . $issuer ), 0, 32 ),
 				'type' => sanitize_key( (string) $type ),
 				'name' => $name,
-				'issuer' => sanitize_text_field( (string) $issuer ),
+				'issuer' => $issuer,
 				'issued_at' => sanitize_text_field( (string) $issued_at ),
 				'expires_at' => sanitize_text_field( (string) $expires_at ),
-				'verification_reference' => sanitize_text_field( (string) $reference ),
+				'format' => 'platform_record',
+				'verification_url' => $url,
 				'verified' => true,
 				'status' => 'current',
 			);
 		};
-		$issuer = $profile['institution'] ?? ( $profile['licensing_authority'] ?? 'File 09 verified professional record' );
-		$push( 'qualification', $profile['qualification'] ?? ( $profile['degree'] ?? '' ), $issuer, $profile['credential_issued_at'] ?? '', $profile['credential_expires_at'] ?? ( $decision['verified_until'] ?? '' ), $decision['application_uuid'] ?? '' );
-		$push( 'registration', $profile['licence_number'] ?? '', $profile['licensing_authority'] ?? $issuer, $profile['credential_issued_at'] ?? '', $profile['credential_expires_at'] ?? ( $decision['verified_until'] ?? '' ), $decision['application_uuid'] ?? '' );
+		$expires_at = (string) ( $owner_decision['verified_until'] ?? '' );
+		$push( 'qualification', $profile['qualification'] ?? '', $profile['institution'] ?? '', $profile['credential_issued_at'] ?? '', $profile['credential_expires_at'] ?? $expires_at, $verification_url );
+		$registration_number = $profile['license_number'] ?? ( $profile['licence_number'] ?? '' );
+		$push( 'registration', $registration_number, $profile['licensing_authority'] ?? '', $profile['credential_issued_at'] ?? '', $profile['credential_expires_at'] ?? $expires_at, $verification_url );
 		$now = time();
 		return array(
 			'contract_version' => self::VERSION,
