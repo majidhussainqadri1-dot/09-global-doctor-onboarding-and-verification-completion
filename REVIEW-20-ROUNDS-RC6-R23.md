@@ -84,3 +84,42 @@ The review was completed before the corrective batch. The three defect-bearing r
 - Operationally accepted: **false**
 
 Final repository acceptance still requires the authoritative GitHub Actions workflow to pass on the exact corrected head. External Hostinger staging, deployment parity, DB/schema/migration verification and live re-test remain separate mandatory gates.
+
+
+## Mandatory post-fix fresh reviews
+
+### Post-fix Review 1 — source/privacy/contract review — CLEAN
+
+Performed after the R09/R10 product-source corrections. The exact corrected `includes/class-gdo-integration-contracts.php` was re-read independently against the File 09 owner boundary and current File 03 consumer contract.
+
+Checks completed:
+- no File 09 database/table write was introduced in the integration layer;
+- no phone, WhatsApp, declarations, application-only clinic/address/service data is emitted by `file03_public_projection()`;
+- canonical `license_number` and `license_jurisdiction` are translated only at the File 03 contract edge;
+- File 03 public projection remains read-only, current and time-bounded;
+- credential-wallet reads never issue/reissue/supersede a passport;
+- raw evidence remains private;
+- no File 07/08/19/20/21/23/24/25/26 ownership was absorbed.
+
+Result: **CLEAN — 0 product-source defects found.**
+
+### Post-fix Review 2 — adversarial/release review — CLEAN
+
+A second fresh review was then performed from the corrected branch with emphasis on negative paths and release evidence.
+
+Checks completed:
+- missing/invalid File 03 projection remains fail-closed;
+- private application fields seeded into the behavioral regression fixture are rejected from the provider payload;
+- the registration wallet item uses the canonical File 09 license field and explicitly avoids W3C-VC overclaim;
+- File 20/File 25 ownership remains presentation-only from File 09;
+- File 26 remains C0 public-verification projection only;
+- CF-04 remains conditional and unactivated;
+- package allowlist remains 62 entries; no QA-only R23 file enters the installable package;
+- staging/live/operational flags remain false;
+- exact-head CI runs both the File 03 behavioral test and the R23 twenty-round gate.
+
+The first exact-head R23 workflow exposed three **QA-harness expectation mismatches** in R11/R12/R14: the gate looked for literal manifest strings even though the code publishes those contracts through `identities()` and the File 20 page-contract hook. Product behavior was not defective. The harness was corrected to assert the actual published contract shape; no product-source code was changed by that correction.
+
+Result: **CLEAN — 0 product-source defects found.**
+
+These two post-fix reviews satisfy the governing two-fresh-review rule at repository level. Exact-head automated QA/package success is still required before merge, and staging/live verification remains external.
