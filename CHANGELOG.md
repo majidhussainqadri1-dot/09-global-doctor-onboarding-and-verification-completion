@@ -1,3 +1,12 @@
+## 2026-10-05 — R23 File 03 / cross-file parity corrective review
+
+- Completed a fresh 20-round File 09 plan + central-plan + companion-contract audit from baseline `d35eb982becdf0224a5b850a0c6fb4ace8bf075b`.
+- Corrected 3 defect-bearing rounds (R09, R10, R20); 17 rounds were clean.
+- Replaced raw File 09 approved-profile forwarding with an explicit File 03 public allowlist and exact `license_number → licence_number`, `license_jurisdiction → jurisdiction` mappings.
+- Corrected File 03 credential-wallet registration to canonical File 09 `license_number`; added explicit `platform_record` format and optional existing-passport verification URL without read-time mutation.
+- Replaced the File 03 token-only test with behavioral privacy/mapping regression coverage and wired it plus R23 into authoritative exact-head CI.
+- Updated R23 release lock, status, traceability and release-manifest evidence. External staging/live/operational gates remain false.
+
 # Changelog
 
 ## Twenty-second fresh 20-round sequential corrective assurance — R22
