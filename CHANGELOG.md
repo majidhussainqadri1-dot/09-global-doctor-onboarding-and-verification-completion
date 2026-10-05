@@ -1,3 +1,13 @@
+## 2026-10-05 — R24 current-plan/current-companion corrective review
+
+- Completed a fresh 20-round File 09 audit from exact baseline `a9ab697c671129be023414f5a3c32186567cb2bf` against the File 09 plan, central plan and current companion contracts.
+- Corrected 3 defect-bearing rounds (R14, R15, R19); 17 rounds were clean.
+- Added a stable, read-only File 14 onboarding destination/readiness provider contract for `Start Your Global Clinic → File 09`, with honest fail-closed availability and no automatic enrollment/verification.
+- Normalized public `verified_until` to `YYYY-MM-DD` at the File 09 integration boundary so the current File 25 exact consumer no longer rejects a valid owner DATETIME shape.
+- Replaced branch-stale status wording with commit-relative exact-head evidence and added permanent R24 ledger/test/workflow/release-lock/traceability evidence.
+- Recorded two fresh post-fix reviews: **2 CLEAN / 0 product-source defects**.
+- External staging, deployed parity, database/migration state and live verification remain separately unverified.
+
 ## 2026-10-05 — R23 File 03 / cross-file parity corrective review
 
 - Completed a fresh 20-round File 09 plan + central-plan + companion-contract audit from baseline `d35eb982becdf0224a5b850a0c6fb4ace8bf075b`.
