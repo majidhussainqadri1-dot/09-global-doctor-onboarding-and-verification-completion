@@ -122,9 +122,13 @@ checks.append(require(20,
     and lock.get('twenty_third_defect_rounds') == 3
     and lock.get('twenty_third_clean_rounds') == 17
     and lock.get('twenty_third_pending_rounds', 0) == 0
+    and lock.get('twenty_third_postfix_reviews') == 2
+    and lock.get('twenty_third_postfix_clean_reviews') == 2
+    and lock.get('twenty_third_postfix_product_defects') == 0
     and '| R09 | DEFECT |' in ledger and '| R10 | DEFECT |' in ledger and '| R20 | DEFECT |' in ledger
+    and 'Post-fix Review 1' in ledger and 'Post-fix Review 2' in ledger
     and 'R23' in status and 'R23' in manifest,
-    'Post-R22 File 03 changes are now inside exact-head CI and a permanent R23 20-round evidence chain'))
+    'Post-R22 File 03 changes are inside exact-head CI with R23 20-round evidence plus two clean post-fix reviews'))
 
 passed = sum(checks)
 failed = len(checks) - passed
