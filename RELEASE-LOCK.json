@@ -99,5 +99,10 @@
   "thirteenth_clean_rounds": 4,
   "thirteenth_defect_rounds": 6,
   "thirteenth_review_baseline": "e5e867d235aafc49dd084644590afe8dfaf27d47",
-  "thirteenth_review_rounds": 10
+  "thirteenth_review_rounds": 10,
+  "twenty_third_review_baseline": "d35eb982becdf0224a5b850a0c6fb4ace8bf075b",
+  "twenty_third_review_rounds": 20,
+  "twenty_third_defect_rounds": 3,
+  "twenty_third_clean_rounds": 17,
+  "twenty_third_pending_rounds": 0
 }
