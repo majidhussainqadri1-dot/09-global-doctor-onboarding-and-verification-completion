@@ -5,6 +5,7 @@ function absint($v){return abs((int)$v);} function sanitize_key($v){return preg_
 function sanitize_text_field($v){return trim((string)$v);} function __($v,$d=null){return $v;}
 function add_filter($a,$b,$p=10,$n=1){return true;} function is_wp_error($v){return $v instanceof WP_Error;}
 function get_option($key,$default=false){ if('gdo_schema_version'===$key)return 6; if('gdo_advanced_trust_schema'===$key)return 2; return $default; }
+function get_post_status($id){ return $id>0?'publish':false; }
 class WP_Error { public $code; public $message; public function __construct($c,$m){$this->code=$c;$this->message=$m;} }
 class GDO_API { public static $decision=array(); public static function latest_decision($id){return self::$decision;} }
 class GDO_Policy {
