@@ -104,5 +104,8 @@
   "twenty_third_review_rounds": 20,
   "twenty_third_defect_rounds": 3,
   "twenty_third_clean_rounds": 17,
-  "twenty_third_pending_rounds": 0
+  "twenty_third_pending_rounds": 0,
+  "twenty_third_postfix_reviews": 2,
+  "twenty_third_postfix_clean_reviews": 2,
+  "twenty_third_postfix_product_defects": 0
 }
