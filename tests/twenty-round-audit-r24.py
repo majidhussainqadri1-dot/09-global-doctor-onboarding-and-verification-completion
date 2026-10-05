@@ -81,8 +81,8 @@ results.append(check(8,
 
 results.append(check(9,
     all(f"F09-AT-{i:02d}" in trace for i in range(1,25))
-    and has(advanced, "trusted_issuers", "jurisdiction_rules", "verification_passports", "professional_history", "upload_sessions")
-    and has(hardening, "continuous_monitor", "equivalency", "affiliation", "translation", "fraud", "calibration"),
+    and has(advanced, "trusted_issuers", "jurisdiction_rules", "verification_passports", "professional_history", "upload_sessions", "equivalency", "affiliation", "translation", "fraud", "calibration")
+    and has(hardening, "continuous_monitor", "dual_review", "fraud"),
     "All 24 Advanced Trust requirements remain traceable to implemented owner-side capabilities"))
 
 results.append(check(10,
