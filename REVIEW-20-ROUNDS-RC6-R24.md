@@ -86,13 +86,29 @@ Failure cases were rechecked: Safe Mode, missing managed route, identity depende
 
 Result: **CLEAN — 0 product-source defects.**
 
+## Final stabilization re-reviews after the last product-code adjustment
+
+After the File 14 readiness contract was tightened to require the managed application page to be actually **published**, and after the R24 privacy assertion was aligned to the real legal-hold ownership split, two additional fresh reviews were performed against the final product source rather than relying on the earlier post-fix reads.
+
+### Final Review A — owner/route/fail-closed semantics — CLEAN
+
+Re-read the complete File 14 destination provider path, File 20 managed-page relationship, File 00/File 02 dependency gates, schema/Safe Mode/mutation readiness, and the current File 25 public validity projection. The File 14 contract now reports available only when the canonical managed page exists **and is published**; no application is created and no verification state is mutated by the read. The File 25 projection changes representation only, not canonical File 09 owner storage.
+
+Result: **CLEAN — 0 product-source defects.**
+
+### Final Review B — privacy/release/regression semantics — CLEAN
+
+Re-read the File 03 public allowlist, File 07/08/21/23/26 read-only boundaries, privacy/legal-hold/retention split, cross-file behavioral test, R24 executable gate and exact-head workflow wiring. The privacy regression assertion now follows actual ownership: legal hold is enforced by native privacy/retention flows while Advanced Trust erasure is checkpointed through `privacy_erase_application` / `erasure_pending`. No package-only or live-deployment claim was introduced.
+
+Result: **CLEAN — 0 product-source defects.**
+
 ## R24 result
 
 - Total numbered rounds: **20**
 - Defect-bearing rounds: **3** — R14, R15, R19
 - Clean rounds: **17**
 - Pending numbered rounds: **0**
-- Post-fix fresh reviews: **2 CLEAN / 0 product-source defects**
+- Post-fix fresh reviews: **4 CLEAN / 0 product-source defects**
 - Repository corrections: applied on the R24 branch
 - Installable allowlist: **62 entries**, unchanged
 - Staging accepted: **false**
