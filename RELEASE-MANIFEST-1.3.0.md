@@ -1,5 +1,17 @@
 # File 09 — Release Manifest 1.3.0 RC6
 
+## R24 current-plan/current-companion corrective evidence — 2026-10-05
+
+- Frozen baseline: `a9ab697c671129be023414f5a3c32186567cb2bf`.
+- Fresh numbered review: **20 rounds — 3 defect-bearing corrected, 17 clean**.
+- Corrected the missing File 14 read-only onboarding destination/readiness contract required for `Start Your Global Clinic → File 09`; it cannot auto-enroll or auto-verify.
+- Corrected current File 25 parity by normalizing File 09 public verification validity to `YYYY-MM-DD` while retaining canonical DATETIME owner storage.
+- Updated branch-stale release evidence with permanent `REVIEW-20-ROUNDS-RC6-R24.md` and `tests/twenty-round-audit-r24.py` exact-head gating.
+- Four fresh post-fix reviews: **4 CLEAN / 0 product-source defects**.
+- Installable allowlist remains **62 entries**; R24 ledger/test are repository-only QA evidence.
+- Staging accepted: **false**; live deployed: **false**; operationally accepted: **false**.
+
+
 ## R23 plan/cross-file corrective evidence — 2026-10-05
 
 - Frozen baseline: `d35eb982becdf0224a5b850a0c6fb4ace8bf075b`.

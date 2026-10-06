@@ -4,11 +4,11 @@ Runtime version: **1.3.0 RC6 candidate**
 Core schema: **6**
 Advanced Trust schema: **2**
 Advanced Trust contract: **1.1.0**
-Candidate branch: `codex/file09-r23-20-round-plan-crossfile-completion-20261005`
+Current review baseline: `a9ab697c671129be023414f5a3c32186567cb2bf` — R24 evidence is exact-commit-relative; no branch name is treated as permanent deployment truth.
 
 ## Repository assurance history
 
-R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh **10-round** corrective reviews, and R19–R23 are fresh **20-round** corrective reviews; each later review freezes its exact repository baseline and does not renumber earlier findings. R23 completed all **20/20** numbered rounds against the post-R22 File 03 changes: **3 defect-bearing rounds corrected and 17 clean rounds**. Exact-head automated QA/package evidence is tied only to the final commit that contains this closed R23 evidence.
+R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh **10-round** corrective reviews, and R19–R24 are fresh **20-round** corrective reviews; each later review freezes its exact repository baseline and does not renumber earlier findings. R24 completed all **20/20** numbered rounds against current File 09 plans and current companion contracts: **3 defect-bearing rounds corrected and 17 clean rounds**. Exact-head automated QA/package evidence is tied only to the commit on which the authoritative workflow actually succeeds.
 
 **Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected, 63 clean, final 80/80 PASS on its own exact historical head.
 
@@ -36,7 +36,8 @@ R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh
 | R20 | 20 | 10 | 10 |
 | R21 | 20 | 8 | 12 |
 | R22 | 20 | 5 | 15 |
-| **R23** | **20** | **3** | **17** |
+| R23 | 20 | 3 | 17 |
+| **R24** | **20** | **3** | **17** |
 
 ## Twelfth fresh 10-round corrective assurance
 
@@ -160,13 +161,27 @@ R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh
 - Installable release allowlist remains **62 entries**; R23 ledger/test are repository QA evidence and intentionally not packaged.
 - Staging/live/operational acceptance remain separate external gates and are still false.
 
+## Twenty-fourth fresh 20-round current-plan + current-companion assurance
+
+- Frozen R24 baseline: `a9ab697c671129be023414f5a3c32186567cb2bf`.
+- R01–R20 completed before correction; defect-bearing rounds: **14, 15, 19**. Clean rounds: **01–13, 16–18, 20**.
+- R14 adds the missing File 14 `Start Your Global Clinic → File 09` destination/readiness provider contract. It is read-only, fail-closed, and explicitly cannot auto-enroll or auto-verify.
+- R15 normalizes File 09's owner DATETIME verification validity to the exact public `YYYY-MM-DD` shape required by current File 25 without changing canonical File 09 storage.
+- R19 replaces branch-stale/current-status wording and adds permanent R24 trace/release evidence.
+- The current companion heads reviewed are recorded in `REVIEW-20-ROUNDS-RC6-R24.md`; File 14 runtime consumption remains unverified because no current File 14 repository was discovered in the linked GitHub account.
+- Four post-fix fresh reviews, including two final stabilization reads after the last product-code adjustment: **4 CLEAN / 0 product-source defects**.
+- Permanent ledger: `REVIEW-20-ROUNDS-RC6-R24.md`.
+- Permanent executable gate: `tests/twenty-round-audit-r24.py` — required result **20 PASS / 0 FAIL**.
+- Installable allowlist remains **62 entries**; R24 ledger/test are repository QA evidence and are intentionally not packaged.
+- Staging/live/operational acceptance remain external gates and remain false.
+
 ## Completion truth
 
 - Latest central + File 09 plan trace: **candidate complete**
 - Advanced Trust 24 approved amendment trace: **candidate complete**
-- R23 twenty-round repository review/fix: **20/20 numbered rounds complete — 3 defect-bearing corrected, 17 clean**
-- Coded RC6/R23 candidate: **corrections complete at repository-candidate level; exact-head automated QA/package still commit-specific**
-- Automated QA: **GREEN only when the authoritative workflow succeeds on the exact final commit containing all R22 source/evidence changes**
+- R24 twenty-round repository review/fix: **20/20 numbered rounds complete — 3 defect-bearing corrected, 17 clean**
+- Coded RC6/R24 candidate: **corrections complete at repository-candidate level; exact-head automated QA/package remains commit-specific**
+- Automated QA: **GREEN only for an exact commit whose authoritative workflow succeeds; any later commit reopens the gate**
 - Deterministic package: **GREEN only when that same exact-head workflow completes the double-build, 62-entry package parity and generated exact-head SPDX 2.3 SBOM verification**
 - Staging accepted: **false**
 - Live deployed: **false**
@@ -178,17 +193,17 @@ Staging accepted: false
 Live deployed: false
 Operationally accepted: false
 
-## Authoritative RC6/R23 repository gate
+## Authoritative RC6/R24 repository gate
 
-The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12, R13, R14, R15, R16, R17 and R18 ten-round gates and the R19, R20, R21, R22 and R23 twenty-round gates**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
+The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12, R13, R14, R15, R16, R17 and R18 ten-round gates and the R19, R20, R21, R22, R23 and R24 twenty-round gates**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
 
-All workflow runs/artifacts predating the final closed R23 exact HEAD are historical and must not be represented as the current corrected package.
+All workflow runs/artifacts from an earlier commit are historical once a later commit exists; only the latest exact-head green run may be represented as current repository package evidence.
 
 ## External gates still pending
 
 Hostinger staging must verify core schema 6 + Advanced Trust schema 2 migration, current File 00/File 02 and companion contracts, provider unavailable/mismatch/revoked/expired paths, issuer/rule governance, no provider auto-decision, conflict/dual-review routing, passport issue/supersession/expiry/revocation/public-safe output, chunk interruption/resume/race/hash/malware path, secure-room one-time authorization/no-download behavior, privacy export/erasure/retention interaction, real applicant/reviewer/more-info/resubmission/appeal/renewal/suspension/revocation journeys, mobile/RTL/accessibility/weak-network journeys, backup/restore/rollback, companion integrations and **two fresh staging review → fix → full-retest cycles** before explicit Founder acceptance.
 
-Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status remain separate facts. This repository status does not claim RC6/R22 staging or production deployment.
+Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status remain separate facts. This repository status does not claim R24 staging or production deployment.
 
 ## Historical compact compatibility rows
 
