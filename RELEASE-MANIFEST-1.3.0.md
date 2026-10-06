@@ -7,7 +7,7 @@
 - Corrected the missing File 14 read-only onboarding destination/readiness contract required for `Start Your Global Clinic → File 09`; it cannot auto-enroll or auto-verify.
 - Corrected current File 25 parity by normalizing File 09 public verification validity to `YYYY-MM-DD` while retaining canonical DATETIME owner storage.
 - Updated branch-stale release evidence with permanent `REVIEW-20-ROUNDS-RC6-R24.md` and `tests/twenty-round-audit-r24.py` exact-head gating.
-- Two fresh post-fix reviews: **2 CLEAN / 0 product-source defects**.
+- Four fresh post-fix reviews: **4 CLEAN / 0 product-source defects**.
 - Installable allowlist remains **62 entries**; R24 ledger/test are repository-only QA evidence.
 - Staging accepted: **false**; live deployed: **false**; operationally accepted: **false**.
 
