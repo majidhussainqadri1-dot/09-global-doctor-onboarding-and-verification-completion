@@ -169,7 +169,7 @@ R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh
 - R15 normalizes File 09's owner DATETIME verification validity to the exact public `YYYY-MM-DD` shape required by current File 25 without changing canonical File 09 storage.
 - R19 replaces branch-stale/current-status wording and adds permanent R24 trace/release evidence.
 - The current companion heads reviewed are recorded in `REVIEW-20-ROUNDS-RC6-R24.md`; File 14 runtime consumption remains unverified because no current File 14 repository was discovered in the linked GitHub account.
-- Two mandatory post-fix fresh reviews: **2 CLEAN / 0 product-source defects**.
+- Four post-fix fresh reviews, including two final stabilization reads after the last product-code adjustment: **4 CLEAN / 0 product-source defects**.
 - Permanent ledger: `REVIEW-20-ROUNDS-RC6-R24.md`.
 - Permanent executable gate: `tests/twenty-round-audit-r24.py` — required result **20 PASS / 0 FAIL**.
 - Installable allowlist remains **62 entries**; R24 ledger/test are repository QA evidence and are intentionally not packaged.
