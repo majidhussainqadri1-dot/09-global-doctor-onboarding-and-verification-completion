@@ -148,8 +148,8 @@ results.append(check(19,
     and lock.get("twenty_fourth_defect_rounds") == 3
     and lock.get("twenty_fourth_clean_rounds") == 17
     and lock.get("twenty_fourth_pending_rounds") == 0
-    and lock.get("twenty_fourth_postfix_reviews") == 2
-    and lock.get("twenty_fourth_postfix_clean_reviews") == 2
+    and lock.get("twenty_fourth_postfix_reviews") == 4
+    and lock.get("twenty_fourth_postfix_clean_reviews") == 4
     and lock.get("twenty_fourth_postfix_product_defects") == 0
     and "| R14 | DEFECT |" in ledger and "| R15 | DEFECT |" in ledger and "| R19 | DEFECT |" in ledger
     and "Post-fix Review 1" in ledger and "Post-fix Review 2" in ledger
