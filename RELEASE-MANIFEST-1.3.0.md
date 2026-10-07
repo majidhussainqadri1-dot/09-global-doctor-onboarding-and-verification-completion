@@ -1,5 +1,14 @@
 # File 09 — Release Manifest 1.3.0 RC6
 
+## R25 hourly current-plan/current-companion corrective evidence — 2026-10-07
+
+- Froze File 09 baseline `9639f75ba046ac1a36e39d5e9aae56c7bae3279b` and 14 current companion heads before completing 20 separate rounds.
+- Defect-bearing rounds: **R19, R20**; clean rounds: **R01–R18**.
+- Updated the preserved 40-round gate from obsolete RC2 package identity to current RC6 and added it plus `tests/twenty-round-audit-r25.py` to authoritative exact-head CI.
+- Reconciled README/status/trace/release evidence with the now-existing File 14 consumer and current File 25 head; no product-runtime contract correction was required.
+- Two post-fix fresh reviews are clean. The installable allowlist remains **62 entries**; R25 ledger/test remain repository-only QA evidence.
+- Staging, deployed version, DB/schema, migration and live verification remain external/unverified.
+
 ## R24 current-plan/current-companion corrective evidence — 2026-10-05
 
 - Frozen baseline: `a9ab697c671129be023414f5a3c32186567cb2bf`.
