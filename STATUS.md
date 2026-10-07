@@ -4,11 +4,11 @@ Runtime version: **1.3.0 RC6 candidate**
 Core schema: **6**
 Advanced Trust schema: **2**
 Advanced Trust contract: **1.1.0**
-Current review baseline: `a9ab697c671129be023414f5a3c32186567cb2bf` — R24 evidence is exact-commit-relative; no branch name is treated as permanent deployment truth.
+Current review baseline: `448d41f34586369ca5875693583b9cd8a6133167` — R26 evidence is exact-commit-relative; no branch name is treated as permanent deployment truth.
 
 ## Repository assurance history
 
-R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh **10-round** corrective reviews, and R19–R24 are fresh **20-round** corrective reviews; each later review freezes its exact repository baseline and does not renumber earlier findings. R24 completed all **20/20** numbered rounds against current File 09 plans and current companion contracts: **3 defect-bearing rounds corrected and 17 clean rounds**. Exact-head automated QA/package evidence is tied only to the commit on which the authoritative workflow actually succeeds.
+R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh **10-round** corrective reviews, and R19–R26 are fresh **20-round** corrective reviews; each later review freezes its exact repository baseline and does not renumber earlier findings. R26 completed all **20/20** numbered rounds against current File 09 plans and current companion contracts: **1 defect-bearing round corrected and 19 clean rounds**. Exact-head automated QA/package evidence is tied only to the commit on which the authoritative workflow actually succeeds.
 
 **Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected, 63 clean, final 80/80 PASS on its own exact historical head.
 
@@ -37,7 +37,9 @@ R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh
 | R21 | 20 | 8 | 12 |
 | R22 | 20 | 5 | 15 |
 | R23 | 20 | 3 | 17 |
-| **R24** | **20** | **3** | **17** |
+| R24 | 20 | 3 | 17 |
+| R25 | 20 | 2 | 18 |
+| **R26** | **20** | **1** | **19** |
 
 ## Twelfth fresh 10-round corrective assurance
 
@@ -186,12 +188,22 @@ R1–R11 are preserved historical 80-round reviews. R12–R18 are separate fresh
 - Installable allowlist remains **62 entries**; R25 ledger/test are repository-only QA evidence.
 - Staging/live/operational acceptance remain external gates and remain false.
 
+## Twenty-sixth fresh 20-round current-companion reconciliation
+
+- Frozen File 09 baseline: `448d41f34586369ca5875693583b9cd8a6133167`.
+- R01–R20 completed before correction; defect-bearing round: **R20**. Clean rounds: **R01–R19**.
+- File 07 advanced to `2f4a89707724fd2b9946600afe10ddab27ec3c2d`, File 14 to `f64e7d17268daff4e3097c18ad510116e6eaf105`, and File 25 to `e35563b7f3d8ebf0acbbc80982b7bcf2e1b78c0a`.
+- Their current File 09 integrations remain compatible: File 07 consumes the public `file07` projection; File 14 enforces runtime/contract/owner/consumer/read-only invariants; File 25 retains exact 1.1.0 provenance/date/fingerprint checks.
+- R20 refreshed permanent current-head evidence and added the R26 ledger/gate; no product-runtime change was required.
+- Two post-fix reviews are **CLEAN**. Installable allowlist remains **62 entries**.
+- Staging/live/operational acceptance remain external and false.
+
 ## Completion truth
 
 - Latest central + File 09 plan trace: **candidate complete**
 - Advanced Trust 24 approved amendment trace: **candidate complete**
-- R25 twenty-round repository review/fix: **20/20 numbered rounds complete — 2 defect-bearing corrected, 18 clean**
-- Coded RC6/R25 candidate: **corrections complete at repository-candidate level; exact-head automated QA/package remains commit-specific**
+- R26 twenty-round repository review/fix: **20/20 numbered rounds complete — 1 defect-bearing corrected, 19 clean**
+- Coded RC6/R26 candidate: **corrections complete at repository-candidate level; exact-head automated QA/package remains commit-specific**
 - Automated QA: **GREEN only for an exact commit whose authoritative workflow succeeds; any later commit reopens the gate**
 - Deterministic package: **GREEN only when that same exact-head workflow completes the double-build, 62-entry package parity and generated exact-head SPDX 2.3 SBOM verification**
 - Staging accepted: **false**
@@ -204,9 +216,9 @@ Staging accepted: false
 Live deployed: false
 Operationally accepted: false
 
-## Authoritative RC6/R25 repository gate
+## Authoritative RC6/R26 repository gate
 
-The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, the maintained historical 40-round gate, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12–R18 ten-round gates and the R19–R25 twenty-round gates**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
+The authoritative workflow is `.github/workflows/file09-rc2-final.yml`, named **File 09 RC6 Eighty-Round Exact-Head Assurance**. It must run against the final exact commit and pass PHP 7.4 + PHP 8.3 source suites, the maintained historical 40-round gate, all legacy/adversarial/plan/Advanced Trust gates, **all R1–R11 80-round executable gates plus the R12–R18 ten-round gates and the R19–R26 twenty-round gates**, deterministic double build, **62-entry** release parity and exact-head SPDX 2.3 generated SBOM verification. Any later repository commit reopens this gate until that later exact head is green.
 
 All workflow runs/artifacts from an earlier commit are historical once a later commit exists; only the latest exact-head green run may be represented as current repository package evidence.
 
@@ -214,7 +226,7 @@ All workflow runs/artifacts from an earlier commit are historical once a later c
 
 Hostinger staging must verify core schema 6 + Advanced Trust schema 2 migration, current File 00/File 02 and companion contracts, provider unavailable/mismatch/revoked/expired paths, issuer/rule governance, no provider auto-decision, conflict/dual-review routing, passport issue/supersession/expiry/revocation/public-safe output, chunk interruption/resume/race/hash/malware path, secure-room one-time authorization/no-download behavior, privacy export/erasure/retention interaction, real applicant/reviewer/more-info/resubmission/appeal/renewal/suspension/revocation journeys, mobile/RTL/accessibility/weak-network journeys, backup/restore/rollback, companion integrations and **two fresh staging review → fix → full-retest cycles** before explicit Founder acceptance.
 
-Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status remain separate facts. This repository status does not claim R25 staging or production deployment.
+Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status remain separate facts. This repository status does not claim R26 staging or production deployment.
 
 ## Historical compact compatibility rows
 

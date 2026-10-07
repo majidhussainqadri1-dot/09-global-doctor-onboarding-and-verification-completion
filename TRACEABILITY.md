@@ -84,6 +84,14 @@ R25 froze File 09 at `9639f75ba046ac1a36e39d5e9aae56c7bae3279b` and the current 
 
 No product-contract mismatch was proven. R25 corrected two repository-assurance defects only: the maintained historical 40-round executable gate was still pinned to RC2 and omitted from authoritative CI, and current summary/release evidence stopped before the newly observable File 14/File 25 truth. The permanent ledger is `REVIEW-20-ROUNDS-RC6-R25.md`; the executable gate is `tests/twenty-round-audit-r25.py`. Staging, deployed package, database, migration and live verification remain external and unverified.
 
+## R26 exact-current-companion reconciliation
+
+R26 froze File 09 at `448d41f34586369ca5875693583b9cd8a6133167`. Since R25, File 07 advanced to `2f4a89707724fd2b9946600afe10ddab27ec3c2d`, File 14 to `f64e7d17268daff4e3097c18ad510116e6eaf105`, and File 25 to `e35563b7f3d8ebf0acbbc80982b7bcf2e1b78c0a`.
+
+Current File 07 now directly consumes `GDO_Integration_Contracts::projection($user_id, 'file07')` through a fail-closed public verification adapter and does not acquire File 09 mutation ownership. Current File 14 validates File 09 runtime >=1.3.0, contract 1.1.x, exact `file09/file14` provenance and explicit read-only/no-auto-enrollment/no-auto-verification flags. Current File 25 retains exact contract `1.1.0`, `file09/file03` provenance, boolean verified/eligible truth, lowercase SHA-256 and valid `YYYY-MM-DD` requirements. File 09 satisfies all three current shapes without exposing private evidence or changing owner boundaries.
+
+The only proven R26 defect was stale permanent current-head evidence after those companion advances. `REVIEW-20-ROUNDS-RC6-R26.md`, `tests/twenty-round-audit-r26.py`, release-lock/status/manifest evidence and authoritative workflow wiring correct it. No product-runtime source correction was required. Deployment, DB/schema, migration, staging, live and operational verification remain external and unverified.
+
 ## Advanced Professional Trust requirements — 24 approved enhancements
 
 | ID | Approved enhancement | RC6 repository implementation | Permanent gate / external acceptance |
