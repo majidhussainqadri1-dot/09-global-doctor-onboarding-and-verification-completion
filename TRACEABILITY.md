@@ -78,6 +78,12 @@ Permanent regression evidence: `tests/file03-profile-contracts.php`, `tests/twen
 
 R24 does **not** change File 09 canonical ownership or activate File 14/CF-04 runtime. File 14 runtime consumption remains external/unverified; the provider-side File 09 contract is now available for its future/current consumer implementation.
 
+## R25 exact-current-companion assurance
+
+R25 froze File 09 at `9639f75ba046ac1a36e39d5e9aae56c7bae3279b` and the current companion heads before review. Unlike R24, a real current File 14 repository now exists: exact head `55e44d38b23304d50fad22b4d3a2c67fe4721209` directly consumes `gdo_file14_onboarding_destination()`. Current File 25 exact head `2d02c93356b050313e30e29aeceb57080771c2a5` continues to consume File 09 integration contract `1.1.0`, including canonical `YYYY-MM-DD` validity. Both companion exact-head workflows were green as repository/CI evidence.
+
+No product-contract mismatch was proven. R25 corrected two repository-assurance defects only: the maintained historical 40-round executable gate was still pinned to RC2 and omitted from authoritative CI, and current summary/release evidence stopped before the newly observable File 14/File 25 truth. The permanent ledger is `REVIEW-20-ROUNDS-RC6-R25.md`; the executable gate is `tests/twenty-round-audit-r25.py`. Staging, deployed package, database, migration and live verification remain external and unverified.
+
 ## Advanced Professional Trust requirements — 24 approved enhancements
 
 | ID | Approved enhancement | RC6 repository implementation | Permanent gate / external acceptance |

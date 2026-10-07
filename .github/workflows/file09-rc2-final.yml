@@ -58,6 +58,7 @@ jobs:
           python3 tests/release-integrity.py
           python3 tests/rc2-adversarial.py
           python3 tests/final-hardening.py
+          python3 tests/forty-round-assurance.py
           python3 tests/review40-adversarial.py
           python3 tests/latest-plan-parity.py
           python3 tests/advanced-trust-24.py
@@ -85,6 +86,7 @@ jobs:
           python3 tests/twenty-round-audit-r22.py
           python3 tests/twenty-round-audit-r23.py
           python3 tests/twenty-round-audit-r24.py
+          python3 tests/twenty-round-audit-r25.py
       - name: Exact-head source evidence
         run: |
           git rev-parse HEAD | tee exact-head.txt

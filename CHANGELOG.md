@@ -1,3 +1,11 @@
+## 2026-10-07 — R25 hourly current-plan/current-companion assurance
+
+- Completed 20/20 separate review rounds against the frozen File 09 baseline, governing plans and current companion exact heads before applying any correction.
+- Corrected two repository-assurance defects: the maintained 40-round gate's obsolete RC2 ZIP identity/CI omission, and current README/status/release evidence that stopped before R23/R24 and the now-existing File 14 consumer/current File 25 head.
+- Added `REVIEW-20-ROUNDS-RC6-R25.md`, `tests/twenty-round-audit-r25.py`, exact companion-head release-lock evidence and authoritative CI wiring.
+- Confirmed no product-runtime contract correction was required; File 14 and File 25 current exact heads remain compatible with File 09.
+- Preserved 62-entry installable package scope and kept staging/live/DB/migration truth unpromoted.
+
 ## 2026-10-05 — R24 current-plan/current-companion corrective review
 
 - Completed a fresh 20-round File 09 audit from exact baseline `a9ab697c671129be023414f5a3c32186567cb2bf` against the File 09 plan, central plan and current companion contracts.

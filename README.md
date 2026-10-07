@@ -29,18 +29,21 @@ This repository contains the canonical File 09 implementation candidate for the 
 | Fresh 20-round review R19 | 5 defect-bearing corrected; 15 clean |
 | Fresh 20-round review R20 | 20/20 complete: 10 defect-bearing corrected; 10 clean |
 | Fresh 20-round review R21 | 20/20 complete: 8 defect-bearing corrected; 12 clean |
-| **Fresh 20-round review R22** | **20/20 complete: 5 defect-bearing corrected; 15 clean** |
+| Fresh 20-round review R22 | 20/20 complete: 5 defect-bearing corrected; 15 clean |
+| Fresh 20-round review R23 | 20/20 complete: 3 defect-bearing corrected; 17 clean |
+| Fresh 20-round review R24 | 20/20 complete: 3 defect-bearing corrected; 17 clean |
+| **Fresh 20-round review R25** | **20/20 complete: 2 defect-bearing corrected; 18 clean** |
 | Source candidate | `1.3.0`, core schema `6`, Advanced Trust schema `2`, contract `1.1.0`, RC6 candidate |
-| Exact-head automated QA | Must pass on the final exact RC6/R22 commit |
+| Exact-head automated QA | Must pass on the final exact RC6/R25 commit |
 | Deterministic package | 62-entry RC6 allowlist; exact-head workflow output only |
 | Hostinger-equivalent staging | Pending external execution |
 | Production/live/operational | Not authorized |
 
-**Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected; 63 clean; its own exact-head result was 80/80 PASS. R12–R18 ten-round reviews and R19–R22 twenty-round reviews supersede it only as current repository review evidence, not as historical evidence.
+**Eleventh fresh 80-round corrective assurance — historical R11:** 17 defect-bearing rounds corrected; 63 clean; its own exact-head result was 80/80 PASS. R12–R18 ten-round reviews and R19–R25 twenty-round reviews supersede it only as current repository review evidence, not as historical evidence.
 
 File 09 owns doctor applications, private professional evidence, professional verification review/decision, renewal, suspension/revocation, appeal, signed professional-decision claims and File 09 professional-trust records. It does **not** own general identity, login, public profiles, directory/search ranking, clinics, notification transport or platform-wide security governance.
 
-Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, all `REVIEW-80-ROUNDS-RC6*.md` ledgers, `REVIEW-10-ROUNDS-RC6-R12.md`, `REVIEW-10-ROUNDS-RC6-R13.md`, `REVIEW-10-ROUNDS-RC6-R14.md`, `REVIEW-10-ROUNDS-RC6-R15.md`, `REVIEW-10-ROUNDS-RC6-R16.md`, `REVIEW-10-ROUNDS-RC6-R17.md`, `REVIEW-10-ROUNDS-RC6-R18.md`, `REVIEW-20-ROUNDS-RC6-R19.md`, `REVIEW-20-ROUNDS-RC6-R20.md`, `REVIEW-20-ROUNDS-RC6-R21.md`, `REVIEW-20-ROUNDS-RC6-R22.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
+Read `TRACEABILITY.md`, `ADVANCED-TRUST-24.md`, all `REVIEW-80-ROUNDS-RC6*.md` ledgers, `REVIEW-10-ROUNDS-RC6-R12.md` through `REVIEW-10-ROUNDS-RC6-R18.md`, `REVIEW-20-ROUNDS-RC6-R19.md` through `REVIEW-20-ROUNDS-RC6-R25.md`, `SECURITY-PRIVACY.md`, `MIGRATION-ROLLBACK-1.3.0.md`, `OPERATIONS.md`, `STAGING-ACCEPTANCE.md` and `RELEASE-MANIFEST-1.3.0.md` before deployment.
 
 ## 1.3.0 RC6 — Advanced Professional Trust assurance history
 
@@ -71,6 +74,7 @@ External providers are advisory/fact sources only. Human authorized File 09 revi
 - File 03: public doctor/profile presentation.
 - File 07 and File 26: directory/search/discovery/ranking.
 - File 08: clinic and appointment truth.
+- File 14: Global Clinic USP/conversion presentation; current runtime consumes File 09's read-only onboarding destination contract.
 - File 19: notification projection/delivery.
 - File 20: one application shell.
 - File 21/File 23: publishing truth/dashboard operations.
@@ -82,7 +86,7 @@ File 09 exposes public-safe current verification facts only. Private application
 
 R1–R11 review ledgers and executable gates remain preserved as historical source assurance. Their exact-head runs/artifacts certify only their corresponding historical source heads.
 
-The final exact HEAD must pass the complete PHP 7.4/8.3 workflow, all R1–R11 executable 80-round gates, the R12, R13, R14, R15, R16, R17 and R18 ten-round gates, the R19 and R20 twenty-round gates, deterministic double build, **62-entry** package parity and generated exact-head SPDX SBOM before repository package/QA status can be called green.
+The final exact HEAD must pass the complete PHP 7.4/8.3 workflow, the maintained historical 40-round gate, all R1–R11 executable 80-round gates, the R12–R18 ten-round gates, the R19–R25 twenty-round gates, deterministic double build, **62-entry** package parity and generated exact-head SPDX SBOM before repository package/QA status can be called green.
 
 External Hostinger staging, real provider failure modes, real applicant/reviewer lifecycle journeys, private storage/key/scanner checks, two fresh staging review→fix→full-retest cycles, backup/restore, rollback and explicit Founder acceptance remain mandatory before any live/operational claim.
 

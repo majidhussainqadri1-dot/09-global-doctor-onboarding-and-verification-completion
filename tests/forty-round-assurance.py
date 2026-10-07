@@ -18,7 +18,8 @@ def check(condition, message):
         fail(f'R{checks:02d}: {message}')
     print(f'PASS R{checks:02d}: {message}')
 
-# Forty independent, deterministic review lenses over the corrected RC2 source.
+# Forty independent, deterministic historical review lenses kept executable
+# against the current RC6 release identity.
 workflow = text('.github/workflows/file09-rc2-final.yml')
 adapter = text('includes/class-gdo-membership-adapter.php')
 policy = text('includes/class-gdo-policy.php')
@@ -37,7 +38,7 @@ release = text('tests/release-integrity.py')
 
 check("php: ['7.4', '8.3']" in workflow, 'PHP 7.4 and 8.3 assurance matrix remains mandatory')
 check('persist-credentials: false' in workflow, 'CI checkout does not persist GitHub credentials')
-check('cmp dist-a/global-doctor-onboarding-09-1.2.0-RC2.zip dist-b/global-doctor-onboarding-09-1.2.0-RC2.zip' in workflow, 'double-build byte parity remains enforced')
+check('cmp dist-a/global-doctor-onboarding-09-1.3.0-RC6.zip dist-b/global-doctor-onboarding-09-1.3.0-RC6.zip' in workflow, 'double-build byte parity remains enforced')
 check("const FILE00_BASE_VERSION  = '1.2.0'" in adapter, 'File 00 base assertion contract is pinned to 1.2.0')
 check("version_compare( (string) SMC_VERSION, '1.2.7', '>=' )" in adapter, 'obsolete File 00 runtimes fail closed')
 check('identity_documents_current' in adapter, 'current identity-document assurance is consumed')
