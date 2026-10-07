@@ -53,10 +53,10 @@ check(12, "python3 tests/forty-round-assurance.py" in workflow,
       "maintained 40-round gate is authoritative CI input")
 check(13, "python3 tests/twenty-round-audit-r25.py" in workflow,
       "R25 gate is authoritative exact-head CI input")
-check(14, "Fresh 20-round review R25" in readme and "R19–R25 twenty-round gates" in readme,
-      "README current assurance summary reaches R25")
-check(15, "Twenty-fifth fresh 20-round" in status and "R25 twenty-round repository review/fix" in status,
-      "current evidence status reaches R25")
+check(14, "Fresh 20-round review R25" in readme and "R19–R26 twenty-round gates" in readme,
+      "README preserves R25 while current assurance advances through R26")
+check(15, "Twenty-fifth fresh 20-round" in status and "R26 twenty-round repository review/fix" in status,
+      "status preserves R25 while current evidence advances through R26")
 check(16, "R25 exact-current-companion assurance" in trace and "55e44d38b23304d50fad22b4d3a2c67fe4721209" in trace,
       "traceability records the real current File 14 consumer")
 check(17, "R25 hourly current-plan/current-companion" in manifest and "R25 hourly current-plan/current-companion" in changelog,

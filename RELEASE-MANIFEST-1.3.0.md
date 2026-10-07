@@ -1,5 +1,14 @@
 # File 09 — Release Manifest 1.3.0 RC6
 
+## R26 hourly current-plan/current-companion corrective evidence — 2026-10-07
+
+- Froze File 09 baseline `448d41f34586369ca5875693583b9cd8a6133167` and 14 relevant companion exact heads before review.
+- Completed 20/20 rounds before correction: **R20 defect-bearing; R01–R19 clean**.
+- Reconciled the current File 07 `2f4a8970...`, File 14 `f64e7d17...` and File 25 `e35563b7...` consumer contracts; all remain compatible with File 09 contract `1.1.0`.
+- Added the permanent R26 ledger/gate and refreshed current release-lock, README, status, traceability and changelog evidence.
+- No product-runtime change was required. Two post-fix reviews are clean.
+- Installable allowlist remains **62 entries**; staging/deployed/DB/migration/live truth remains external and unverified.
+
 ## R25 hourly current-plan/current-companion corrective evidence — 2026-10-07
 
 - Froze File 09 baseline `9639f75ba046ac1a36e39d5e9aae56c7bae3279b` and 14 current companion heads before completing 20 separate rounds.

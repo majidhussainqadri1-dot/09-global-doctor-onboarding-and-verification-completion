@@ -28,6 +28,14 @@
 
 # Changelog
 
+## 2026-10-07 — R26 hourly current-plan/current-companion assurance
+
+- Completed 20/20 rounds before correction against File 09 baseline `448d41f34586369ca5875693583b9cd8a6133167`, current governing plans and current companion exact heads.
+- R20 alone was defect-bearing: permanent current-head evidence still pinned the former File 07, File 14 and File 25 heads; R01–R19 were clean.
+- Verified the advanced File 07/File 14/File 25 consumers remain compatible with File 09 contract `1.1.0`; no product-runtime correction was required.
+- Added `REVIEW-20-ROUNDS-RC6-R26.md`, `tests/twenty-round-audit-r26.py`, current head-map/release evidence and authoritative CI wiring.
+- Preserved the 62-entry package scope and kept deployment/DB/migration/staging/live status unverified.
+
 ## Twenty-second fresh 20-round sequential corrective assurance — R22
 
 - Frozen baseline: `532fdeeb0411284397d7418f73d0d9170e941bb8`.
