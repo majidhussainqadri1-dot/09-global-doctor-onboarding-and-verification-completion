@@ -14,15 +14,25 @@ final class GDO_Membership_Adapter {
 	const FILE02_CONTRACT      = 'sa.professional-reauthentication';
 	const FILE02_VERSION       = '1.0.0';
 
+	/**
+	 * Accept additive File 00 1.x contracts only. Shape, subject and freshness
+	 * are checked separately; unknown major versions remain fail-closed.
+	 */
+	private static function compatible_file00_version( $actual, $minimum ) {
+		$actual = (string) $actual;
+		return 1 === preg_match( '/^1\\.[0-9]+\\.[0-9]+$/D', $actual )
+			&& version_compare( $actual, (string) $minimum, '>=' );
+	}
+
 	public static function available() {
 		return defined( 'SMC_VERSION' )
 			&& version_compare( (string) SMC_VERSION, '1.2.7', '>=' )
 			&& defined( 'SMC_CONTRACT_VERSION' )
-			&& self::FILE00_BASE_VERSION === (string) SMC_CONTRACT_VERSION
+			&& self::compatible_file00_version( SMC_CONTRACT_VERSION, self::FILE00_BASE_VERSION )
 			&& class_exists( 'SMC_Contracts' )
 			&& is_callable( array( 'SMC_Contracts', 'assertions' ) )
 			&& defined( 'SMC_CF01_CONTRACT_VERSION' )
-			&& self::FILE00_VERSION === (string) SMC_CF01_CONTRACT_VERSION
+			&& self::compatible_file00_version( SMC_CF01_CONTRACT_VERSION, self::FILE00_VERSION )
 			&& class_exists( 'SMC_CF01_Contract' )
 			&& is_callable( array( 'SMC_CF01_Contract', 'membership_assertion' ) );
 	}
@@ -134,13 +144,23 @@ final class GDO_Membership_Adapter {
 		if ( ! self::valid_base_assertion( $base, $user_id ) ) {
 			return new WP_Error( 'gdo_identity_assertion_invalid', __( 'Current File 00 identity assurance returned an invalid contract response.', 'global-doctor-onboarding' ) );
 		}
+		// On current File 00 1.2.3+, MFA has moved out of membership.
+		// Require its explicit retirement claim AND a current File02
+		// professional reauthentication provider. Older File00 versions
+		// keep their original two-factor-ready requirement.
+		$file00_mfa_retired = self::compatible_file00_version( (string) ( $base['contract_version'] ?? '' ), '1.2.3' )
+			&& array_key_exists( 'mfa_required', $base )
+			&& false === $base['mfa_required']
+			&& 'none' === (string) ( $base['mfa_owner'] ?? '' )
+			&& self::authentication_available();
+		$identity_factor_ok = ! empty( $base['two_factor_ready'] ) || $file00_mfa_retired;
 		return ! empty( $base['application_exists'] )
 			&& 'approved' === sanitize_key( $base['status'] )
 			&& ! empty( $base['approved'] )
 			&& ! empty( $base['identity_documents_current'] )
 			&& ! empty( $base['email_verified'] )
 			&& ! empty( $base['phone_verified'] )
-			&& ! empty( $base['two_factor_ready'] );
+			&& $identity_factor_ok;
 	}
 
 	public static function identity_assurance_current( $user_id ) {
@@ -358,7 +378,7 @@ final class GDO_Membership_Adapter {
 
 	private static function valid_base_assertion( $assertion, $user_id ) {
 		$required = array( 'contract_version', 'user_id', 'application_exists', 'account_class', 'membership_type', 'approved_membership_types', 'status', 'approved', 'suspended', 'eligible', 'two_factor_ready', 'phone_verified', 'email_verified', 'guardian_verified', 'professional_verified', 'identity_documents_current' );
-		if ( ! is_array( $assertion ) || self::FILE00_BASE_VERSION !== ( isset( $assertion['contract_version'] ) ? (string) $assertion['contract_version'] : '' ) ) {
+		if ( ! is_array( $assertion ) || ! self::compatible_file00_version( $assertion['contract_version'] ?? '', self::FILE00_BASE_VERSION ) ) {
 			return false;
 		}
 		foreach ( $required as $field ) {
@@ -373,7 +393,7 @@ final class GDO_Membership_Adapter {
 	private static function valid_membership_assertion( $assertion ) {
 		if ( ! is_array( $assertion )
 			|| self::FILE00_CONTRACT !== ( isset( $assertion['contract'] ) ? $assertion['contract'] : '' )
-			|| self::FILE00_VERSION !== ( isset( $assertion['contract_version'] ) ? $assertion['contract_version'] : '' )
+			|| ! self::compatible_file00_version( $assertion['contract_version'] ?? '', self::FILE00_VERSION )
 			|| ! in_array( isset( $assertion['result'] ) ? $assertion['result'] : '', array( 'allow', 'deny', 'unknown' ), true )
 			|| ! isset( $assertion['subject']['platform_uuid'], $assertion['subject']['record_version'], $assertion['membership'], $assertion['age_context'], $assertion['jurisdiction_context'], $assertion['issued_at'], $assertion['expires_at'] )
 			|| ! is_array( $assertion['membership'] ) || ! is_array( $assertion['age_context'] ) || ! is_array( $assertion['jurisdiction_context'] ) ) {

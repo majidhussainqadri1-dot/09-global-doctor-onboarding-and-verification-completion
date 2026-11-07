@@ -48,6 +48,7 @@ jobs:
           node --check assets/js/onboarding.js
           php tests/security-unit.php
           php tests/membership-adapter.php
+          php tests/current-file00-1244-runtime.php
           php tests/policy-runtime.php
           php tests/cf01-practitioner-contract.php
           php tests/cf01-practitioner.php
