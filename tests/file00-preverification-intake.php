@@ -57,6 +57,11 @@ ensure(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'unverified ap
 $r=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
 ensure(($r['eligible']??false)===true && ($r['reason_code']??'')==='eligible','File09 application policy recognizes limited File00 intake contract');
 ensure(SMC_CF01_Contract::$legacy_calls===0,'no clinical identity link was queried to admit File09 intake');
+$multi=$base; $multi['membership_type']='member';SMC_Contracts::$base=$multi;
+ensure(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'approved ordinary member may enter intake with a separately pending doctor role');
+$multi_result=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
+ensure(!empty($multi_result['eligible']),'multi-role doctor application must not depend on the primary membership role');
+SMC_Contracts::$base=$base;
 SMC_File09_Intake_Contract::$assertion=array_merge($ok,array('result'=>'deny','reason_code'=>'doctor_role_restricted'));
 ensure(!GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'File00 intake deny must be respected');
 $r=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
