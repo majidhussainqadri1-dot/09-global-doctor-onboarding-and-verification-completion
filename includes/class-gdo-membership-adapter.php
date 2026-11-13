@@ -11,6 +11,8 @@ final class GDO_Membership_Adapter {
 	const FILE00_CONTRACT      = 'smc.cf01.membership-assurance';
 	const FILE00_VERSION       = '1.0.0';
 	const FILE00_BASE_VERSION  = '1.2.0';
+	const FILE09_INTAKE_CONTRACT = 'smc.file09.doctor-intake';
+	const FILE09_INTAKE_VERSION  = '1.0.0';
 	const FILE02_CONTRACT      = 'sa.professional-reauthentication';
 	const FILE02_VERSION       = '1.0.0';
 
@@ -77,6 +79,99 @@ final class GDO_Membership_Adapter {
 			return array();
 		}
 		return self::valid_membership_assertion( $assertion ) ? $assertion : array();
+	}
+
+
+	/**
+	 * File00-owned, File09-only professional-credential intake prerequisite.
+	 * This contract MUST NOT be accepted for clinical identity linkage,
+	 * practitioner authority, public verification, patient records or booking.
+	 */
+	public static function intake_available() {
+		return self::available()
+			&& defined( 'SMC_FILE09_INTAKE_CONTRACT_VERSION' )
+			&& self::FILE09_INTAKE_VERSION === (string) SMC_FILE09_INTAKE_CONTRACT_VERSION
+			&& class_exists( 'SMC_File09_Intake_Contract' )
+			&& is_callable( array( 'SMC_File09_Intake_Contract', 'assertion' ) );
+	}
+
+	public static function intake_assertion( $user_id, $jurisdiction = '' ) {
+		$user_id = absint( $user_id );
+		if ( ! $user_id || ! self::intake_available() ) {
+			return array();
+		}
+		$jurisdiction = strtoupper( trim( (string) $jurisdiction ) );
+		if ( '' !== $jurisdiction && 1 !== preg_match( '/^[A-Z]{2}$/D', $jurisdiction ) ) {
+			return array();
+		}
+		$context = array(
+			'action'       => 'doctor_verification_intake',
+			'purpose'      => 'professional_credential_application',
+			'jurisdiction' => $jurisdiction,
+		);
+		try {
+			$assertion = SMC_File09_Intake_Contract::assertion( $user_id, $context );
+		} catch ( Throwable $error ) {
+			unset( $error );
+			return array();
+		}
+		return self::valid_intake_assertion( $assertion, $jurisdiction ) ? $assertion : array();
+	}
+
+	/**
+	 * Strict fail-closed provider check: no stale/foreign/widened grants may
+	 * enter the doctor onboarding workflow. Owner-issued denied/unknown results
+	 * remain denied/unknown even if the general membership is approved.
+	 */
+	private static function valid_intake_assertion( $assertion, $jurisdiction = '' ) {
+		if ( ! is_array( $assertion )
+			|| self::FILE09_INTAKE_CONTRACT !== ( $assertion['contract'] ?? '' )
+			|| self::FILE09_INTAKE_VERSION !== ( $assertion['contract_version'] ?? '' )
+			|| 'file09_doctor_application_intake_only' !== ( $assertion['authorization_scope'] ?? '' )
+			|| 'doctor_verification_intake' !== ( $assertion['action'] ?? '' )
+			|| 'professional_credential_application' !== ( $assertion['purpose'] ?? '' )
+			|| ! in_array( $assertion['result'] ?? '', array( 'allow', 'deny', 'unknown' ), true )
+			|| ! isset( $assertion['issued_at'], $assertion['expires_at'] ) ) {
+			return false;
+		}
+		$issued = strtotime( (string) $assertion['issued_at'] );
+		$expires = strtotime( (string) $assertion['expires_at'] );
+		if ( false === $issued || false === $expires || $issued > time() + 60 || $issued < time() - 120
+			|| $expires <= time() || $expires > time() + 120 || $expires <= $issued ) {
+			return false;
+		}
+		foreach ( array(
+			'grants_clinical_authorization', 'grants_professional_verification',
+			'grants_patient_record_access', 'grants_prescription_authority',
+			'grants_public_badge', 'grants_appointment_authority',
+		) as $forbidden ) {
+			if ( ! array_key_exists( $forbidden, $assertion ) || false !== $assertion[ $forbidden ] ) {
+				return false;
+			}
+		}
+		if ( 'allow' !== $assertion['result'] ) {
+			return true;
+		}
+		if ( ! isset( $assertion['subject']['platform_uuid'], $assertion['subject']['record_version'],
+			$assertion['age_context']['known'], $assertion['age_context']['age_years'],
+			$assertion['jurisdiction_context']['canonical_country'],
+			$assertion['jurisdiction_context']['mismatch'],
+			$assertion['role_scope']['doctor_role_requested'],
+			$assertion['role_scope']['professional_verification_required'] ) ) {
+			return false;
+		}
+		$subject = $assertion['subject'];
+		$age = $assertion['age_context'];
+		$country = $assertion['jurisdiction_context'];
+		return self::valid_uuid( $subject['platform_uuid'] )
+			&& absint( $subject['record_version'] ) > 0
+			&& true === $age['known']
+			&& absint( $age['age_years'] ) >= 18
+			&& true === $assertion['role_scope']['doctor_role_requested']
+			&& true === $assertion['role_scope']['professional_verification_required']
+			&& false === $country['mismatch']
+			&& 1 === preg_match( '/^[A-Z]{2}$/D', (string) $country['canonical_country'] )
+			&& ( '' === $jurisdiction || hash_equals( (string) $country['canonical_country'], $jurisdiction ) );
 	}
 
 	public static function profile( $user_id ) {
@@ -175,16 +270,19 @@ final class GDO_Membership_Adapter {
 	public static function is_active_doctor_candidate( $user_id, $jurisdiction = '' ) {
 		$user_id = absint( $user_id );
 		$base = self::base_assertion( $user_id );
-		$subject = self::membership_assertion( $user_id, 'clinical_identity_link', 'doctor_application', $jurisdiction );
+		$subject = self::intake_assertion( $user_id, $jurisdiction );
 		if ( ! $base || ! self::membership_allows( $subject ) || self::sanctioned( $user_id ) || ! self::identity_assurance_current( $user_id ) ) {
 			return false;
 		}
 		$age = isset( $subject['age_context'] ) && is_array( $subject['age_context'] ) ? $subject['age_context'] : array();
 		$age_years = ! empty( $age['known'] ) ? absint( $age['age_years'] ) : 0;
 		$minimum_age = max( 18, absint( apply_filters( 'gdo_minimum_professional_age', 18, $user_id, $base, $subject ) ) );
-		$approved_types = isset( $base['approved_membership_types'] ) && is_array( $base['approved_membership_types'] ) ? array_map( 'sanitize_key', $base['approved_membership_types'] ) : array();
-		$eligible = 'doctor' === sanitize_key( $base['membership_type'] )
-			&& in_array( 'doctor', $approved_types, true )
+		$requested_types = isset( $base['requested_membership_types'] ) && is_array( $base['requested_membership_types'] ) ? array_map( 'sanitize_key', $base['requested_membership_types'] ) : array();
+		$eligible = ! empty( $base['application_exists'] )
+			&& 'approved' === sanitize_key( $base['status'] )
+			&& ! empty( $base['approved'] )
+			&& 'doctor' === sanitize_key( $base['membership_type'] )
+			&& in_array( 'doctor', $requested_types, true )
 			&& $age_years >= $minimum_age;
 		// Professional verification itself is intentionally not required here: File 09 is the professional verifier.
 		$filtered = (bool) apply_filters( 'gdo_file00_doctor_application_eligible', $eligible, $user_id, $base, $subject );
