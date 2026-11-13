@@ -2,10 +2,10 @@
 
 ## Status
 
-- File 09 candidate runtime: `1.2.0`.
+- File 09 candidate runtime: `1.3.0 RC6` (repository candidate; deployed runtime unverified).
 - Contract: `gdo.cf01.practitioner-eligibility` `1.0.0`.
 - Native owner: File 09.
-- State: 1.2.0 implementation candidate; staging and production remain unaccepted.
+- State: current 1.3.0 RC6 source implementation candidate; staging, production and operational acceptance remain unverified.
 - CF-01 clinical runtime, staging, production and live deployment are not authorized by this document.
 
 ## Purpose
@@ -20,11 +20,11 @@ An `allow` answer is not clinical authorization. CF-01 must separately validate 
 
 | Dependency | Exact contract | Use |
 |---|---|---|
-| File 00 | `smc.cf01.membership-assurance` `1.0.0` | opaque subject UUID, membership status, suspension, identity assurance and record version |
+| File 00 | `smc.cf01.membership-assurance` compatible `1.x` (minimum `1.0.0`); general assertions compatible `1.x` (minimum `1.2.0`) | opaque subject UUID, membership status, suspension, identity assurance and record version |
 | File 02 | `sa.professional-reauthentication` `1.0.0` | current-password plus session-bound AAL2 reviewer authentication; not part of the practitioner assertion itself |
 | File 09 | approved snapshot schema `6` | current professional decision, evidence status, validity and bounded scope projection |
 
-Unknown, unavailable, stale or incompatible dependencies fail closed.
+Unknown, unavailable, stale or incompatible dependencies fail closed. The current File 00 `1.2.3` contract explicitly retires `two_factor_ready` (`false`; `mfa_required=false`, `mfa_owner=none`). File 09 verifies the current File 02 identity-factor dependency through its bounded membership adapter and never interprets this retired File 00 field alone as a denial. CF-01 still independently checks the required recent File 02 authentication/step-up for every clinical action.
 
 ## Request
 
@@ -136,8 +136,8 @@ It does not prove or grant:
 
 ## Acceptance still required
 
-- File 09 base PR `1.1.0` acceptance and merge;
-- File 00 and File 02 provider acceptance/merge;
+- Full exact-head File 09 1.3.0 RC6 source/package regression acceptance;
+- Current approved File 00 and File 02 producer/consumer contract validation; revisit any still-open proposed changes only after their merge;
 - exact merged-version producer/consumer fixtures;
 - structured professional scope/restriction owner decision;
 - legal/professional applicability review for launch jurisdictions;
