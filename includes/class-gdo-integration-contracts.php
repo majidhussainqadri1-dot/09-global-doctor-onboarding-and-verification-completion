@@ -512,7 +512,6 @@ function gdo_file26_search_eligibility( $user_id ) { return GDO_Integration_Cont
 
 /** Validate the exact File 03 public verification projection without trusting caller input. */
 function gdo_validate_public_projection( $projection, $user_id, $consumer_contract = '' ) {
-	unset( $consumer_contract );
 	if ( ! is_array( $projection ) || absint( $projection['user_id'] ?? 0 ) !== absint( $user_id ) ) { return false; }
 	if ( 'file09' !== sanitize_key( (string) ( $projection['issuer'] ?? '' ) ) ) { return false; }
 	if ( empty( $projection['contract_version'] ) || version_compare( (string) $projection['contract_version'], GDO_Integration_Contracts::VERSION, '<' ) ) { return false; }
