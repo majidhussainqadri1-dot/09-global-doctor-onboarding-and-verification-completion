@@ -14,7 +14,7 @@ function wp_strip_all_tags($v){ return strip_tags((string)$v); }
 function __($v,$d=''){return $v;}
 final class GDO_Membership_Adapter {
     public static $base=array(),$subject=array(),$factor_ready=true;
-    public static function available(){return true;}
+    public static function available(){return true;} public static function intake_available(){return true;} public static function intake_assertion($u,$jurisdiction=''){return self::$subject;}
     public static function base_assertion($u){return self::$base;}
     public static function membership_assertion($u,$action='',$purpose='',$jurisdiction=''){return self::$subject;}
     public static function membership_allows($v){return is_array($v)&&isset($v['result'])&&'allow'===$v['result'];}
@@ -28,6 +28,7 @@ function gate($condition,$message){if(!$condition){fwrite(STDERR,"FAIL: ".$messa
 GDO_Membership_Adapter::$base=array(
     'application_exists'=>true,'status'=>'approved','membership_type'=>'doctor',
     'approved'=>true,'approved_membership_types'=>array('doctor'),
+    'requested_membership_types'=>array('doctor'),
     'identity_documents_current'=>true,'email_verified'=>true,'phone_verified'=>true,
     'two_factor_ready'=>false,'mfa_required'=>false,'mfa_owner'=>'none'
 );

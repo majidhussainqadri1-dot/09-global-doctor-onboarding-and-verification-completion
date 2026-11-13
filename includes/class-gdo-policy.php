@@ -70,11 +70,11 @@ final class GDO_Policy {
 			'trace_id'       => wp_generate_uuid4(),
 			'jurisdiction'   => self::normalize_jurisdiction( isset( $context['jurisdiction'] ) ? $context['jurisdiction'] : '' ),
 		);
-		if ( ! $user_id || ! GDO_Membership_Adapter::available() ) {
+		if ( ! $user_id || ! GDO_Membership_Adapter::intake_available() ) {
 			return $result;
 		}
 		$base = GDO_Membership_Adapter::base_assertion( $user_id );
-		$subject = GDO_Membership_Adapter::membership_assertion( $user_id, 'clinical_identity_link', 'doctor_application', $result['jurisdiction'] );
+		$subject = GDO_Membership_Adapter::intake_assertion( $user_id, $result['jurisdiction'] );
 		if ( ! $base || ! GDO_Membership_Adapter::membership_allows( $subject ) ) {
 			$result['reason_code'] = $subject ? 'membership_context_denied' : 'dependency_unavailable';
 			return $result;
@@ -83,8 +83,8 @@ final class GDO_Policy {
 			$result['reason_code'] = 'membership_restricted';
 			return $result;
 		}
-		$approved_types = isset( $base['approved_membership_types'] ) && is_array( $base['approved_membership_types'] ) ? array_map( 'sanitize_key', $base['approved_membership_types'] ) : array();
-		if ( empty( $base['application_exists'] ) || 'approved' !== sanitize_key( $base['status'] ) || 'doctor' !== sanitize_key( $base['membership_type'] ) || empty( $base['approved'] ) || ! in_array( 'doctor', $approved_types, true ) ) {
+		$requested_types = isset( $base['requested_membership_types'] ) && is_array( $base['requested_membership_types'] ) ? array_map( 'sanitize_key', $base['requested_membership_types'] ) : array();
+		if ( empty( $base['application_exists'] ) || 'approved' !== sanitize_key( $base['status'] ) || empty( $base['approved'] ) || ! in_array( 'doctor', $requested_types, true ) ) {
 			$result['reason_code'] = 'doctor_membership_not_approved';
 			return $result;
 		}
