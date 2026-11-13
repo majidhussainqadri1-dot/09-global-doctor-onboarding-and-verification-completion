@@ -84,7 +84,7 @@ final class GDO_Policy {
 			return $result;
 		}
 		$requested_types = isset( $base['requested_membership_types'] ) && is_array( $base['requested_membership_types'] ) ? array_map( 'sanitize_key', $base['requested_membership_types'] ) : array();
-		if ( empty( $base['application_exists'] ) || 'approved' !== sanitize_key( $base['status'] ) || 'doctor' !== sanitize_key( $base['membership_type'] ) || empty( $base['approved'] ) || ! in_array( 'doctor', $requested_types, true ) ) {
+		if ( empty( $base['application_exists'] ) || 'approved' !== sanitize_key( $base['status'] ) || empty( $base['approved'] ) || ! in_array( 'doctor', $requested_types, true ) ) {
 			$result['reason_code'] = 'doctor_membership_not_approved';
 			return $result;
 		}
