@@ -281,7 +281,6 @@ final class GDO_Membership_Adapter {
 		$eligible = ! empty( $base['application_exists'] )
 			&& 'approved' === sanitize_key( $base['status'] )
 			&& ! empty( $base['approved'] )
-			&& 'doctor' === sanitize_key( $base['membership_type'] )
 			&& in_array( 'doctor', $requested_types, true )
 			&& $age_years >= $minimum_age;
 		// Professional verification itself is intentionally not required here: File 09 is the professional verifier.
