@@ -22,6 +22,7 @@ function get_userdata($x){return (int)$x===7?(object)array('ID'=>7):false;}
 function smc_application($x){return (int)$x===7?$GLOBALS['app']:false;}
 class WP_Error{public function __construct($code='',$message=''){}}
 class SMC_Security{public static function decrypt($x,$p,$ctx){return $x;}}
+class SMC_MFA_Retirement{public static $advanced_ok=true;public static function advanced_trust_allows_without_mfa($u){return self::$advanced_ok;}}
 class SMC_Contracts{
     public static function assertions($x){return (int)$x===7?$GLOBALS['base']:array();}
     public static function role_grants($x){return (int)$x===7?$GLOBALS['grants']:array();}
@@ -88,6 +89,9 @@ ok(!GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'owner jurisdicti
 $wpdb->canonical='PK';$wpdb->broken=true;
 ok(!GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'owner database failure denies');
 $wpdb->broken=false;$wpdb->last_error='';
+SMC_MFA_Retirement::$advanced_ok=false;
+ok(!GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'File00 Advanced Trust containment/reverification hold blocks onboarding intake');
+SMC_MFA_Retirement::$advanced_ok=true;
 $GLOBALS['base']['status']='suspended';$GLOBALS['base']['suspended']=true;
 ok(!GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'owner suspended membership denies');
 echo "File00 source + File09 consumer joint integration: $count PASS, 0 FAIL\n";
