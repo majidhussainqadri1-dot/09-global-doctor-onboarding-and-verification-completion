@@ -78,7 +78,13 @@ if ( 'PK' !== ( $projection['approved_fields']['jurisdiction'] ?? '' ) ) { throw
 foreach ( array( 'phone','whatsapp','clinic','services','declaration_accuracy','declaration_no_impersonation','declaration_professional_scope','license_number','license_jurisdiction' ) as $forbidden ) {
 	if ( array_key_exists( $forbidden, $projection['approved_fields'] ) ) { throw new RuntimeException( 'Private or non-contract File 09 field leaked to File 03: ' . $forbidden ); }
 }
-if ( ! gdo_validate_public_projection( $projection, 42, 'file03-contract' ) ) { throw new RuntimeException( 'Exact File 03 public projection validator rejected the current owner projection.' ); }
+set_error_handler( function( $severity, $message ) { throw new ErrorException( $message, 0, $severity ); }, E_WARNING | E_NOTICE );
+try {
+	$valid_public_projection = gdo_validate_public_projection( $projection, 42, 'file03-contract' );
+} finally {
+	restore_error_handler();
+}
+if ( ! $valid_public_projection ) { throw new RuntimeException( 'Exact File 03 public projection validator rejected the current owner projection.' ); }
 
 $wallet = GDO_Integration_Contracts::file03_verifiable_credentials( null, 42, 0, 'file03-contract' );
 if ( empty( $wallet['items'] ) || ! empty( $wallet['raw_evidence_exposed'] ) ) { throw new RuntimeException( 'File 03 credential wallet contract failed.' ); }
