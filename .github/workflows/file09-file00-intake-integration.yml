@@ -1,0 +1,57 @@
+name: File09 File00 Exact-Source Doctor Intake Consumer Contract
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cross-owner:
+    name: Real File00 owner + File09 consumer PHP ${{ matrix.php }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.3']
+    env:
+      FILE09_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      FILE00_SHA: 43b27c50b5e4224c338e5c4d68eb47bbdfb64ca1
+    steps:
+      - name: Checkout exact File09 consumer
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ env.FILE09_SHA }}
+      - name: Checkout pinned public File00 provider
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: majidhussainqadri1-dot/00-sabri-membership-core
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ env.FILE00_SHA }}
+          path: .external/file00
+      - name: Assert both source identities
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FILE09_SHA"
+          test "$(git -C .external/file00 rev-parse HEAD)" = "$FILE00_SHA"
+      - name: Configure PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          extensions: openssl
+      - name: Genuine owner and consumer runtime contract
+        run: |
+          set -euo pipefail
+          php -l .external/file00/source/sabri-membership-core/includes/class-smc-file09-intake-contract.php
+          php -l includes/class-gdo-membership-adapter.php
+          php -l tests/file00-owner-consumer-integration.php
+          php tests/file00-owner-consumer-integration.php
