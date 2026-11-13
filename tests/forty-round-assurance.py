@@ -49,7 +49,7 @@ check("const VERSION       = '2026-08-07.2'" in policy, 'current File 09 policy 
 check(all(token in policy for token in ("'identity'", "'qualification'", "'license'")), 'identity, qualification and license evidence classes remain required')
 check("'whatsapp'" not in policy[policy.index('public static function required_fields'):policy.index('public static function normalize_jurisdiction')], 'WhatsApp remains optional rather than a required application field')
 check("max( 18" in policy, 'professional onboarding minimum age remains adult-only')
-check("empty( $base['two_factor_ready'] )" in policy, '2FA readiness is required at onboarding eligibility')
+check("GDO_Membership_Adapter::identity_assurance_current_checked( $user_id )" in policy and "empty( $base['two_factor_ready'] )" not in policy, 'current File02-owned factor readiness is required at onboarding eligibility; retired File00 MFA cannot veto it')
 check("'approved' !== sanitize_key( $base['status'] )" in policy, 'stale membership approval cannot pass current-status eligibility')
 check("'whatsapp'" in application, 'optional WhatsApp data can still be stored when voluntarily supplied')
 check('stored_approved_snapshot' in application, 'immutable approved snapshot retrieval exists')

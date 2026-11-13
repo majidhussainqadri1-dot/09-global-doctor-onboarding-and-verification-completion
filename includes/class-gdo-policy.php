@@ -88,7 +88,7 @@ final class GDO_Policy {
 			$result['reason_code'] = 'doctor_membership_not_approved';
 			return $result;
 		}
-		if ( empty( $base['identity_documents_current'] ) || empty( $base['email_verified'] ) || empty( $base['phone_verified'] ) || empty( $base['two_factor_ready'] ) ) {
+		if ( empty( $base['identity_documents_current'] ) || empty( $base['email_verified'] ) || empty( $base['phone_verified'] ) || true !== GDO_Membership_Adapter::identity_assurance_current_checked( $user_id ) ) {
 			$result['reason_code'] = 'identity_assurance_incomplete';
 			return $result;
 		}

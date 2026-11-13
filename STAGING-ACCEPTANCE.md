@@ -5,13 +5,14 @@
 **Core schema:** 6  
 **Advanced Trust schema:** 2  
 **Advanced Trust contract:** 1.1.0  
-**Repository review:** 80 rounds; 49 defect-bearing corrected; 31 clean
+**Repository historical R1 review:** 80 rounds; 49 defect-bearing corrected; 31 clean  
+**Latest prior R26 review:** 20 rounds; 1 defect-bearing corrected; 19 clean. These are source-review records, not staging acceptance.
 
 Repository and CI evidence cannot set this file to accepted. The exact final RC6 artifact must be installed and exercised on Hostinger-equivalent WordPress/PHP/MySQL staging.
 
 ## Mandatory gates
 
-1. **Exact artifact / restore point** — record RC6 ZIP SHA-256, exact Git commit, 55-entry manifest/SBOM, pre-install database/files backup, isolated restore proof and rollback window.
+1. **Exact artifact / restore point** — record RC6 ZIP SHA-256, exact Git commit, 62-entry manifest/SBOM, pre-install database/files backup, isolated restore proof and rollback window.
 2. **Fresh install / activation** — File 00, File 02, keyring, private storage, claim-signing key and scanner fail closed when absent; successful activation records core schema 6 and Advanced Trust schema 2 only after migrations/index checks/storage health pass.
 3. **RC5/schema-1 → RC6/schema-2 upgrade** — idempotently reconcile the eight Advanced Trust tables plus `application_status` passport and `application_state` upload indexes; interrupted/concurrent upgrade, downgrade warning and rollback preserve all existing professional records.
 4. **AJ-03 doctor journey** — save/resume → evidence upload → submit → reviewer assignment → more-info → replacement evidence → independent decision → acknowledged File 00 claim → passport issue → renewal → suspension/reinstatement/revocation/expiry → independent appeal.

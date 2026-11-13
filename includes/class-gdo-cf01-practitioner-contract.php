@@ -104,7 +104,9 @@ final class GDO_CF01_Practitioner_Contract {
 			$result['reason_code'] = 'membership_not_current';
 			return $result;
 		}
-		if ( empty( $base['eligible'] ) || empty( $base['professional_verified'] ) || empty( $base['identity_documents_current'] ) || empty( $base['email_verified'] ) || empty( $base['phone_verified'] ) || empty( $base['two_factor_ready'] ) || 'verified' !== $result['membership']['identity_assurance'] ) {
+		// File 00 1.2.3+ retires its MFA flag; the bounded adapter checks
+		// current identity-factor ownership without treating a legacy false as failure.
+		if ( empty( $base['eligible'] ) || empty( $base['professional_verified'] ) || empty( $base['identity_documents_current'] ) || empty( $base['email_verified'] ) || empty( $base['phone_verified'] ) || true !== GDO_Membership_Adapter::identity_assurance_current_checked( $user_id ) || 'verified' !== $result['membership']['identity_assurance'] ) {
 			$result['result'] = 'deny';
 			$result['reason_code'] = 'membership_identity_assurance_incomplete';
 			return $result;

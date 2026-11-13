@@ -56,5 +56,6 @@ gdo_cf01_static_assert( false !== strpos( $contract, 'gdo_cf01_practitioner_cont
 gdo_cf01_static_assert( false === strpos( $contract, "3 !== absint" ), 'CF-01 does not fossilize approved snapshots at schema 3' );
 gdo_cf01_static_assert( false !== strpos( $contract, "GDO_SCHEMA_VERSION" ), 'CF-01 accepts supported snapshots through the current schema' );
 gdo_cf01_static_assert( false !== strpos( $contract, "identity_documents_current" ) && false !== strpos( $contract, "professional_verified" ), 'CF-01 requires current high-trust and professional assurance' );
+gdo_cf01_static_assert( false !== strpos( $contract, 'GDO_Membership_Adapter::identity_assurance_current_checked( $user_id )' ), 'File00 retired MFA flag is never treated as File02 authentication readiness' );
 gdo_cf01_static_assert( false === strpos( $contract, "if ( empty( \$base['guardian_verified'] )" ) && false === strpos( $contract, "|| empty( \$base['guardian_verified'] )" ), 'adult practitioner eligibility has no unconditional guardian gate' );
 echo "File 09 CF-01 static contract: {$tests} PASS, 0 FAIL\n";
