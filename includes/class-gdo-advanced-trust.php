@@ -1116,20 +1116,40 @@ final class GDO_Advanced_Trust {
         self::add_history($app->user_id,$app->id,$public_event,array('decision'=>$decision,'verified_until'=>$app->verified_until),true);
         if(in_array($decision,array('verified','reinstated'),true)){self::ensure_passport($app->id);self::schedule_reverification($app->id,'verified',time()+30*DAY_IN_SECONDS,false);}elseif(in_array($decision,array('suspended','revoked','expired','rejected','withdrawn'),true)){self::revoke_passports_for_application($app->id,$decision);self::schedule_reverification($app->id,$decision,time()+HOUR_IN_SECONDS,true);}
     }
+    /** The private applicant Command Center must never be an on-behalf query. */
+    private static function current_command_center_actor( $user_id ) {
+        return absint( $user_id ) > 0 && function_exists( 'is_user_logged_in' )
+            && function_exists( 'get_current_user_id' ) && is_user_logged_in()
+            && absint( get_current_user_id() ) === absint( $user_id );
+    }
+
     public static function command_center( $user_id ) {
+        if ( ! self::current_command_center_actor( $user_id ) ) {
+            return new WP_Error( 'gdo_command_center_actor_mismatch', __( 'Only the current applicant may access this private professional command center.', 'global-doctor-onboarding' ) );
+        }
         global $wpdb;
         $wpdb->last_error = '';
         $app = GDO_Application::latest_for_user( absint( $user_id ) );
+        // Companion database reads can execute hooks that change the principal.
+        if ( ! self::current_command_center_actor( $user_id ) ) {
+            return new WP_Error( 'gdo_command_center_actor_changed', __( 'The applicant session changed during the private command center request.', 'global-doctor-onboarding' ) );
+        }
         if ( ! $app && ! empty( $wpdb->last_error ) ) {
             return new WP_Error( 'gdo_command_center_application_query', __( 'Professional application state could not be read safely.', 'global-doctor-onboarding' ) );
         }
         if ( ! $app ) { return array( 'application'=>null, 'next_action'=>'start_application' ); }
         $complete = GDO_Application::completeness( $app );
+        if ( ! self::current_command_center_actor( $user_id ) ) {
+            return new WP_Error( 'gdo_command_center_actor_changed', __( 'The applicant session changed during private completeness checks.', 'global-doctor-onboarding' ) );
+        }
         if ( ! empty( $complete['query_error'] ) ) {
             return new WP_Error( 'gdo_command_center_completeness_query', __( 'Professional application completeness could not be verified safely.', 'global-doctor-onboarding' ) );
         }
         $wpdb->last_error = '';
         $checks = $wpdb->get_results( $wpdb->prepare( 'SELECT check_type,status,checked_at,expires_at FROM ' . self::table( 'credential_checks' ) . ' WHERE application_id=%d ORDER BY id DESC LIMIT 50', $app->id ), ARRAY_A );
+        if ( ! self::current_command_center_actor( $user_id ) ) {
+            return new WP_Error( 'gdo_command_center_actor_changed', __( 'The applicant session changed during private credential checks.', 'global-doctor-onboarding' ) );
+        }
         if ( null === $checks || ! empty( $wpdb->last_error ) ) {
             return new WP_Error( 'gdo_command_center_query', __( 'Professional verification checks could not be read safely.', 'global-doctor-onboarding' ) );
         }
@@ -1144,7 +1164,11 @@ final class GDO_Advanced_Trust {
         elseif ( in_array( $app->state, array( 'verified','reinstated' ), true ) ) { $next='monitor_credentials'; }
         elseif ( 'renewal_due' === $app->state || 'expired' === $app->state ) { $next='renew'; }
         elseif ( in_array( $app->state, array( 'rejected','suspended','revoked' ), true ) ) { $next='appeal_or_correct'; }
-        return array( 'application'=>array('id'=>absint($app->id),'state'=>$app->state,'version'=>absint($app->version),'verified_until'=>$app->verified_until,'more_info_due_at'=>$app->more_info_due_at), 'completion'=>array('missing_fields'=>$complete['missing_fields'],'missing_evidence'=>$complete['missing_evidence']), 'verification_matrix'=>self::verification_matrix($user_id), 'check_summary'=>array('pending'=>$pending_checks,'degraded'=>$degraded_checks), 'checks'=>$checks, 'next_action'=>$next );
+        $matrix = self::verification_matrix( $user_id );
+        if ( ! self::current_command_center_actor( $user_id ) ) {
+            return new WP_Error( 'gdo_command_center_actor_changed', __( 'The applicant session changed while the private response was prepared.', 'global-doctor-onboarding' ) );
+        }
+        return array( 'application'=>array('id'=>absint($app->id),'state'=>$app->state,'version'=>absint($app->version),'verified_until'=>$app->verified_until,'more_info_due_at'=>$app->more_info_due_at), 'completion'=>array('missing_fields'=>$complete['missing_fields'],'missing_evidence'=>$complete['missing_evidence']), 'verification_matrix'=>$matrix, 'check_summary'=>array('pending'=>$pending_checks,'degraded'=>$degraded_checks), 'checks'=>$checks, 'next_action'=>$next );
     }
     public static function command_center_shortcode() {
         if ( ! is_user_logged_in() ) { return '<p>' . esc_html__( 'Log in to view your verification command center.', 'global-doctor-onboarding' ) . '</p>'; }
