@@ -55,6 +55,7 @@ jobs:
           php tests/v123-draft-mutation-actor.php
           php tests/v123-consent-submit-actor.php
           php tests/v123-command-center-actor.php
+          php tests/v123-evidence-grant-actor.php
           php tests/v123-application-draft-actor.php
           php tests/policy-runtime.php
           php tests/policy-eligibility-retired-mfa.php
