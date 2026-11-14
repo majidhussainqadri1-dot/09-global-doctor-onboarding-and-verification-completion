@@ -81,6 +81,20 @@ jobs:
           set -euo pipefail
           cp -R .external/file00/source/sabri-membership-core /tmp/wordpress/wp-content/plugins/sabri-membership-core
           php /tmp/wp-cli.phar plugin activate sabri-membership-core --path=/tmp/wordpress
+          # File00 fresh activation is not equivalent to a completed current schema.
+          # Mirror the authoritative File00 MariaDB workflow's guarded migration.
+          php /tmp/wp-cli.phar eval '
+            $key=SMC_Security::ensure_key_ready();
+            if(is_wp_error($key)){fwrite(STDERR,"File00 key readiness failed: ".$key->get_error_code()."\n");exit(51);}
+            $audit=SMC_Installer::ensure_audit_infrastructure();
+            if(is_wp_error($audit)){fwrite(STDERR,"File00 audit readiness failed: ".$audit->get_error_code()."\n");exit(52);}
+            SMC_Schema_Compat::reconcile_verification_queue_index();
+            SMC_Installer::maybe_upgrade();
+            if(SMC_DB_VERSION!==(string)get_option("smc_db_version","")){fwrite(STDERR,"File00 migration incomplete\n");exit(53);}
+            if(SMC_Completion::safe_mode()){fwrite(STDERR,"File00 Safe Mode still active; not bypassing\n");exit(54);}
+            if(!class_exists("SMC_CF01_Contract")){fwrite(STDERR,"File00 assurance contract unavailable\n");exit(55);}
+            echo "PASS genuine File00 migration and Safe Mode clearance\n";
+          ' --path=/tmp/wordpress
           mkdir -p /tmp/wordpress/wp-content/plugins/02-sabri-authentication
           rsync -a --exclude=.git .external/file02/ /tmp/wordpress/wp-content/plugins/02-sabri-authentication/
           php /tmp/wp-cli.phar plugin activate 02-sabri-authentication --path=/tmp/wordpress
