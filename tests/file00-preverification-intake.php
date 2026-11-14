@@ -61,7 +61,7 @@ $r=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
 ensure(($r['eligible']??false)===true && ($r['reason_code']??'')==='eligible','File09 application policy recognizes limited File00 intake contract');
 ensure(SMC_CF01_Contract::$legacy_calls===0,'no clinical identity link was queried to admit File09 intake');
 $GLOBALS['gdo_current_actor']=0;
-ensure(empty(GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'))['eligible']),'anonymous caller cannot evaluate another person's applicant-only eligibility');
+ensure(empty(GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'))['eligible']),'anonymous caller cannot inspect private applicant eligibility');
 $GLOBALS['gdo_current_actor']=8;
 ensure(empty(GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'))['eligible']),'different signed-in actor cannot evaluate the applicant-only workflow');
 $GLOBALS['gdo_current_actor']=7;
