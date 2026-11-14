@@ -60,6 +60,7 @@ jobs:
           php tests/cf01-practitioner-contract.php
           php tests/cf01-practitioner.php
           php tests/cross-file-contracts.php
+          php tests/v123-transparency-inference.php
           php tests/file03-profile-contracts.php
           python3 tests/architecture-check.py
           python3 tests/completion-security.py
@@ -69,6 +70,8 @@ jobs:
           python3 tests/forty-round-assurance.py
           python3 tests/review40-adversarial.py
           python3 tests/latest-plan-parity.py
+          python3 tests/v123-source-symbol-audit.py
+          python3 tests/v123-evidence-ledger-guard.py
           python3 tests/advanced-trust-24.py
           python3 tests/eighty-round-audit.py
           python3 tests/eighty-round-audit-r2.py
