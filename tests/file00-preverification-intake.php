@@ -23,7 +23,7 @@ class SMC_Contracts{public static $base=array();public static function assertion
 class SMC_CF01_Contract{public static $legacy_calls=0;public static function membership_assertion($u,$c){++self::$legacy_calls;return array('result'=>'deny');}}
 class SMC_File09_Intake_Contract{public static $assertion=array();public static function assertion($u,$c){return self::$assertion;}}
 class SA_Professional_Reauthentication{public static function verify_and_record($u,$p,$o,$c){return array();}public static function assertion($u,$s){return array();}}
-class GDO_Application{public static $switch_actor_on_lookup=false;public static function latest_for_user($u){if(self::$switch_actor_on_lookup){$GLOBALS['gdo_current_actor']=8;return (object)array('state'=>'submitted','id'=>42);}return null;}}
+class GDO_Application{public static $switch_actor_on_lookup=false;public static $latest_state='';public static function latest_for_user($u){if(self::$switch_actor_on_lookup){$GLOBALS['gdo_current_actor']=8;return (object)array('state'=>'submitted','id'=>42);}return self::$latest_state ? (object)array('state'=>self::$latest_state,'id'=>42) : null;}}
 $wpdb=(object)array('last_error'=>'');
 require dirname(__DIR__).'/includes/class-gdo-membership-adapter.php';
 require dirname(__DIR__).'/includes/class-gdo-policy.php';
@@ -76,6 +76,23 @@ $GLOBALS['gdo_actor_switch_on_policy_filter']=true;
 $filtered=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
 ensure(empty($filtered['eligible']) && !isset($filtered['subject_uuid']) && ($filtered['reason_code']??'')==='applicant_actor_changed','actor switch during final policy filter cannot expose private UUID');
 $GLOBALS['gdo_actor_switch_on_policy_filter']=false;
+$GLOBALS['gdo_current_actor']=7;
+// Rejected and already-submitted applications may disclose their private row ID
+// to the real applicant, but must never reveal that ID to another current actor.
+GDO_Application::$latest_state='submitted';
+$self_submitted=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
+ensure(empty($self_submitted['eligible']) && ($self_submitted['reason_code']??'')==='active_application_exists' && ($self_submitted['application_id']??0)===42,'existing submitted application ID is returned only to its authenticated owner');
+$GLOBALS['gdo_current_actor']=8;
+$foreign_submitted=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
+ensure(empty($foreign_submitted['eligible']) && !isset($foreign_submitted['application_id']) && !isset($foreign_submitted['subject_uuid']) && ($foreign_submitted['reason_code']??'')==='applicant_actor_mismatch','foreign actor cannot inspect an existing submitted applicant private row');
+$GLOBALS['gdo_current_actor']=7;
+GDO_Application::$latest_state='rejected';
+$self_rejected=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
+ensure(empty($self_rejected['eligible']) && ($self_rejected['reason_code']??'')==='appeal_or_lifecycle_action_required' && ($self_rejected['application_id']??0)===42,'legitimate rejected applicant can find their private appeal/lifecycle row');
+$GLOBALS['gdo_current_actor']=0;
+$anonymous_rejected=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
+ensure(empty($anonymous_rejected['eligible']) && !isset($anonymous_rejected['application_id']) && ($anonymous_rejected['reason_code']??'')==='applicant_actor_mismatch','anonymous actor cannot inspect rejected application identity');
+GDO_Application::$latest_state='';
 $GLOBALS['gdo_current_actor']=7;
 $multi=$base; $multi['membership_type']='member';SMC_Contracts::$base=$multi;
 ensure(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'approved ordinary member may enter intake with a separately pending doctor role');
