@@ -329,5 +329,46 @@ jobs:
             echo "PASS File09 actual WordPress+MariaDB installation/schema/negative actor smoke\n";
           ' --path=/tmp/wordpress
           php /tmp/wp-cli.phar plugin status global-doctor-onboarding-09 --path=/tmp/wordpress | grep -Fq 'Status: Active'
+      - name: Real WordPress actors, upgrade idempotency and activation lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          php /tmp/wp-cli.phar eval '
+            global $wpdb;
+            $first=GDO_Migration::maybe_run();
+            $trust=GDO_Advanced_Trust_Hardening::maybe_upgrade_schema();
+            if(is_wp_error($first)||is_wp_error($trust)){fwrite(STDERR,"Second migration pass failed\n");exit(55);}
+            if((int)get_option("gdo_schema_version")!==6||(int)get_option("gdo_advanced_trust_schema")!==2){fwrite(STDERR,"Migration markers changed unexpectedly\n");exit(56);}
+            foreach(array("verification_passports"=>"application_status","upload_sessions"=>"application_state") as $suffix=>$wanted){
+              $table=$wpdb->prefix."gdo_".$suffix;
+              $indexes=$wpdb->get_results("SHOW INDEX FROM `".$table."`",ARRAY_A);
+              $names=array_column((array)$indexes,"Key_name");
+              if(!in_array($wanted,$names,true)){fwrite(STDERR,"Missing schema-2 index ".$wanted."\n");exit(57);}
+            }
+            $applicant=wp_create_user("file09-applicant-ci","Ephemeral-Applicant-Password!2","applicant@example.test");
+            $foreign=wp_create_user("file09-foreign-ci","Ephemeral-Foreign-Password!2","foreign@example.test");
+            if(is_wp_error($applicant)||is_wp_error($foreign)){fwrite(STDERR,"Test users unavailable\n");exit(58);}
+            wp_set_current_user($applicant);
+            $own=GDO_Advanced_Trust::command_center($applicant);
+            if(!is_array($own)||!array_key_exists("application",$own)||$own["application"]!==null){fwrite(STDERR,"Own empty command center failed\n");exit(59);}
+            if(!is_wp_error(GDO_Advanced_Trust::command_center($foreign))){fwrite(STDERR,"Foreign private command center allowed\n");exit(60);}
+            wp_set_current_user($foreign);
+            $fake=(object)array("id"=>41,"user_id"=>$applicant,"profile_json"=>"{\"display_name\":\"SECRET\"}");
+            $private=GDO_API::application_edit_model($fake,$applicant);
+            if(!is_array($private)||!empty($private["profile"])||isset($private["application_id"])){fwrite(STDERR,"Cross-actor edit profile leaked\n");exit(61);}
+            echo "PASS installed WordPress real-user actor denials / schema-2 indexes / idempotent migration\n";
+          ' --path=/tmp/wordpress
+          php /tmp/wp-cli.phar plugin deactivate global-doctor-onboarding-09 --path=/tmp/wordpress
+          php /tmp/wp-cli.phar plugin activate global-doctor-onboarding-09 --path=/tmp/wordpress
+          php /tmp/wp-cli.phar eval '
+            global $wpdb;
+            if(!is_plugin_active("global-doctor-onboarding-09/global-doctor-onboarding.php")){fwrite(STDERR,"Reactivation failed\n");exit(62);}
+            if((int)get_option("gdo_schema_version")!==6||(int)get_option("gdo_advanced_trust_schema")!==2){fwrite(STDERR,"Schema not preserved after reactivation\n");exit(63);}
+            $owned=get_posts(array("post_type"=>"page","post_status"=>"any","meta_key"=>"_gdo_managed_page_key","meta_value"=>"doctor-application","numberposts"=>5));
+            if(count($owned)!==1){fwrite(STDERR,"Duplicate/missing managed doctor application page\n");exit(64);}
+            foreach(array("gdo_daily_retention","gdo_notification_outbox","gdo_trust_continuous_monitor") as $hook){
+              if(!wp_next_scheduled($hook)){fwrite(STDERR,"Cron not restored: ".$hook."\n");exit(65);}}
+            echo "PASS File09 deactivation/reactivation, canonical managed page and required cron\n";
+          ' --path=/tmp/wordpress
       - name: Non-production limitation
         run: echo 'Source CI only; Hostinger staging 0/32, live deployment unverified.'
