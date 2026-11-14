@@ -41,3 +41,20 @@ Date: 2026-11-14. **Scope: repository, not deployed website.** Main base SHA: `8
 | Live Verification Status | **NOT PERFORMED** |
 
 **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+
+## 2026-11-14 P02 extension: private existing draft actor binding — same root-cause family
+A read-only caller review showed that `GDO_Application::ensure_draft($user_id)` could return an **existing private applicant draft row** without binding to the active authenticated principal. This was a distinct code path in the same general applicant-only authorization family, not a File00 on-behalf prerequisite defect.
+
+### Genuine-class RED/Green
+- RED: `tests/v123-application-draft-actor.php` exercises the real `GDO_Application` class with a deterministic fake WordPress DB. Expected owner positive, foreign actor 8/anonymous actor 0 denied, and mid-database-read principal switch denied. Commit `5ac8f16438b7e79291d68521abde922aff2ca57d`, GitHub run **43612982690**, both PHP 7.4/8.3 comprehensive jobs **RED**, while File00 on-behalf integration jobs remained **GREEN**.
+- GREEN: a narrow `ensure_draft` guard checks exact current logged-in applicant **before** and **immediately after** the database lookup, without altering `GDO_Application::latest_for_user()` or public/reviewer projections. Source fix `bf99598fa2647a65c958f2aba47e7509d8960921`, run **43613059210**, **5/5 jobs success** (both PHP suites, exact provider/consumer tests and deterministic package).
+- The method remains applicant-only; reviewer/public `GDO_Membership_Adapter::is_active_doctor_candidate()` and File00 subject assertion remain caller-independent prerequisites.
+- New test file is executed by the authoritative workflow on both PHP versions. The existing 4 supplementary submitted/rejected private application identity tests also remain green.
+- This is **not** an installed WordPress/DB session-switch or Hostinger staging observation.
+
+### Updated defect count in this PR
+- **1 applicant actor-binding root-cause family**, now covering private eligibility and existing-draft recovery entrypoints.
+- **3 original exposure/transition categories + 1 additional draft-recovery entrypoint**, separately exercised positive and negative scenarios; these are not 4 unrelated root causes.
+- New source corrections are Draft only. Main changes merged=0; Live fixes verified=0; deployed runtime and DB are unverified.
+- Before main merge: independent security review of all applicant mutation paths and File02 session behavior, correct unique release version, actual WP+DB File00/File02/File09 integration, backup/restore, 32 Staging gates and explicit release approval.
