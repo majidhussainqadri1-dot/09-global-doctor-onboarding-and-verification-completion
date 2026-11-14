@@ -56,6 +56,7 @@ jobs:
           php tests/cf01-practitioner.php
           php tests/cross-file-contracts.php
           php tests/file03-profile-contracts.php
+          php tests/v123-transparency-inference.php
           python3 tests/architecture-check.py
           python3 tests/completion-security.py
           python3 tests/release-integrity.py
