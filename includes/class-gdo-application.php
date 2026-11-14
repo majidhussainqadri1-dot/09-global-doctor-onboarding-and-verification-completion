@@ -218,8 +218,20 @@ final class GDO_Application {
 	public static function ensure_draft( $user_id ) {
 		global $wpdb;
 		$user_id = absint( $user_id );
+		// This method opens an existing PRIVATE draft, not a read-only public
+		// professional-status projection. Never recover another actor's draft.
+		if ( ! $user_id || ! function_exists( 'is_user_logged_in' )
+			|| ! function_exists( 'get_current_user_id' ) || ! is_user_logged_in()
+			|| absint( get_current_user_id() ) !== $user_id ) {
+			return new WP_Error( 'gdo_draft_actor_mismatch', __( 'Only the current applicant may access this private draft.', 'global-doctor-onboarding' ) );
+		}
 		$wpdb->last_error = '';
 		$latest = self::latest_for_user( $user_id );
+		// A DB read can invoke WordPress hooks that switch the active principal.
+		// Recheck before returning the private row even for a resumed draft.
+		if ( ! is_user_logged_in() || absint( get_current_user_id() ) !== $user_id ) {
+			return new WP_Error( 'gdo_draft_actor_changed', __( 'The active applicant changed while the private draft was read.', 'global-doctor-onboarding' ) );
+		}
 		if ( ! empty( $wpdb->last_error ) ) {
 			return new WP_Error( 'gdo_application_latest_query', __( 'The current doctor application state could not be read safely.', 'global-doctor-onboarding' ) );
 		}
