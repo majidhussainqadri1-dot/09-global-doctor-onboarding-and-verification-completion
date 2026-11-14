@@ -43,12 +43,30 @@ class GDO_Audit{
   return true;
  }
 }
+class GDO_Notifications{
+ public static function queue($event,$user,$context,$process=false){
+  if(!empty($GLOBALS['f09_switch_on_notification'])){$GLOBALS['f09_review_actor']=8;}
+  return 'fixture-event-uuid';
+ }
+ public static function process($count,$event){
+  if(!empty($GLOBALS['f09_switch_on_process'])){$GLOBALS['f09_review_actor']=8;}
+  return true;
+ }
+}
 class GrantDB{
- public $last_error='';public $inserts=0;public $deletes=0;
+ public $last_error='';public $inserts=0;public $deletes=0;public $updates=0;public $rolled_back=0;
  public function prepare($query,...$params){return $query;}
- public function get_row($sql){return (object)array('id'=>33,'application_id'=>42);}
- public function query($q){return 0;}
+ public function get_row($sql){
+  if(strpos($sql,'access_grants')!==false){
+    return (object)array('id'=>55,'reviewer_id'=>7,'evidence_id'=>33,
+      'session_digest'=>hash('sha256','7|fixture-session'),'mode'=>'view',
+      'used_at'=>null,'expires_at'=>gmdate('Y-m-d H:i:s',time()+300));
+  }
+  return (object)array('id'=>33,'application_id'=>42,'document_type'=>'license');
+ }
+ public function query($q){if($q==='ROLLBACK'){++$this->rolled_back;}return 1;}
  public function insert($table,$data,$fmt=array()){++$this->inserts;return 1;}
+ public function update($table,$data,$where,$formats=array(),$where_format=array()){++$this->updates;return 1;}
  public function delete($table,$where,$format=array()){++$this->deletes;return 1;}
 }
 $wpdb=new GrantDB();
@@ -74,4 +92,17 @@ $GLOBALS['f09_review_actor']=7;$GLOBALS['f09_switch_on_audit']=false;
 $grant=GDO_Evidence::issue_view_grant(33,7,'credential_review','view');
 verdict(is_array($grant)&&!empty($grant['token'])&&$wpdb->inserts===2,
  'same authenticated reviewer still obtains a properly audited token');
-echo "V12.3 private evidence grant actor binding: 4 PASS, 0 FAIL\n";
+$GLOBALS['f09_review_actor']=7;$GLOBALS['f09_switch_on_notification']=true;
+$consumed=GDO_Evidence::consume_view_grant('fixture-private-token',7,'view');
+verdict(is_wp_error($consumed) && $wpdb->rolled_back>=1,
+ 'reviewer actor switching during private access notification aborts grant consumption');
+$GLOBALS['f09_review_actor']=7;$GLOBALS['f09_switch_on_notification']=false;
+$GLOBALS['f09_switch_on_process']=true;
+$consumed=GDO_Evidence::consume_view_grant('fixture-private-token',7,'view');
+verdict(is_wp_error($consumed),
+ 'reviewer actor switching during post-commit notification never receives private record');
+$GLOBALS['f09_review_actor']=7;$GLOBALS['f09_switch_on_process']=false;
+$consumed=GDO_Evidence::consume_view_grant('fixture-private-token',7,'view');
+verdict(is_array($consumed) && ($consumed['record']->id??0)===33,
+ 'unchanged reviewer can consume grant with current step-up and case relation');
+echo "V12.3 private evidence grant actor binding: 7 PASS, 0 FAIL\n";
