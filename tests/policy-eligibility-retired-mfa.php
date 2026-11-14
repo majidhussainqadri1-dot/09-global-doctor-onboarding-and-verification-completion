@@ -9,6 +9,9 @@ define('ABSPATH', __DIR__.'/');
 function absint($v){ return abs((int)$v); }
 function sanitize_key($v){ return preg_replace('/[^a-z0-9_-]/','',strtolower((string)$v)); }
 function wp_generate_uuid4(){ return '123e4567-e89b-42d3-a456-426614174000'; }
+// Existing MFA test models the authenticated applicant, not an anonymous caller.
+function get_current_user_id(){ return 7; }
+function is_user_logged_in(){ return true; }
 function apply_filters($hook,$value){ return $value; }
 function wp_strip_all_tags($v){ return strip_tags((string)$v); }
 function __($v,$d=''){return $v;}

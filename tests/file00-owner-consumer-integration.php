@@ -16,9 +16,18 @@ function sanitize_key($x){return preg_replace('/[^a-z0-9_\-]/','',strtolower((st
 function wp_generate_uuid4(){return '123e4567-e89b-42d3-a456-426614174000';}
 function __($x,$d=''){return $x;}
 function is_wp_error($x){return $x instanceof WP_Error;}
-function apply_filters($h,$x,...$y){return $x;}
+$GLOBALS['gdo_actor_switch_during_policy'] = false;
+function apply_filters($h,$x,...$y){
+    if ('smc_file09_intake_narrow' === $h && !empty($GLOBALS['gdo_actor_switch_during_policy'])) {
+        $GLOBALS['gdo_intake_actor'] = 8;
+    }
+    return $x;
+}
 function smc_age_from_dob($x){return $x==='2010-01-01'?16:30;}
 function get_userdata($x){return (int)$x===7?(object)array('ID'=>7):false;}
+$GLOBALS['gdo_intake_actor'] = 7;
+function get_current_user_id(){return (int)$GLOBALS['gdo_intake_actor'];}
+function is_user_logged_in(){return get_current_user_id() > 0;}
 function smc_application($x){return (int)$x===7?$GLOBALS['app']:false;}
 class WP_Error{public function __construct($code='',$message=''){}}
 class SMC_Security{public static function decrypt($x,$p,$ctx){return $x;}}
@@ -72,6 +81,21 @@ ok(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'File09 consumer a
 $policy=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
 ok(!empty($policy['eligible']),'File09 onboarding policy admits exact owner assertion');
 ok(SMC_CF01_Contract::$clinical_calls===0,'legacy File00 clinical identity link never invoked for professional-intake application');
+$GLOBALS['gdo_intake_actor']=0;
+ok((SMC_File09_Intake_Contract::assertion(7,array('action'=>'doctor_verification_intake','purpose'=>'professional_credential_application','jurisdiction'=>'PK'))['result']??'')==='allow','read-only public revalidation can inspect current File00 doctor prerequisite');
+ok(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'File09 public status may revalidate approved doctor subject');
+ok(empty(GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'))['eligible']),'anonymous caller cannot start or inspect private doctor application eligibility');
+$GLOBALS['gdo_intake_actor']=8;
+ok((SMC_File09_Intake_Contract::assertion(7,array('action'=>'doctor_verification_intake','purpose'=>'professional_credential_application','jurisdiction'=>'PK'))['result']??'')==='allow','authorized reviewer can read subject prerequisite without inheriting applicant role');
+ok(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'File09 reviewer rechecks other subject without requiring applicant session');
+ok(empty(GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'))['eligible']),'foreign actor cannot invoke applicant-only eligibility');
+$GLOBALS['gdo_intake_actor']=7;
+ok(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'matched logged-in applicant still admitted for intake only');
+$GLOBALS['gdo_actor_switch_during_policy']=true;
+ok(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'read-only subject revalidation remains stable across caller switch');
+$GLOBALS['gdo_actor_switch_during_policy']=false;
+$GLOBALS['gdo_intake_actor']=7;
+ok(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'File09 public/reviewer eligibility remains subject-bound regardless current viewer');
 $GLOBALS['grants'][1]['status']='suspended';
 ok(!GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'owner doctor role suspension denies');
 $GLOBALS['grants'][1]['status']='pending';
