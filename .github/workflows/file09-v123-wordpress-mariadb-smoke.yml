@@ -1,0 +1,119 @@
+name: File09 V12.3 WordPress MariaDB Source Integration Smoke
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  wordpress-mariadb:
+    name: File00 + File02 + File09 / WordPress 7.0.1 / MariaDB 11.4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: wordpress
+          MARIADB_USER: wordpress
+          MARIADB_PASSWORD: wordpress
+          MARIADB_ROOT_PASSWORD: root
+        ports: [3306:3306]
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      FILE09_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      FILE00_SHA: 1fad051c86d530d558be3eb1890d3c6e67bce6e8
+      FILE02_SHA: 224c39bcb8c28f77504c7348dbad41226753c7e8
+    steps:
+      - name: Checkout exact File09 candidate
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout immutable File00
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: majidhussainqadri1-dot/00-sabri-membership-core
+          ref: 1fad051c86d530d558be3eb1890d3c6e67bce6e8
+          path: .external/file00
+          persist-credentials: false
+      - name: Checkout immutable File02
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: majidhussainqadri1-dot/02-sabri-authentication
+          ref: 224c39bcb8c28f77504c7348dbad41226753c7e8
+          path: .external/file02
+          persist-credentials: false
+      - name: Exact-source parity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FILE09_SHA"
+          test "$(git -C .external/file00 rev-parse HEAD)" = "$FILE00_SHA"
+          test "$(git -C .external/file02 rev-parse HEAD)" = "$FILE02_SHA"
+          (cd .external/file00/source/sabri-membership-core && sha256sum -c MANIFEST.sha256)
+      - name: PHP 8.3 WordPress extensions
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
+        with:
+          php-version: '8.3'
+          extensions: mysqli,openssl,mbstring,fileinfo,gd,dom,curl,zip
+          coverage: none
+          tools: none
+      - name: Install WordPress 7.0.1 and temporary test keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar -o /tmp/wp-cli.phar
+          php /tmp/wp-cli.phar core download --version=7.0.1 --path=/tmp/wordpress --force
+          php /tmp/wp-cli.phar config create --path=/tmp/wordpress --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=127.0.0.1:3306 --skip-check
+          php /tmp/wp-cli.phar config set SMC_MASTER_KEY 'base64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=' --type=constant --path=/tmp/wordpress
+          php /tmp/wp-cli.phar config set SMC_MASTER_KEY_ID 'file09-v123-ci' --type=constant --path=/tmp/wordpress
+          php /tmp/wp-cli.phar config set SA_MASTER_KEY 'file02-file09-only-ephemeral-ci-test-master-key' --type=constant --path=/tmp/wordpress
+          php /tmp/wp-cli.phar config set GDO_KEYRING '{"active":"ci-v1","keys":{"ci-v1":"MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="}}' --type=constant --path=/tmp/wordpress
+          php /tmp/wp-cli.phar config set GDO_CLAIM_SIGNING_KEY 'file09-v123-only-ephemeral-ci-test-signing-key-2026' --type=constant --path=/tmp/wordpress
+          php /tmp/wp-cli.phar config set GDO_PRIVATE_STORAGE_DIR '/tmp/file09-v123-private' --type=constant --path=/tmp/wordpress
+          php /tmp/wp-cli.phar config set WP_ENVIRONMENT_TYPE 'staging' --type=constant --path=/tmp/wordpress
+          php /tmp/wp-cli.phar core install --path=/tmp/wordpress --url=http://file09-smoke.local --title='File09 Ephemeral CI' --admin_user=founder --admin_password='Ephemeral-NonProduction-CI!2026' --admin_email=founder@example.test --skip-email
+      - name: Activate exact File00 and File02 dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -R .external/file00/source/sabri-membership-core /tmp/wordpress/wp-content/plugins/sabri-membership-core
+          php /tmp/wp-cli.phar plugin activate sabri-membership-core --path=/tmp/wordpress
+          mkdir -p /tmp/wordpress/wp-content/plugins/02-sabri-authentication
+          rsync -a --exclude=.git .external/file02/ /tmp/wordpress/wp-content/plugins/02-sabri-authentication/
+          php /tmp/wp-cli.phar plugin activate 02-sabri-authentication --path=/tmp/wordpress
+      - name: Build deterministic File09 RC6 package and activate it
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/build-release.py --output /tmp/file09-dist
+          python3 tools/verify-release.py /tmp/file09-dist/global-doctor-onboarding-09-1.3.0-RC6.zip RELEASE-FILES.txt
+          unzip -q /tmp/file09-dist/global-doctor-onboarding-09-1.3.0-RC6.zip -d /tmp/wordpress/wp-content/plugins/
+          test -f /tmp/wordpress/wp-content/plugins/global-doctor-onboarding-09/global-doctor-onboarding.php
+          php /tmp/wp-cli.phar plugin activate global-doctor-onboarding-09 --path=/tmp/wordpress
+      - name: Real WordPress and MariaDB source smoke only
+        shell: bash
+        run: |
+          set -euo pipefail
+          php /tmp/wp-cli.phar eval '
+            global $wpdb;
+            if(!is_plugin_active("global-doctor-onboarding-09/global-doctor-onboarding.php")){fwrite(STDERR,"File09 inactive\n");exit(40);}
+            if((int)get_option("gdo_schema_version",0)!==6){fwrite(STDERR,"File09 schema not 6\n");exit(41);}
+            if((int)get_option("gdo_advanced_trust_schema",0)!==2){fwrite(STDERR,"File09 advanced schema not 2\n");exit(42);}
+            foreach(array("applications","evidence","credential_checks","trusted_issuers","jurisdiction_rules","reviewer_conflicts","professional_history","verification_passports","monitor_state","upload_sessions") as $name){
+              $table=$wpdb->prefix."gdo_".$name;
+              if($table!==$wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s",$table))){fwrite(STDERR,"Missing table: ".$name."\n");exit(43);}}
+            foreach(array("gdo_daily_retention","gdo_notification_outbox","gdo_trust_continuous_monitor") as $name){
+              if(!wp_next_scheduled($name)){fwrite(STDERR,"Missing cron: ".$name."\n");exit(44);}}
+            if(!GDO_Crypto::available() || is_wp_error(GDO_Storage::health())){fwrite(STDERR,"Private keys or storage unavailable\n");exit(45);}
+            $other=get_current_user_id()+1000;
+            if(!is_wp_error(GDO_Advanced_Trust::command_center($other))){fwrite(STDERR,"Foreign private command center allowed\n");exit(46);}
+            $masked=GDO_API::application_edit_model((object)array("user_id"=>$other,"id"=>42,"profile_json"=>"{\"display_name\":\"PRIVATE\"}"),$other);
+            if(!empty($masked["profile"])){fwrite(STDERR,"Foreign applicant private profile returned\n");exit(47);}
+            echo "PASS File09 actual WordPress+MariaDB installation/schema/negative actor smoke\n";
+          ' --path=/tmp/wordpress
+          php /tmp/wp-cli.phar plugin status global-doctor-onboarding-09 --path=/tmp/wordpress | grep -Fq 'Status: Active'
+      - name: Non-production limitation
+        run: echo 'Source CI only; Hostinger staging 0/32, live deployment unverified.'
