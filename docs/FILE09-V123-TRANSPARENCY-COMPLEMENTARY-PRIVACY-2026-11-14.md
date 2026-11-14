@@ -24,6 +24,8 @@ Date: 2026-11-14. **Scope:** source code and deterministic PHP fixtures only; no
 3. Large non-sensitive nested and complementary cells remain visible.
 4. Original direct small-cell masking remains intact.
 5. Primary minimum-cohort suppression remains intact.
+6. Configurable `minimum_cell=20` masks a complement of 15 even when the nested value 65 is not directly small.
+7. A complementary count exactly at `minimum_cell=20` does not trigger over-suppression; normal aggregate disclosure remains available.
 
 ## Minimal correction and boundaries
 After the original direct small-cell suppression, evaluate only approved parent→subset pairs and suppress the nested public count if `0 < parent - subset < minimum_cell`; mark it in `suppressed_fields`. Do not change the canonical private source aggregate, storage schema, privilege/role, retention, donor policy, or dashboard design.
@@ -46,3 +48,8 @@ No new external dataset, users, live exposure, code installation or database mig
 | Staging/Live verified resolutions | 0 |
 
 Status: **SOURCE FIX PROVED; RELEASE HOLD**. Source code has not been merged to main or deployed.
+
+## Latest strengthened-regression source result
+- Extended `tests/v123-transparency-inference.php` with boundary tests at configured `minimum_cell=20` (7 total PHP fixture assertions), exact SHA `48fd9526b46c1ee37a3f69fc26ef83836b4b41d6`.
+- GitHub run `43614221036`: **5/5 jobs PASS** across PHP 7.4, PHP 8.3, actual File00 owner+File09 consumer source fixtures and deterministic release package.
+- This is supplemental source proof only; the earlier RED run `43612179057` and GREEN correction commit `1d1d4882156fcd9ac8809eb007816b05780d4bdc` remain immutable historical evidence. Staging and Live stay unverified.
