@@ -22,7 +22,7 @@ class SMC_Contracts{public static $base=array();public static function assertion
 class SMC_CF01_Contract{public static $legacy_calls=0;public static function membership_assertion($u,$c){++self::$legacy_calls;return array('result'=>'deny');}}
 class SMC_File09_Intake_Contract{public static $assertion=array();public static function assertion($u,$c){return self::$assertion;}}
 class SA_Professional_Reauthentication{public static function verify_and_record($u,$p,$o,$c){return array();}public static function assertion($u,$s){return array();}}
-class GDO_Application{public static function latest_for_user($u){return null;}}
+class GDO_Application{public static $switch_actor_on_lookup=false;public static function latest_for_user($u){if(self::$switch_actor_on_lookup){$GLOBALS['gdo_current_actor']=8;return (object)array('state'=>'submitted','id'=>42);}return null;}}
 $wpdb=(object)array('last_error'=>'');
 require dirname(__DIR__).'/includes/class-gdo-membership-adapter.php';
 require dirname(__DIR__).'/includes/class-gdo-policy.php';
@@ -66,6 +66,11 @@ $GLOBALS['gdo_current_actor']=8;
 ensure(empty(GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'))['eligible']),'different signed-in actor cannot evaluate the applicant-only workflow');
 $GLOBALS['gdo_current_actor']=7;
 ensure(!empty(GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'))['eligible']),'restored exact applicant actor remains eligible');
+GDO_Application::$switch_actor_on_lookup=true;
+$switched=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
+ensure(empty($switched['eligible']) && !isset($switched['application_id']) && ($switched['reason_code']??'')==='applicant_actor_changed','actor switch during application lookup cannot disclose private application identifier');
+GDO_Application::$switch_actor_on_lookup=false;
+$GLOBALS['gdo_current_actor']=7;
 $multi=$base; $multi['membership_type']='member';SMC_Contracts::$base=$multi;
 ensure(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'approved ordinary member may enter intake with a separately pending doctor role');
 $multi_result=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
