@@ -146,7 +146,7 @@ jobs:
         php: ['7.4', '8.3']
     env:
       FILE09_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      FILE00_SHA: 919dea87f57f99c3d1947f7b8ded97f130299ef4
+      FILE00_SHA: 8b49210c0ae8e8b2dff86be71044b401d0bd0fda
     steps:
       - name: Checkout exact File09 consumer
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
