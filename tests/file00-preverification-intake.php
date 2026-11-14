@@ -13,6 +13,9 @@ function wp_generate_uuid4(){return '123e4567-e89b-42d3-a456-426614174000';}
 function __($s,$d=''){return $s;}
 function is_wp_error($v){return $v instanceof WP_Error;}
 function apply_filters($h,$v,...$args){return $v;}
+$GLOBALS['gdo_current_actor']=7;
+function get_current_user_id(){return (int)$GLOBALS['gdo_current_actor'];}
+function is_user_logged_in(){return get_current_user_id()>0;}
 function wp_strip_all_tags($v){return strip_tags((string)$v);}
 class WP_Error{public function __construct($code='',$msg=''){} }
 class SMC_Contracts{public static $base=array();public static function assertions($u){return self::$base;}}
@@ -57,6 +60,12 @@ ensure(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'unverified ap
 $r=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
 ensure(($r['eligible']??false)===true && ($r['reason_code']??'')==='eligible','File09 application policy recognizes limited File00 intake contract');
 ensure(SMC_CF01_Contract::$legacy_calls===0,'no clinical identity link was queried to admit File09 intake');
+$GLOBALS['gdo_current_actor']=0;
+ensure(empty(GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'))['eligible']),'anonymous caller cannot evaluate another person's applicant-only eligibility');
+$GLOBALS['gdo_current_actor']=8;
+ensure(empty(GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'))['eligible']),'different signed-in actor cannot evaluate the applicant-only workflow');
+$GLOBALS['gdo_current_actor']=7;
+ensure(!empty(GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'))['eligible']),'restored exact applicant actor remains eligible');
 $multi=$base; $multi['membership_type']='member';SMC_Contracts::$base=$multi;
 ensure(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'approved ordinary member may enter intake with a separately pending doctor role');
 $multi_result=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
