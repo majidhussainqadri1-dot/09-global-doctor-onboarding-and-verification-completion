@@ -52,6 +52,7 @@ jobs:
           php tests/file00-preverification-intake.php
           php tests/v123-frontend-actor-switch.php
           php tests/v123-private-api-actor-switch.php
+          php tests/v123-draft-mutation-actor.php
           php tests/v123-application-draft-actor.php
           php tests/policy-runtime.php
           php tests/policy-eligibility-retired-mfa.php
