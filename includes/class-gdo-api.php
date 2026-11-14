@@ -52,12 +52,30 @@ final class GDO_API {
 	}
 
 
+
+	private static function current_applicant_actor( $user_id ) {
+		return absint( $user_id ) > 0
+			&& function_exists( 'is_user_logged_in' )
+			&& function_exists( 'get_current_user_id' )
+			&& is_user_logged_in()
+			&& absint( get_current_user_id() ) === absint( $user_id );
+	}
+
 	public static function application_edit_model( $app, $user_id ) {
-		if ( ! $app || absint( $app->user_id ) !== absint( $user_id ) ) {
-			return array( 'state'=>'not_applied', 'row_version'=>0, 'profile'=>array(), 'completeness'=>array() );
+		// Private applicant DTO, not the separate on-behalf public verification projection.
+		$masked = array( 'state'=>'not_applied', 'row_version'=>0, 'profile'=>array(), 'completeness'=>array() );
+		if ( ! $app || absint( $app->user_id ) !== absint( $user_id )
+			|| ! self::current_applicant_actor( $user_id ) ) {
+			return $masked;
 		}
 		$profile = json_decode( $app->profile_json, true );
 		$allowed_states = array( 'draft','more_information' );
+		// Completeness can execute companion/WordPress hooks that switch actors.
+		// Recheck before returning previously retrieved private profile or row IDs.
+		$completeness = GDO_Application::completeness( $app );
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			return $masked;
+		}
 		return array(
 			'application_id'=>absint( $app->id ),
 			'application_uuid'=>(string) $app->application_uuid,
@@ -69,7 +87,7 @@ final class GDO_API {
 			'application_type'=>(string) $app->application_type,
 			'preferred_language'=>(string) $app->preferred_language,
 			'profile'=>is_array( $profile ) ? array_intersect_key( $profile, array_flip( GDO_Application::fields() ) ) : array(),
-			'completeness'=>GDO_Application::completeness( $app ),
+			'completeness'=>$completeness,
 			'draft_expires_at'=>(string) $app->draft_expires_at,
 			'more_info_due_at'=>(string) $app->more_info_due_at,
 			'updated_at'=>(string) $app->updated_at,
