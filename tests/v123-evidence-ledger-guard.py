@@ -26,9 +26,9 @@ staging_ids = set(map(int, re.findall(r"^(\d+)\.\s+\*\*", staging, re.M)))
 matrix_ids = list(map(int, re.findall(r"^\|\s*S09-(\d{2})\s*\|", matrix, re.M)))
 assert staging_ids == set(range(1, 33)), f"staging contract gate identity changed: {staging_ids}"
 assert matrix_ids == list(range(1, 33)), f"ledger requires exactly 32 ordered stage gates: {matrix_ids}"
-receipt_ids = list(map(int, re.findall(r"^\\|\\s*S09-(\\d{2})\\s*\\|", receipts, re.M)))
+receipt_ids = list(map(int, re.findall(r"^\|\s*S09-(\d{2})\s*\|", receipts, re.M)))
 assert receipt_ids == list(range(1, 33)), "stage evidence receipts are missing/duplicated or out of order"
-assert all("NOT EXECUTED" in line for line in receipts.splitlines() if re.match(r"^\\|\\s*S09-\\d{2}\\s*\\|", line)), "receipt cannot preclaim acceptance"
+assert all("NOT EXECUTED" in line for line in receipts.splitlines() if re.match(r"^\|\s*S09-\d{2}\s*\|", line)), "receipt cannot preclaim acceptance"
 assert "NOT EXECUTED / NOT ACCEPTED" in staging, "staging status changed: re-audit required"
 assert all("NOT EXECUTED" in line for line in matrix.splitlines() if re.match(r"^\|\s*S09-\d{2}\s*\|", line)), "do not assert unperformed stage checks as PASS"
 assert '"staging_accepted": false' in release, "release lock has changed: independently verify acceptance evidence"
