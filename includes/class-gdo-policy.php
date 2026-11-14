@@ -70,6 +70,13 @@ final class GDO_Policy {
 			'trace_id'       => wp_generate_uuid4(),
 			'jurisdiction'   => self::normalize_jurisdiction( isset( $context['jurisdiction'] ) ? $context['jurisdiction'] : '' ),
 		);
+		// Applicant-only eligibility is not an on-behalf reviewer or public
+		// status query. File00's read-only subject prerequisites remain usable
+		// by duly authorised finalizers and public verified-status projections.
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			$result['reason_code'] = 'applicant_actor_mismatch';
+			return $result;
+		}
 		if ( ! $user_id || ! GDO_Membership_Adapter::intake_available() ) {
 			return $result;
 		}
@@ -120,6 +127,19 @@ final class GDO_Policy {
 		$result['subject_uuid'] = isset( $subject['subject']['platform_uuid'] ) ? (string) $subject['subject']['platform_uuid'] : '';
 		$result['membership_record_version'] = isset( $subject['subject']['record_version'] ) ? absint( $subject['subject']['record_version'] ) : 0;
 		$filtered = apply_filters( 'gdo_eligibility_result', $result, $user_id, $context );
+		// A filter or other downstream code can change the active principal;
+		// never return the applicant's private UUID/row version to that actor.
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			return array(
+				'eligible' => false,
+				'reason_code' => 'applicant_actor_changed',
+				'policy_version' => self::VERSION,
+				'checked_at' => gmdate( 'c' ),
+				'trace_id' => wp_generate_uuid4(),
+				'jurisdiction' => $result['jurisdiction'],
+			);
+		}
+
 		if ( ! is_array( $filtered ) ) {
 			return $result;
 		}
@@ -128,6 +148,15 @@ final class GDO_Policy {
 			$result['reason_code'] = isset( $filtered['reason_code'] ) ? sanitize_key( $filtered['reason_code'] ) : 'eligibility_narrowed';
 		}
 		return $result;
+	}
+
+	/** Only a current signed-in applicant may initiate a private application. */
+	private static function current_applicant_actor( $user_id ) {
+		return absint( $user_id ) > 0
+			&& function_exists( 'is_user_logged_in' )
+			&& function_exists( 'get_current_user_id' )
+			&& is_user_logged_in()
+			&& absint( get_current_user_id() ) === absint( $user_id );
 	}
 
 	public static function normalize_date( $value ) {
