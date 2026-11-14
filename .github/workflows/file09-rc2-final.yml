@@ -295,6 +295,8 @@ jobs:
           php /tmp/wp-cli.phar plugin activate 02-sabri-authentication --path=/tmp/wordpress
       - name: Build deterministic File09 RC6 package and activate it
         shell: bash
+        env:
+          GITHUB_SHA: ${{ env.FILE09_SHA }}
         run: |
           set -euo pipefail
           python3 tools/build-release.py --output /tmp/file09-dist
