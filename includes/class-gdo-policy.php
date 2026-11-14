@@ -108,6 +108,14 @@ final class GDO_Policy {
 		global $wpdb;
 		$wpdb->last_error = '';
 		$latest = GDO_Application::latest_for_user( $user_id );
+		// Subject record lookups may run hooks and change the active actor. Do
+		// not reveal even an existing private application ID on early-return
+		// branches if the current caller has changed since the first gate.
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			$result['reason_code'] = 'applicant_actor_changed';
+			return $result;
+		}
+
 		if ( ! empty( $wpdb->last_error ) ) {
 			$result['reason_code'] = 'database_unavailable';
 			return $result;
