@@ -11,7 +11,13 @@ define('DAY_IN_SECONDS', 86400);
 function absint($value) { return abs((int) $value); }
 function __($message, $domain = '') { return $message; }
 function is_wp_error($value) { return $value instanceof WP_Error; }
-function apply_filters($hook, $value, ...$args) { return $value; }
+$GLOBALS['v123_public_min_cell_override'] = null;
+function apply_filters($hook, $value, ...$args) {
+    if ('gdo_public_transparency_minimum_cell' === $hook && null !== $GLOBALS['v123_public_min_cell_override']) {
+        return (int) $GLOBALS['v123_public_min_cell_override'];
+    }
+    return $value;
+}
 class WP_Error {
     public function __construct($code = '', $message = '', $data = null) {}
 }
@@ -78,4 +84,14 @@ ok(array_key_exists('verified', $d) && $d['verified'] === null,
 $e = public_counts(array('decisions' => 19, 'verified' => 10));
 ok(($e['suppressed'] ?? false) === true && !array_key_exists('verified', $e),
     'low-count primary cohort remains fully suppressed');
+// The configured threshold is dynamic: a larger minimum remains enforced.
+$GLOBALS['v123_public_min_cell_override'] = 20;
+$f = public_counts(array('decisions' => 80, 'verified' => 65));
+ok(array_key_exists('verified', $f) && $f['verified'] === null
+    && in_array('verified', $f['suppressed_fields'] ?? array(), true),
+    'configured threshold 20 hides complementary nonverified cohort of 15');
+$g = public_counts(array('decisions' => 80, 'verified' => 60));
+ok(($g['verified'] ?? null) === 60 && empty($g['suppressed_fields']),
+    'complement equal to threshold 20 remains visible without small-cell inference');
+$GLOBALS['v123_public_min_cell_override'] = null;
 echo "File09 V12.3 public transparency complement test: {$passes} PASS / 0 FAIL\n";
