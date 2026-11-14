@@ -1376,6 +1376,22 @@ final class GDO_Advanced_Trust {
             $value=absint($snapshot[$field]);
             if($value>0&&$value<$minimum_cell){$snapshot[$field]=null;$suppressed_fields[]=$field;}
         }
+        // Direct small-cell suppression is insufficient when a parent total
+        // and its nested subset disclose a small complement by subtraction.
+        // File09 V12.3 F09-AT-24: avoid publishing those nested counts.
+        foreach(array(
+            array('decisions','verified'),
+            array('appeals_resolved','appeals_overturned'),
+        ) as $pair){
+            $parent=absint($snapshot[$pair[0]]);
+            $nested=absint($snapshot[$pair[1]]);
+            $complement=$parent-$nested;
+            if($nested<=$parent && $complement>0 && $complement<$minimum_cell
+                && null!==$snapshot[$pair[1]]){
+                $snapshot[$pair[1]]=null;
+                $suppressed_fields[]=$pair[1];
+            }
+        }
         $snapshot['suppressed']=false;
         $snapshot['minimum_cohort']=$minimum;
         $snapshot['minimum_cell']=$minimum_cell;
