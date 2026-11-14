@@ -328,7 +328,19 @@ final class GDO_Application {
 		);
 	}
 
+	private static function current_applicant_actor( $user_id ) {
+		return absint( $user_id ) > 0
+			&& function_exists( 'is_user_logged_in' )
+			&& function_exists( 'get_current_user_id' )
+			&& is_user_logged_in()
+			&& absint( get_current_user_id() ) === absint( $user_id );
+	}
+
 	public static function record_consent( $application_id, $user_id, $accepted, $manage_transaction = true ) {
+		// Consent is a private applicant command, not a reviewer/public lookup.
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			return new WP_Error( 'gdo_consent_actor_mismatch', __( 'Only the active applicant may record private credential-processing consent.', 'global-doctor-onboarding' ) );
+		}
 		if ( ! GDO_Operations::mutation_allowed() ) { return new WP_Error( 'gdo_safe_mode', __( 'Doctor verification changes are temporarily unavailable.', 'global-doctor-onboarding' ) ); }
 		global $wpdb;
 		$application_id = absint( $application_id );
@@ -354,6 +366,10 @@ final class GDO_Application {
 			return new WP_Error( 'gdo_consent_access', __( 'Consent cannot be recorded for this application.', 'global-doctor-onboarding' ) );
 		}
 
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_consent_actor_changed', __( 'The active applicant changed while consent eligibility was checked.', 'global-doctor-onboarding' ) );
+		}
 		$text = self::consent_text();
 		$wording_hash = hash( 'sha256', $text['wording'] );
 		$table = GDO_Schema::table( 'consents' );
@@ -373,6 +389,10 @@ final class GDO_Application {
 			return new WP_Error( 'gdo_consent_history_conflict', __( 'Existing consent evidence cannot be overwritten. Reload or begin a new application if consent terms changed.', 'global-doctor-onboarding' ) );
 		}
 
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_consent_actor_changed', __( 'The active applicant changed before consent evidence was written.', 'global-doctor-onboarding' ) );
+		}
 		if ( ! $existing ) {
 			$accepted_at = current_time( 'mysql', true );
 			$evidence_hash = hash( 'sha256', $application_id . '|' . $user_id . '|' . $text['version'] . '|' . $accepted_at . '|' . $wording_hash );
@@ -387,6 +407,10 @@ final class GDO_Application {
 			}
 		}
 
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			if ( $manage_transaction ) { $wpdb->query( 'ROLLBACK' ); }
+			return new WP_Error( 'gdo_consent_actor_changed', __( 'The active applicant changed before consent was linked.', 'global-doctor-onboarding' ) );
+		}
 		$updated = $wpdb->query( $wpdb->prepare(
 			"UPDATE " . GDO_Schema::table( 'applications' ) . " SET consent_version=%s,terms_version=%s,row_version=row_version+1,updated_at=%s WHERE id=%d AND user_id=%d AND state IN ('draft','more_information') AND row_version=%d",
 			$text['version'],
@@ -448,6 +472,9 @@ final class GDO_Application {
 		$application_id = absint( $application_id );
 		$user_id = absint( $user_id );
 		$expected_row_version = absint( $expected_row_version );
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			return new WP_Error( 'gdo_submit_actor_mismatch', __( 'Only the active applicant may submit this private application.', 'global-doctor-onboarding' ) );
+		}
 		if ( ! GDO_Operations::mutation_allowed() || ! $application_id || ! $user_id ) {
 			return new WP_Error( 'gdo_submit_access', __( 'The application cannot be submitted.', 'global-doctor-onboarding' ) );
 		}
@@ -470,6 +497,10 @@ final class GDO_Application {
 			return new WP_Error( 'gdo_submit_access', __( 'The application cannot be submitted.', 'global-doctor-onboarding' ) );
 		}
 
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'gdo_submit_actor_changed', __( 'The active applicant changed during submission authorization.', 'global-doctor-onboarding' ) );
+		}
 		$profile = json_decode( $app->profile_json, true );
 		$profile = is_array( $profile ) ? $profile : array();
 		$valid = self::validate_profile( $profile, false, $app->jurisdiction, $app->application_type );
@@ -483,6 +514,10 @@ final class GDO_Application {
 			return new WP_Error( 'gdo_submit_incomplete', __( 'Complete all profile, declaration, consent, and current credential requirements before submission.', 'global-doctor-onboarding' ) );
 		}
 
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'gdo_submit_actor_changed', __( 'The applicant session changed before submission evidence was read.', 'global-doctor-onboarding' ) );
+		}
 		// Evidence is read only after the application row has been locked.
 		// stage_upload() now takes the same row lock before replacing evidence, so
 		// the immutable submission hash and the credential set cannot diverge.
@@ -511,6 +546,10 @@ final class GDO_Application {
 		);
 		$submission_hash = hash( 'sha256', GDO_Claims::canonical_json( $submission ) );
 
+		if ( ! self::current_applicant_actor( $user_id ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'gdo_submit_actor_changed', __( 'The applicant session changed before immutable submission processing.', 'global-doctor-onboarding' ) );
+		}
 		// Preserve request idempotency after a successful submit without allowing
 		// a different snapshot to masquerade as the same submission.
 		if ( in_array( $app->state, array( 'submitted','resubmitted' ), true )
