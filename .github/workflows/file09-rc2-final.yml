@@ -370,5 +370,51 @@ jobs:
               if(!wp_next_scheduled($hook)){fwrite(STDERR,"Cron not restored: ".$hook."\n");exit(65);}}
             echo "PASS File09 deactivation/reactivation, canonical managed page and required cron\n";
           ' --path=/tmp/wordpress
+      - name: Real installed WordPress applicant REST and private DB row isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          php /tmp/wp-cli.phar eval '
+            global $wpdb;
+            $a=get_user_by("login","file09-applicant-ci");
+            $f=get_user_by("login","file09-foreign-ci");
+            if(!$a||!$f){fwrite(STDERR,"Real actor fixture users not found\n");exit(70);}
+            $applicant=absint($a->ID);$foreign=absint($f->ID);
+            $profile=array("display_name"=>"PRIVATE_CI_APPLICANT","city"=>"CI Fixture Only");
+            $raw=wp_json_encode($profile);
+            $now=current_time("mysql",true);
+            $insert=$wpdb->insert(GDO_Schema::table("applications"),array(
+              "application_uuid"=>wp_generate_uuid4(),
+              "user_id"=>$applicant,"version"=>1,"application_type"=>"homeopathic_doctor",
+              "jurisdiction"=>"PK","preferred_language"=>"en-US","state"=>"draft",
+              "row_version"=>1,"profile_json"=>$raw,
+              "profile_fingerprint"=>hash("sha256",$raw),
+              "created_at"=>$now,"updated_at"=>$now
+            ));
+            if(1!==$insert){fwrite(STDERR,"Real private application fixture could not be persisted: ".$wpdb->last_error."\n");exit(71);}
+            $id=absint($wpdb->insert_id);
+            $app=GDO_Application::get($id);
+            if(!$app||absint($app->user_id)!==$applicant){fwrite(STDERR,"Private DB row not readable\n");exit(72);}
+            wp_set_current_user($applicant);
+            $own=GDO_API::application_edit_model($app,$applicant);
+            if(($own["application_id"]??0)!==$id||($own["profile"]["display_name"]??"")!=="PRIVATE_CI_APPLICANT"){fwrite(STDERR,"Correct applicant private REST edit model not available\n");exit(73);}
+            $owncc=GDO_Advanced_Trust::command_center($applicant);
+            if(!is_array($owncc)||($owncc["application"]["id"]??0)!==$id){fwrite(STDERR,"Applicant private Command Center does not read actual DB fixture\n");exit(74);}
+            $req=new WP_REST_Request("GET","/sabri/file09/v1/application");
+            $resp=rest_do_request($req);$body=$resp->get_data();
+            if($resp->get_status()!==200||($body["profile"]["display_name"]??"")!=="PRIVATE_CI_APPLICANT"){fwrite(STDERR,"Actual WordPress REST applicant data unavailable\n");exit(75);}
+            wp_set_current_user($foreign);
+            $mask=GDO_API::application_edit_model($app,$applicant);
+            if(!empty($mask["profile"])||isset($mask["application_id"])){fwrite(STDERR,"Foreign real WP actor received private edit DTO\n");exit(76);}
+            if(!is_wp_error(GDO_Advanced_Trust::command_center($applicant))){fwrite(STDERR,"Foreign real WP actor received private command center\n");exit(77);}
+            $save=GDO_Application::save_draft($id,$applicant,array("display_name"=>"UNAUTHORIZED_CHANGE"),1,true);
+            if(!is_wp_error($save)){fwrite(STDERR,"Cross-actor write was admitted on real MariaDB\n");exit(78);}
+            $r=rest_do_request(new WP_REST_Request("GET","/sabri/file09/v1/application"));
+            $b=$r->get_data();if(($b["profile"]["display_name"]??"")==="PRIVATE_CI_APPLICANT"){fwrite(STDERR,"Foreign REST read leaked applicant data\n");exit(79);}
+            wp_set_current_user(0);
+            $r=rest_do_request(new WP_REST_Request("GET","/sabri/file09/v1/application"));
+            if($r->get_status()<400){fwrite(STDERR,"Guest private REST permission did not fail closed\n");exit(80);}
+            echo "PASS live WordPress engine+MariaDB synthetic applicant DTO/REST/Command Center and negative actor isolation\n";
+          ' --path=/tmp/wordpress
       - name: Non-production limitation
         run: echo 'Source CI only; Hostinger staging 0/32, live deployment unverified.'
