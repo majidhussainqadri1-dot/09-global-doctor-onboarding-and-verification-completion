@@ -12,7 +12,8 @@ function sanitize_key($v){return preg_replace('/[^a-z0-9_-]/','',strtolower((str
 function wp_generate_uuid4(){return '123e4567-e89b-42d3-a456-426614174000';}
 function __($s,$d=''){return $s;}
 function is_wp_error($v){return $v instanceof WP_Error;}
-function apply_filters($h,$v,...$args){return $v;}
+$GLOBALS['gdo_actor_switch_on_policy_filter']=false;
+function apply_filters($h,$v,...$args){if($h==='gdo_eligibility_result' && !empty($GLOBALS['gdo_actor_switch_on_policy_filter'])){$GLOBALS['gdo_current_actor']=8;}return $v;}
 $GLOBALS['gdo_current_actor']=7;
 function get_current_user_id(){return (int)$GLOBALS['gdo_current_actor'];}
 function is_user_logged_in(){return get_current_user_id()>0;}
@@ -70,6 +71,11 @@ GDO_Application::$switch_actor_on_lookup=true;
 $switched=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
 ensure(empty($switched['eligible']) && !isset($switched['application_id']) && ($switched['reason_code']??'')==='applicant_actor_changed','actor switch during application lookup cannot disclose private application identifier');
 GDO_Application::$switch_actor_on_lookup=false;
+$GLOBALS['gdo_current_actor']=7;
+$GLOBALS['gdo_actor_switch_on_policy_filter']=true;
+$filtered=GDO_Policy::eligibility(7,array('jurisdiction'=>'PK'));
+ensure(empty($filtered['eligible']) && !isset($filtered['subject_uuid']) && ($filtered['reason_code']??'')==='applicant_actor_changed','actor switch during final policy filter cannot expose private UUID');
+$GLOBALS['gdo_actor_switch_on_policy_filter']=false;
 $GLOBALS['gdo_current_actor']=7;
 $multi=$base; $multi['membership_type']='member';SMC_Contracts::$base=$multi;
 ensure(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'approved ordinary member may enter intake with a separately pending doctor role');
