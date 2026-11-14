@@ -57,12 +57,12 @@ function public_counts(array $data) {
 }
 // Direct cell suppression is not enough: 21 decisions - 20 verified = 1.
 $a = public_counts(array('decisions' => 21, 'verified' => 20));
-ok(is_array($a) && empty($a['suppressed']) && ($a['verified'] ?? 'hidden') === null
+ok(is_array($a) && empty($a['suppressed']) && array_key_exists('verified', $a) && $a['verified'] === null
     && in_array('verified', $a['suppressed_fields'] ?? array(), true),
     'complementary nonverified group of 1 is not recoverable from public totals');
 // Resolved appeals and overturned appeals are another nested public pair.
 $b = public_counts(array('decisions' => 100, 'verified' => 80, 'appeals_resolved' => 20, 'appeals_overturned' => 19));
-ok(is_array($b) && ($b['appeals_overturned'] ?? 'hidden') === null
+ok(is_array($b) && array_key_exists('appeals_overturned', $b) && $b['appeals_overturned'] === null
     && in_array('appeals_overturned', $b['suppressed_fields'] ?? array(), true),
     'complementary nonoverturned appeal group of 1 is suppressed');
 // Regular non-sensitive cells remain useful.
