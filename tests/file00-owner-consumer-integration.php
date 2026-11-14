@@ -16,7 +16,13 @@ function sanitize_key($x){return preg_replace('/[^a-z0-9_\-]/','',strtolower((st
 function wp_generate_uuid4(){return '123e4567-e89b-42d3-a456-426614174000';}
 function __($x,$d=''){return $x;}
 function is_wp_error($x){return $x instanceof WP_Error;}
-function apply_filters($h,$x,...$y){return $x;}
+$GLOBALS['gdo_actor_switch_during_policy'] = false;
+function apply_filters($h,$x,...$y){
+    if ('smc_file09_intake_narrow' === $h && !empty($GLOBALS['gdo_actor_switch_during_policy'])) {
+        $GLOBALS['gdo_intake_actor'] = 8;
+    }
+    return $x;
+}
 function smc_age_from_dob($x){return $x==='2010-01-01'?16:30;}
 function get_userdata($x){return (int)$x===7?(object)array('ID'=>7):false;}
 $GLOBALS['gdo_intake_actor'] = 7;
@@ -83,6 +89,11 @@ ok((SMC_File09_Intake_Contract::assertion(7,array('action'=>'doctor_verification
 ok(!GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'File09 consumer refuses different logged-in subject');
 $GLOBALS['gdo_intake_actor']=7;
 ok(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'matched logged-in applicant still admitted for intake only');
+$GLOBALS['gdo_actor_switch_during_policy']=true;
+ok(!GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'File09 cannot consume File00 allow after principal switches inside policy hook');
+$GLOBALS['gdo_actor_switch_during_policy']=false;
+$GLOBALS['gdo_intake_actor']=7;
+ok(GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'File09 re-admits only unchanged authenticated principal');
 $GLOBALS['grants'][1]['status']='suspended';
 ok(!GDO_Membership_Adapter::is_active_doctor_candidate(7,'PK'),'owner doctor role suspension denies');
 $GLOBALS['grants'][1]['status']='pending';
