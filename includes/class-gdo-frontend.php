@@ -12,6 +12,16 @@ final class GDO_Frontend {
 		add_action( 'admin_post_gdo_withdraw_application', array( $this, 'withdraw' ) );
 	}
 
+	/** Never render an applicant's private state after the authenticated actor changes. */
+	private function current_applicant_actor( $user_id ) {
+		return absint( $user_id ) > 0 && is_user_logged_in()
+			&& absint( get_current_user_id() ) === absint( $user_id );
+	}
+
+	private function changed_actor_notice() {
+		return $this->notice( __( 'Your sign-in session changed. Please sign in again before viewing private doctor application information.', 'global-doctor-onboarding' ), 'warning' );
+	}
+
 	private function notice( $message, $type = 'info' ) {
 		return '<div class="gdo-notice gdo-notice-' . esc_attr( $type ) . '" role="status">' . esc_html( $message ) . '</div>';
 	}
@@ -36,10 +46,12 @@ final class GDO_Frontend {
 		global $wpdb;
 		$wpdb->last_error = '';
 		$latest = GDO_Application::latest_for_user( $user );
+		if ( ! $this->current_applicant_actor( $user ) ) { return $this->changed_actor_notice(); }
 		if ( ! empty( $wpdb->last_error ) ) {
 			return $this->status_panel( null, new WP_Error( 'gdo_frontend_application_query', __( 'The private doctor application state could not be read safely.', 'global-doctor-onboarding' ) ) );
 		}
 		$eligibility = GDO_Policy::eligibility( $user );
+		if ( ! $this->current_applicant_actor( $user ) ) { return $this->changed_actor_notice(); }
 		if ( empty( $eligibility['eligible'] ) && ! ( $latest && in_array( $latest->state, array( 'draft','more_information','expired','renewal_due' ), true ) ) ) {
 			return $this->status_panel( $latest, new WP_Error( 'gdo_eligibility_' . sanitize_key( $eligibility['reason_code'] ), __( 'This account is not currently eligible to start a new doctor application.', 'global-doctor-onboarding' ) ) );
 		}
@@ -52,6 +64,7 @@ final class GDO_Frontend {
 			return ob_get_clean();
 		}
 		$app = GDO_Application::ensure_draft( $user );
+		if ( ! $this->current_applicant_actor( $user ) ) { return $this->changed_actor_notice(); }
 		if ( is_wp_error( $app ) ) {
 			return $this->status_panel( $latest, $app );
 		}
@@ -63,10 +76,12 @@ final class GDO_Frontend {
 			return $this->status_panel( $app, new WP_Error( 'gdo_frontend_completeness_query', __( 'Application completeness could not be read safely. Try again after the database is healthy.', 'global-doctor-onboarding' ) ) );
 		}
 		$evidence_rows = GDO_Evidence::records_checked( $app->id, true );
+		if ( ! $this->current_applicant_actor( $user ) ) { return $this->changed_actor_notice(); }
 		if ( is_wp_error( $evidence_rows ) ) { return $this->status_panel( $app, $evidence_rows ); }
 		$evidence_by_type = array();
 		foreach ( $evidence_rows as $evidence_row ) { if ( ! isset( $evidence_by_type[ $evidence_row->document_type ] ) ) { $evidence_by_type[ $evidence_row->document_type ] = $evidence_row; } }
 		$this->form_required_fields = array_flip( GDO_Policy::required_fields( $app->jurisdiction, $app->application_type ) );
+		if ( ! $this->current_applicant_actor( $user ) ) { return $this->changed_actor_notice(); }
 		ob_start();
 		?><main class="gdo-application" aria-labelledby="gdo-title"><header class="gdo-head"><span><?php esc_html_e( 'Private professional application', 'global-doctor-onboarding' ); ?></span><h1 id="gdo-title"><?php esc_html_e( 'Doctor Application and Verification', 'global-doctor-onboarding' ); ?></h1><p><?php esc_html_e( 'Credential files remain encrypted and private. Verification is a professional eligibility decision, not a guarantee of treatment outcomes.', 'global-doctor-onboarding' ); ?></p></header>
 		<section class="gdo-progress" aria-live="polite"><strong><?php echo esc_html( $app->state ); ?></strong><p><?php printf( esc_html__( 'Application version %1$d · draft expires %2$s UTC', 'global-doctor-onboarding' ), absint( $app->version ), esc_html( $app->draft_expires_at ) ); ?></p><p data-gdo-autosave-status><?php esc_html_e( 'Draft ready', 'global-doctor-onboarding' ); ?></p></section>
@@ -79,7 +94,8 @@ final class GDO_Frontend {
 			<section data-gdo-step class="gdo-step" hidden aria-labelledby="gdo-step-5"><h2 id="gdo-step-5" tabindex="-1"><?php esc_html_e( '5. Declarations, consent, and review', 'global-doctor-onboarding' ); ?></h2><?php foreach ( array( 'declaration_accuracy'=>'I declare that all information and evidence are accurate and current.', 'declaration_no_impersonation'=>'I declare that I am not impersonating another professional.', 'declaration_professional_scope'=>'I understand that verification does not authorize work outside my lawful professional scope.' ) as $field=>$label ) : ?><label class="gdo-check"><input data-gdo-profile type="checkbox" name="<?php echo esc_attr( $field ); ?>" value="1" <?php checked( '1', $profile[ $field ] ); ?> required> <?php echo esc_html( $label ); ?></label><?php endforeach; ?><div class="gdo-wide gdo-consent"><p><?php echo esc_html( $consent['wording'] ); ?></p><p><strong><?php esc_html_e( 'Purpose:', 'global-doctor-onboarding' ); ?></strong> <?php echo esc_html( $consent['purpose'] ); ?></p><p><strong><?php esc_html_e( 'Retention:', 'global-doctor-onboarding' ); ?></strong> <?php echo esc_html( $consent['retention'] ); ?></p><label><input type="checkbox" name="consent" value="1" required> <?php printf( esc_html__( 'I accept terms and consent version %s.', 'global-doctor-onboarding' ), esc_html( $consent['version'] ) ); ?></label></div><p><?php printf( esc_html__( 'Current completeness: %1$d missing fields, %2$d missing evidence types.', 'global-doctor-onboarding' ), count( $complete['missing_fields'] ), count( $complete['missing_evidence'] ) ); ?></p><div class="gdo-step-actions"><button type="button" class="gdo-button-secondary" data-gdo-step-back><?php esc_html_e( 'Back', 'global-doctor-onboarding' ); ?></button><button class="gdo-button" type="submit"><?php esc_html_e( 'Save private application', 'global-doctor-onboarding' ); ?></button></div></section>
 		</form>
 		<form class="gdo-submit-form" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post"><input type="hidden" name="action" value="gdo_submit_application"><input type="hidden" name="application_id" value="<?php echo absint( $app->id ); ?>"><input type="hidden" name="row_version" value="<?php echo absint( $app->row_version ); ?>"><?php wp_nonce_field( 'gdo_submit_application_' . $app->id ); ?><button class="gdo-button" type="submit"><?php esc_html_e( 'Submit immutable snapshot for independent review', 'global-doctor-onboarding' ); ?></button></form></main><?php
-		return ob_get_clean();
+		$markup = ob_get_clean();
+		return $this->current_applicant_actor( $user ) ? $markup : $this->changed_actor_notice();
 	}
 
 	private function input( $key, $label, array $profile, $type = 'text' ) {
