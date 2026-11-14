@@ -256,6 +256,14 @@ final class GDO_Application {
 	}
 
 	public static function save_draft( $application_id, $user_id, array $profile, $expected_row_version, $allow_incomplete = false ) {
+		$user_id = absint( $user_id );
+		// A public method may be called by another consumer: ownership of an
+		// application row alone is not the caller's private mutation authority.
+		if ( ! $user_id || ! function_exists( 'is_user_logged_in' )
+			|| ! function_exists( 'get_current_user_id' ) || ! is_user_logged_in()
+			|| absint( get_current_user_id() ) !== $user_id ) {
+			return new WP_Error( 'gdo_draft_actor_mismatch', __( 'Only the active applicant may modify this private application.', 'global-doctor-onboarding' ) );
+		}
 		global $wpdb;
 		$wpdb->last_error = '';
 		$app = self::get( $application_id );
@@ -273,10 +281,16 @@ final class GDO_Application {
 		if ( is_wp_error( $valid ) ) {
 			return $valid;
 		}
-		$updated = $wpdb->query( $wpdb->prepare(
+		// The File00 candidate check, profile validation and SQL preparation may
+		// execute hooks. Recheck the actual current actor immediately before DB write.
+		$prepared = $wpdb->prepare(
 			'UPDATE ' . GDO_Schema::table( 'applications' ) . ' SET profile_json=%s,profile_fingerprint=%s,identity_fingerprint=%s,jurisdiction=%s,policy_version=%s,row_version=row_version+1,updated_at=%s WHERE id=%d AND row_version=%d',
 			wp_json_encode( $profile, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ), self::fingerprint( $profile ), GDO_Risk::identity_fingerprint( $profile ), $jurisdiction, GDO_Policy::VERSION, current_time( 'mysql', true ), absint( $application_id ), absint( $expected_row_version )
-		) );
+		);
+		if ( ! is_user_logged_in() || absint( get_current_user_id() ) !== $user_id ) {
+			return new WP_Error( 'gdo_draft_actor_changed', __( 'The active applicant changed before this private draft could be saved.', 'global-doctor-onboarding' ) );
+		}
+		$updated = $wpdb->query( $prepared );
 		if ( false === $updated ) { return new WP_Error( 'gdo_draft_store_failed', __( 'The draft application could not be stored safely.', 'global-doctor-onboarding' ) ); }
 		return 1 === $updated ? true : new WP_Error( 'gdo_concurrent_change', __( 'The application changed. Reload and try again.', 'global-doctor-onboarding' ) );
 	}
