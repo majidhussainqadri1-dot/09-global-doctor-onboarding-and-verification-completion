@@ -10,6 +10,12 @@ define('ARRAY_A','ARRAY_A');
 function absint($value){return abs((int)$value);}
 function sanitize_key($s){return preg_replace('/[^a-z0-9_-]/','',strtolower((string)$s));}
 function __($s,$d=''){return $s;}
+function esc_html__($s,$d=''){return $s;}
+function esc_html($v){return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
+function esc_html_e($s,$d=''){
+ if(!empty($GLOBALS['f09_switch_during_shortcode']) && $s==='Professional Verification Command Center'){$GLOBALS['f09_active_actor']=8;}
+ echo esc_html($s);
+}
 function is_wp_error($v){return $v instanceof WP_Error;}
 function is_user_logged_in(){return get_current_user_id()>0;}
 function get_current_user_id(){return $GLOBALS['f09_active_actor'];}
@@ -78,4 +84,13 @@ $r=GDO_Advanced_Trust::command_center(7);
 assert_case(is_array($r) && ($r['application']['id']??0)===42
  && ($r['completion']['missing_fields'][0]??'')==='PRIVATE_FIELD_42',
   'unchanged authenticated applicant retains own Command Center');
-echo "File09 V12.3 Command Center actor: 6 PASS, 0 FAIL\n";
+$GLOBALS['f09_active_actor']=7;
+$GLOBALS['f09_switch_during_shortcode']=true;
+$html=GDO_Advanced_Trust::command_center_shortcode();
+assert_case(strpos($html,'PRIVATE_DEADLINE_42')===false,
+ 'actor switch during shortcode rendering never returns private Command Center markup');
+$GLOBALS['f09_active_actor']=7;$GLOBALS['f09_switch_during_shortcode']=false;
+$html=GDO_Advanced_Trust::command_center_shortcode();
+assert_case(strpos($html,'PRIVATE_DEADLINE_42')!==false,
+ 'unchanged current applicant retains private Command Center shortcode details');
+echo "File09 V12.3 Command Center actor: 8 PASS, 0 FAIL\n";
