@@ -30,7 +30,7 @@ class GDO_Policy {
     return array('eligible'=>false,'reason_code'=>'applicant_actor_mismatch');
   }
 }
-class GDO_State {public static function can_transition($a,$b){return false;}}
+class GDO_State {public static function can_transition($a,$b){if(!empty($GLOBALS['switch_during_status_panel'])){$GLOBALS['f09_actor']=8;}return false;}}
 $wpdb=(object)array('last_error'=>'');
 require dirname(__DIR__) . '/includes/class-gdo-frontend.php';
 function check($ok,$message){
@@ -46,7 +46,12 @@ $b=(new GDO_Frontend())->form();
 check(strpos($b,'PRIVATE_CLAIM_42')===false && strpos($b,'PRIVATE_UNTIL_42')===false,
   'actor switch during eligibility filter does not disclose applicant status');
 $GLOBALS['f09_actor']=7;$GLOBALS['switch_on_policy']=false;
+$GLOBALS['switch_during_status_panel']=true;
+$status=(new GDO_Frontend())->form();
+check(strpos($status,'PRIVATE_CLAIM_42')===false && strpos($status,'PRIVATE_UNTIL_42')===false,
+  'actor switch during buffered status panel does not expose private metadata');
+$GLOBALS['f09_actor']=7;$GLOBALS['switch_during_status_panel']=false;
 $c=(new GDO_Frontend())->form();
 check(strpos($c,'PRIVATE_CLAIM_42')!==false,
   'unchanged authenticated applicant retains own private submitted status');
-echo "File09 frontend actor-switch regression: 3 PASS, 0 FAIL\n";
+echo "File09 frontend actor-switch regression: 4 PASS, 0 FAIL\n";
