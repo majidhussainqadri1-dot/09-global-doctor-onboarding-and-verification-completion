@@ -2,6 +2,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class GDO_Frontend {
+	private $form_user_id = 0;
 	private $form_required_fields = array();
 	public function hooks() {
 		add_shortcode( 'gdo_doctor_application', array( $this, 'form' ) );
@@ -35,7 +36,8 @@ final class GDO_Frontend {
 		<?php endif; ?>
 		<?php if ( $app && GDO_State::can_transition( $app->state, 'withdrawn' ) ) : ?><form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post"><input type="hidden" name="action" value="gdo_withdraw_application"><input type="hidden" name="application_id" value="<?php echo absint( $app->id ); ?>"><input type="hidden" name="row_version" value="<?php echo absint( $app->row_version ); ?>"><?php wp_nonce_field( 'gdo_withdraw_application_' . $app->id ); ?><label><?php esc_html_e( 'Withdrawal reason', 'global-doctor-onboarding' ); ?><textarea name="reason" required minlength="20"></textarea></label><button class="gdo-button"><?php esc_html_e( 'Withdraw application', 'global-doctor-onboarding' ); ?></button></form><?php endif; ?>
 		</main><?php
-		return ob_get_clean();
+		$markup = ob_get_clean();
+		return $this->current_applicant_actor( $this->form_user_id ) ? $markup : $this->changed_actor_notice();
 	}
 
 	public function form() {
@@ -43,6 +45,7 @@ final class GDO_Frontend {
 			return $this->notice( __( 'Log in with a File 00-approved doctor account to start professional verification.', 'global-doctor-onboarding' ), 'warning' );
 		}
 		$user = get_current_user_id();
+		$this->form_user_id = absint( $user );
 		global $wpdb;
 		$wpdb->last_error = '';
 		$latest = GDO_Application::latest_for_user( $user );
@@ -61,7 +64,8 @@ final class GDO_Frontend {
 			}
 			ob_start(); ?>
 			<main class="gdo-application" aria-labelledby="gdo-title"><header class="gdo-head"><h1 id="gdo-title"><?php esc_html_e( 'Doctor Application and Verification', 'global-doctor-onboarding' ); ?></h1></header><form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post"><input type="hidden" name="action" value="gdo_start_application"><?php wp_nonce_field( 'gdo_start_application' ); ?><button class="gdo-button" type="submit"><?php echo esc_html( $latest ? __( 'Start renewal application', 'global-doctor-onboarding' ) : __( 'Start professional verification', 'global-doctor-onboarding' ) ); ?></button></form></main><?php
-			return ob_get_clean();
+			$markup = ob_get_clean();
+			return $this->current_applicant_actor( $user ) ? $markup : $this->changed_actor_notice();
 		}
 		$app = GDO_Application::ensure_draft( $user );
 		if ( ! $this->current_applicant_actor( $user ) ) { return $this->changed_actor_notice(); }
@@ -72,6 +76,7 @@ final class GDO_Frontend {
 		$profile = is_array( $profile ) ? array_merge( array_fill_keys( GDO_Application::fields(), '' ), $profile ) : array_fill_keys( GDO_Application::fields(), '' );
 		$consent = GDO_Application::consent_text();
 		$complete = GDO_Application::completeness( $app );
+		if ( ! $this->current_applicant_actor( $user ) ) { return $this->changed_actor_notice(); }
 		if ( ! empty( $complete['query_error'] ) ) {
 			return $this->status_panel( $app, new WP_Error( 'gdo_frontend_completeness_query', __( 'Application completeness could not be read safely. Try again after the database is healthy.', 'global-doctor-onboarding' ) ) );
 		}
