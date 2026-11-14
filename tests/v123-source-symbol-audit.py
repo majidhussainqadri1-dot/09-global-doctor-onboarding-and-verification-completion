@@ -35,7 +35,7 @@ PRIMARY_ENTRYPOINTS = {
     "F09-NFR-006": ("includes/class-gdo-operations.php", "health"),
     "F09-NFR-007": ("includes/class-gdo-migration.php", "maybe_run"),
     "F09-NFR-008": ("includes/class-gdo-operations.php", "repair"),
-    "F09-NFR-009": ("includes/class-gdo-plugin.php", "hooks"),
+    "F09-NFR-009": ("includes/class-gdo-plugin.php", "run"),
     "F09-NFR-010": ("includes/class-gdo-policy.php", "normalize_date"),
     "F09-CEN-01": ("includes/class-gdo-integration-contracts.php", "projection"),
     "F09-CEN-02": ("includes/class-gdo-integration-contracts.php", "register"),
