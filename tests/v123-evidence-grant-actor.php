@@ -10,6 +10,7 @@ define('HOUR_IN_SECONDS',3600);
 function absint($x){return abs((int)$x);}
 function sanitize_key($x){return preg_replace('/[^a-z0-9_-]/','',strtolower((string)$x));}
 function sanitize_textarea_field($v){return (string)$v;}
+function wp_trim_words($text,$limit=55,$more=''){return implode(' ',array_slice(explode(' ',trim((string)$text)),0,$limit));}
 function __($s,$d=''){return $s;}
 function is_wp_error($v){return $v instanceof WP_Error;}
 function is_user_logged_in(){return get_current_user_id()>0;}
