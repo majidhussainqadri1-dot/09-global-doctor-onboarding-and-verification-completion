@@ -1116,20 +1116,40 @@ final class GDO_Advanced_Trust {
         self::add_history($app->user_id,$app->id,$public_event,array('decision'=>$decision,'verified_until'=>$app->verified_until),true);
         if(in_array($decision,array('verified','reinstated'),true)){self::ensure_passport($app->id);self::schedule_reverification($app->id,'verified',time()+30*DAY_IN_SECONDS,false);}elseif(in_array($decision,array('suspended','revoked','expired','rejected','withdrawn'),true)){self::revoke_passports_for_application($app->id,$decision);self::schedule_reverification($app->id,$decision,time()+HOUR_IN_SECONDS,true);}
     }
+    /** The private applicant Command Center must never be an on-behalf query. */
+    private static function current_command_center_actor( $user_id ) {
+        return absint( $user_id ) > 0 && function_exists( 'is_user_logged_in' )
+            && function_exists( 'get_current_user_id' ) && is_user_logged_in()
+            && absint( get_current_user_id() ) === absint( $user_id );
+    }
+
     public static function command_center( $user_id ) {
+        if ( ! self::current_command_center_actor( $user_id ) ) {
+            return new WP_Error( 'gdo_command_center_actor_mismatch', __( 'Only the current applicant may access this private professional command center.', 'global-doctor-onboarding' ) );
+        }
         global $wpdb;
         $wpdb->last_error = '';
         $app = GDO_Application::latest_for_user( absint( $user_id ) );
+        // Companion database reads can execute hooks that change the principal.
+        if ( ! self::current_command_center_actor( $user_id ) ) {
+            return new WP_Error( 'gdo_command_center_actor_changed', __( 'The applicant session changed during the private command center request.', 'global-doctor-onboarding' ) );
+        }
         if ( ! $app && ! empty( $wpdb->last_error ) ) {
             return new WP_Error( 'gdo_command_center_application_query', __( 'Professional application state could not be read safely.', 'global-doctor-onboarding' ) );
         }
         if ( ! $app ) { return array( 'application'=>null, 'next_action'=>'start_application' ); }
         $complete = GDO_Application::completeness( $app );
+        if ( ! self::current_command_center_actor( $user_id ) ) {
+            return new WP_Error( 'gdo_command_center_actor_changed', __( 'The applicant session changed during private completeness checks.', 'global-doctor-onboarding' ) );
+        }
         if ( ! empty( $complete['query_error'] ) ) {
             return new WP_Error( 'gdo_command_center_completeness_query', __( 'Professional application completeness could not be verified safely.', 'global-doctor-onboarding' ) );
         }
         $wpdb->last_error = '';
         $checks = $wpdb->get_results( $wpdb->prepare( 'SELECT check_type,status,checked_at,expires_at FROM ' . self::table( 'credential_checks' ) . ' WHERE application_id=%d ORDER BY id DESC LIMIT 50', $app->id ), ARRAY_A );
+        if ( ! self::current_command_center_actor( $user_id ) ) {
+            return new WP_Error( 'gdo_command_center_actor_changed', __( 'The applicant session changed during private credential checks.', 'global-doctor-onboarding' ) );
+        }
         if ( null === $checks || ! empty( $wpdb->last_error ) ) {
             return new WP_Error( 'gdo_command_center_query', __( 'Professional verification checks could not be read safely.', 'global-doctor-onboarding' ) );
         }
@@ -1144,14 +1164,25 @@ final class GDO_Advanced_Trust {
         elseif ( in_array( $app->state, array( 'verified','reinstated' ), true ) ) { $next='monitor_credentials'; }
         elseif ( 'renewal_due' === $app->state || 'expired' === $app->state ) { $next='renew'; }
         elseif ( in_array( $app->state, array( 'rejected','suspended','revoked' ), true ) ) { $next='appeal_or_correct'; }
-        return array( 'application'=>array('id'=>absint($app->id),'state'=>$app->state,'version'=>absint($app->version),'verified_until'=>$app->verified_until,'more_info_due_at'=>$app->more_info_due_at), 'completion'=>array('missing_fields'=>$complete['missing_fields'],'missing_evidence'=>$complete['missing_evidence']), 'verification_matrix'=>self::verification_matrix($user_id), 'check_summary'=>array('pending'=>$pending_checks,'degraded'=>$degraded_checks), 'checks'=>$checks, 'next_action'=>$next );
+        $matrix = self::verification_matrix( $user_id );
+        if ( ! self::current_command_center_actor( $user_id ) ) {
+            return new WP_Error( 'gdo_command_center_actor_changed', __( 'The applicant session changed while the private response was prepared.', 'global-doctor-onboarding' ) );
+        }
+        return array( 'application'=>array('id'=>absint($app->id),'state'=>$app->state,'version'=>absint($app->version),'verified_until'=>$app->verified_until,'more_info_due_at'=>$app->more_info_due_at), 'completion'=>array('missing_fields'=>$complete['missing_fields'],'missing_evidence'=>$complete['missing_evidence']), 'verification_matrix'=>$matrix, 'check_summary'=>array('pending'=>$pending_checks,'degraded'=>$degraded_checks), 'checks'=>$checks, 'next_action'=>$next );
     }
     public static function command_center_shortcode() {
         if ( ! is_user_logged_in() ) { return '<p>' . esc_html__( 'Log in to view your verification command center.', 'global-doctor-onboarding' ) . '</p>'; }
-        $data = self::command_center( get_current_user_id() );
+        $applicant_id = get_current_user_id();
+        $data = self::command_center( $applicant_id );
         if ( is_wp_error( $data ) ) { return '<p>' . esc_html__( 'Professional verification status is temporarily unavailable.', 'global-doctor-onboarding' ) . '</p>'; }
         $scope_labels=array('identity'=>__('Identity','global-doctor-onboarding'),'qualification'=>__('Qualification','global-doctor-onboarding'),'institution'=>__('Institution','global-doctor-onboarding'),'registration'=>__('Registration','global-doctor-onboarding'),'license'=>__('License','global-doctor-onboarding'),'current_status'=>__('Current status','global-doctor-onboarding'));
-        ob_start(); ?><section class="gdo-trust-command-center" aria-labelledby="gdo-trust-title"><h2 id="gdo-trust-title"><?php esc_html_e('Professional Verification Command Center','global-doctor-onboarding');?></h2><?php if(empty($data['application'])):?><p><?php esc_html_e('No professional application exists yet.','global-doctor-onboarding');?></p><?php else:?><p><strong><?php echo esc_html($data['application']['state']);?></strong> · <?php echo esc_html($data['next_action']);?></p><p><?php printf(esc_html__('%1$d missing fields · %2$d missing evidence items','global-doctor-onboarding'),count($data['completion']['missing_fields']),count($data['completion']['missing_evidence']));?></p><?php if(!empty($data['application']['more_info_due_at'])):?><p><?php printf(esc_html__('More-information deadline: %s UTC','global-doctor-onboarding'),esc_html($data['application']['more_info_due_at']));?></p><?php endif;?><?php if(!empty($data['application']['verified_until'])):?><p><?php printf(esc_html__('Verified until: %s UTC','global-doctor-onboarding'),esc_html($data['application']['verified_until']));?></p><?php endif;?><p><?php printf(esc_html__('%1$d pending professional checks · %2$d provider checks degraded','global-doctor-onboarding'),absint($data['check_summary']['pending']),absint($data['check_summary']['degraded']));?></p><?php if(absint($data['check_summary']['degraded'])):?><p role="status"><?php esc_html_e('One or more verification providers are temporarily degraded. Human review remains authoritative.','global-doctor-onboarding');?></p><?php endif;?><h3><?php esc_html_e('Verification scope','global-doctor-onboarding');?></h3><ul><?php foreach($scope_labels as $scope_key=>$scope_label):$scope_state=isset($data['verification_matrix']['scope_status'][$scope_key])?$data['verification_matrix']['scope_status'][$scope_key]:'not_verified';?><li><?php echo esc_html($scope_label);?>: <strong><?php echo esc_html($scope_state);?></strong></li><?php endforeach;?></ul><?php endif;?></section><?php return ob_get_clean();
+        ob_start(); ?><section class="gdo-trust-command-center" aria-labelledby="gdo-trust-title"><h2 id="gdo-trust-title"><?php esc_html_e('Professional Verification Command Center','global-doctor-onboarding');?></h2><?php if(empty($data['application'])):?><p><?php esc_html_e('No professional application exists yet.','global-doctor-onboarding');?></p><?php else:?><p><strong><?php echo esc_html($data['application']['state']);?></strong> · <?php echo esc_html($data['next_action']);?></p><p><?php printf(esc_html__('%1$d missing fields · %2$d missing evidence items','global-doctor-onboarding'),count($data['completion']['missing_fields']),count($data['completion']['missing_evidence']));?></p><?php if(!empty($data['application']['more_info_due_at'])):?><p><?php printf(esc_html__('More-information deadline: %s UTC','global-doctor-onboarding'),esc_html($data['application']['more_info_due_at']));?></p><?php endif;?><?php if(!empty($data['application']['verified_until'])):?><p><?php printf(esc_html__('Verified until: %s UTC','global-doctor-onboarding'),esc_html($data['application']['verified_until']));?></p><?php endif;?><p><?php printf(esc_html__('%1$d pending professional checks · %2$d provider checks degraded','global-doctor-onboarding'),absint($data['check_summary']['pending']),absint($data['check_summary']['degraded']));?></p><?php if(absint($data['check_summary']['degraded'])):?><p role="status"><?php esc_html_e('One or more verification providers are temporarily degraded. Human review remains authoritative.','global-doctor-onboarding');?></p><?php endif;?><h3><?php esc_html_e('Verification scope','global-doctor-onboarding');?></h3><ul><?php foreach($scope_labels as $scope_key=>$scope_label):$scope_state=isset($data['verification_matrix']['scope_status'][$scope_key])?$data['verification_matrix']['scope_status'][$scope_key]:'not_verified';?><li><?php echo esc_html($scope_label);?>: <strong><?php echo esc_html($scope_state);?></strong></li><?php endforeach;?></ul><?php endif;?></section><?php
+        $private_markup = ob_get_clean();
+        // A template filter/translation hook can switch the WordPress actor
+        // after the private DTO was safely built. Never return that markup then.
+        return self::current_command_center_actor( $applicant_id )
+            ? $private_markup
+            : '<p>' . esc_html__( 'Your sign-in session changed. Sign in again to view private verification details.', 'global-doctor-onboarding' ) . '</p>';
     }
 
     public static function public_card_shortcode( $atts ) {
@@ -1375,6 +1406,22 @@ final class GDO_Advanced_Trust {
         foreach(array('verified','appeals_resolved','appeals_overturned','quality_samples','fraud_signals') as $field){
             $value=absint($snapshot[$field]);
             if($value>0&&$value<$minimum_cell){$snapshot[$field]=null;$suppressed_fields[]=$field;}
+        }
+        // Direct small-cell suppression is insufficient when a parent total
+        // and its nested subset disclose a small complement by subtraction.
+        // File09 V12.3 F09-AT-24: avoid publishing those nested counts.
+        foreach(array(
+            array('decisions','verified'),
+            array('appeals_resolved','appeals_overturned'),
+        ) as $pair){
+            $parent=absint($snapshot[$pair[0]]);
+            $nested=absint($snapshot[$pair[1]]);
+            $complement=$parent-$nested;
+            if($nested<=$parent && $complement>0 && $complement<$minimum_cell
+                && null!==$snapshot[$pair[1]]){
+                $snapshot[$pair[1]]=null;
+                $suppressed_fields[]=$pair[1];
+            }
         }
         $snapshot['suppressed']=false;
         $snapshot['minimum_cohort']=$minimum;

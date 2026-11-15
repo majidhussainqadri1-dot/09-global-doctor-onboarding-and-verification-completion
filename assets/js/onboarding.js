@@ -6,6 +6,7 @@
   var status = document.querySelector('[data-gdo-autosave-status]');
   var timer = null;
   var busy = false;
+  var saveQueued = false;
 
   function fields() {
     var profile = {};
@@ -28,7 +29,11 @@
   }
 
   function save() {
-    if (busy) return;
+    if (busy) {
+      // Preserve changes made while the previous request is in flight.
+      saveQueued = true;
+      return;
+    }
     busy = true;
     announce(config.messages && config.messages.saving ? config.messages.saving : 'Saving…');
     fetch(config.restUrl, {
@@ -49,7 +54,14 @@
     }).catch(function (error) {
       var message = error && error.code === 'gdo_concurrent_change' && config.messages ? config.messages.conflict : (error && error.message ? error.message : 'Autosave failed');
       announce(message);
-    }).finally(function () { busy = false; });
+    }).finally(function () {
+      busy = false;
+      if (saveQueued) {
+        saveQueued = false;
+        // Re-read current fields and the acknowledged row version.
+        save();
+      }
+    });
   }
 
   function stepIsValid(step) {

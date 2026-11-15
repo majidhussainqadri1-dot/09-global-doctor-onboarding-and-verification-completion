@@ -843,6 +843,13 @@ final class GDO_Evidence {
         global $wpdb;
         $evidence_id = absint( $evidence_id );
         $reviewer_id = absint( $reviewer_id );
+        // The reviewer ID is a claimed subject, not authority to act for that
+        // account. Enforce caller identity at the actual private grant boundary.
+        if ( ! $reviewer_id || ! function_exists( 'is_user_logged_in' )
+            || ! function_exists( 'get_current_user_id' ) || ! is_user_logged_in()
+            || absint( get_current_user_id() ) !== $reviewer_id ) {
+            return new WP_Error( 'gdo_evidence_grant_actor_mismatch', __( 'Only the active reviewer may request a private credential grant.', 'global-doctor-onboarding' ) );
+        }
         $purpose = sanitize_textarea_field( $purpose );
         $mode = sanitize_key( $mode );
         $wpdb->last_error = '';
@@ -862,6 +869,11 @@ final class GDO_Evidence {
         }
         if ( ! GDO_Rate_Limiter::hit( 'credential-grant:' . $reviewer_id, 20, HOUR_IN_SECONDS ) ) {
             return new WP_Error( 'gdo_evidence_grant_rate', __( 'Too many credential access requests.', 'global-doctor-onboarding' ) );
+        }
+        // Rate-limit and companion policy hooks can switch the active actor.
+        // Never mint a credential capability for a different current session.
+        if ( ! is_user_logged_in() || absint( get_current_user_id() ) !== $reviewer_id ) {
+            return new WP_Error( 'gdo_evidence_grant_actor_changed', __( 'The reviewer session changed before credential access could be granted.', 'global-doctor-onboarding' ) );
         }
         $token = wp_generate_password( 64, false, false );
         $hash = hash( 'sha256', $token );
@@ -890,12 +902,28 @@ final class GDO_Evidence {
             }
             return $access_audit;
         }
+        if ( ! is_user_logged_in() || absint( get_current_user_id() ) !== $reviewer_id ) {
+            // An audit hook may have changed identity after the INSERT.
+            // Destroy the secret capability before returning; never disclose
+            // the token to a new actor even when cleanup is uncertain.
+            $removed = $wpdb->delete( GDO_Schema::table( 'access_grants' ), array( 'grant_hash'=>$hash, 'reviewer_id'=>$reviewer_id ), array( '%s','%d' ) );
+            if ( 1 !== $removed ) {
+                GDO_Membership_Adapter::audit( 'doctor_evidence_grant_actor_cleanup_failed', array( 'application_id'=>absint($app->id), 'evidence_id'=>$evidence_id, 'reviewer_id'=>$reviewer_id ) );
+                return new WP_Error( 'gdo_evidence_grant_actor_cleanup', __( 'The credential session changed and private grant cleanup requires reconciliation.', 'global-doctor-onboarding' ) );
+            }
+            return new WP_Error( 'gdo_evidence_grant_actor_changed', __( 'The reviewer session changed before credential access could be returned.', 'global-doctor-onboarding' ) );
+        }
         return array( 'token'=>$token, 'expires_at'=>$expires, 'mode'=>$mode );
     }
 
     public static function consume_view_grant( $token, $reviewer_id, $expected_mode = 'view' ) {
         global $wpdb;
         $reviewer_id = absint( $reviewer_id );
+        if ( ! $reviewer_id || ! function_exists( 'is_user_logged_in' )
+            || ! function_exists( 'get_current_user_id' ) || ! is_user_logged_in()
+            || absint( get_current_user_id() ) !== $reviewer_id ) {
+            return new WP_Error( 'gdo_evidence_consume_actor_mismatch', __( 'Only the active reviewer may use this private credential grant.', 'global-doctor-onboarding' ) );
+        }
         $hash = hash( 'sha256', (string) $token );
         $table = GDO_Schema::table( 'access_grants' );
         if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
@@ -930,11 +958,21 @@ final class GDO_Evidence {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'gdo_evidence_missing', __( 'The credential evidence is unavailable or no longer within reviewer scope.', 'global-doctor-onboarding' ) );
         }
+        if ( ! is_user_logged_in() || absint( get_current_user_id() ) !== $reviewer_id ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'gdo_evidence_consume_actor_changed', __( 'The reviewer session changed before private credential grant consumption.', 'global-doctor-onboarding' ) );
+        }
         $used = $wpdb->update( $table, array( 'used_at'=>current_time( 'mysql', true ) ), array( 'id'=>$grant->id, 'used_at'=>null ), array( '%s' ), array( '%d','%s' ) );
         $event = 1 === $used ? GDO_Notifications::queue( 'doctor_credential_accessed', $app->user_id, array( 'application_id'=>absint( $app->id ), 'evidence_type'=>$record->document_type, 'access_mode'=>sanitize_key( $grant->mode ) ), false ) : new WP_Error( 'gdo_evidence_grant_conflict', __( 'The credential access grant was already used.', 'global-doctor-onboarding' ) );
         if ( 1 !== $used || is_wp_error( $event ) ) {
             $wpdb->query( 'ROLLBACK' );
             return is_wp_error( $event ) ? $event : new WP_Error( 'gdo_evidence_grant_conflict', __( 'The credential access grant was already used.', 'global-doctor-onboarding' ) );
+        }
+        // Outbox/notification hooks can change the principal while the DB
+        // transaction is open. Roll back the one-use grant before committing.
+        if ( ! is_user_logged_in() || absint( get_current_user_id() ) !== $reviewer_id ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'gdo_evidence_consume_actor_changed', __( 'The reviewer session changed while credential access was being recorded.', 'global-doctor-onboarding' ) );
         }
         if ( false === $wpdb->query( 'COMMIT' ) ) {
             $wpdb->query( 'ROLLBACK' );
@@ -953,6 +991,11 @@ final class GDO_Evidence {
             GDO_Membership_Adapter::audit( 'doctor_evidence_grant_commit_reconciled', array( 'application_id'=>absint($app->id), 'evidence_id'=>absint($record->id), 'reviewer_id'=>$reviewer_id ) );
         }
         GDO_Notifications::process( 1, $event );
+        // Even after a durable COMMIT, do not expose private evidence metadata
+        // to a new WordPress actor. The consumed grant remains spent.
+        if ( ! is_user_logged_in() || absint( get_current_user_id() ) !== $reviewer_id ) {
+            return new WP_Error( 'gdo_evidence_consume_actor_changed', __( 'The reviewer session changed before credential evidence could be returned.', 'global-doctor-onboarding' ) );
+        }
         return array( 'grant'=>$grant, 'record'=>$record );
     }
 
