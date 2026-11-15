@@ -6,8 +6,10 @@
  */
 defined('ABSPATH') || exit;
 global $wpdb;
-if (wp_get_environment_type() !== 'staging' || !defined('WP_CLI') || !WP_CLI) {
-    fwrite(STDERR, "FAIL: refuse non-CLI/non-staging aggregate fixture\n");
+if (wp_get_environment_type() !== 'staging' || !defined('WP_CLI') || !WP_CLI
+    || get_option('siteurl') !== 'http://file09-smoke.local'
+    || get_option('blogname') !== 'File09 Ephemeral CI') {
+    fwrite(STDERR, "FAIL: refuse anything except the exact ephemeral CI WordPress site\n");
     exit(91);
 }
 $table = GDO_Schema::table('applications');
