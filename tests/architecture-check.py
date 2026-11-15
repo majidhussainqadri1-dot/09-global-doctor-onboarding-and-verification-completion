@@ -26,4 +26,14 @@ for token in ['assigned_reviewer_id','recommender_id','finalizer_id','recent_ste
 trust=(root/'includes/class-gdo-advanced-trust.php').read_text()
 for token in ['gdo_primary_source_verification','gdo_ai_evidence_assistance','automated_decision_forbidden','GDO_Evidence::stage_upload',"'download_allowed'=>false"]:
     if token not in trust: fail('missing advanced trust invariant '+token)
+# F09-NFR-010 / P08: Back buttons must receive the same accessible
+# 44px target and focus ring as every wizard action, not an unstyled class.
+frontend=(root/'includes/class-gdo-frontend.php').read_text(encoding='utf-8')
+css=(root/'assets/css/onboarding.css').read_text(encoding='utf-8')
+if 'class="gdo-button-secondary"' in frontend:
+    fail('wizard Back buttons reference unstyled secondary class')
+if 'gdo-button gdo-button--secondary' not in frontend:
+    fail('wizard accessible styled secondary Back control missing')
+if '.gdo-button--secondary{' not in css or '.gdo-button:focus-visible' not in css:
+    fail('wizard Back secondary/button focus CSS missing')
 print('Architecture checks passed.')
