@@ -85,6 +85,20 @@ GDO_API::$decision=array('state'=>'suspended','verified'=>false,'claim_status'=>
 $p=gdo_file07_directory_eligibility(42);if(!empty($p['eligible'])||$p['reason_code']!=='verification_suspended'||$p['fingerprint']!==''){throw new RuntimeException('fail-closed directory projection failed');}
 $p=gdo_file26_search_eligibility(42);if(!empty($p['eligible'])||GDO_Integration_Contracts::file26_can_view(array('payload'=>array('user_id'=>42)),array())){throw new RuntimeException('search projection not revoked with verification');}
 
+// V12.3 privacy: an unverified private application UUID is not a public
+// File03/File07/File08/File26 identity or stable tracking token.
+$private_uuid = '55555555-5555-4555-8555-555555555555';
+foreach (array('draft','submitted','more_information','rejected','revoked','expired') as $state) {
+    GDO_API::$decision = array('application_uuid'=>$private_uuid,'version'=>12,
+        'state'=>$state,'verified'=>false,'claim_status'=>'pending',
+        'checked_at'=>'2026-11-15T05:00:00Z');
+    foreach (array('file03','file07','file08','file26') as $consumer) {
+        $public = GDO_Integration_Contracts::projection(42,$consumer);
+        if (is_wp_error($public) || !empty($public['application_uuid'])) {
+            throw new RuntimeException('private unverified application UUID leaked to '.$consumer.' in '.$state);
+        }
+    }
+}
 GDO_Membership_Adapter::$available=false;
 $health=GDO_Integration_Contracts::file26_health();if('degraded'!==$health['state']){throw new RuntimeException('File26 health must degrade with File00');}
 
