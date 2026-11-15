@@ -49,6 +49,7 @@ foreach($consumers as $consumer){
     if(empty($p['authorization_rechecked'])||!empty($p['evidence_exposed'])||!empty($p['clinical_authorization'])||!empty($p['donor_rank_advantage'])){throw new RuntimeException('latest-plan projection boundary failed '.$consumer);}
     if('file09'!==$p['source_of_truth']||'c0_public_verification_projection'!==$p['privacy_class']){throw new RuntimeException('projection provenance/privacy failed '.$consumer);}
     if('2030-12-31'!==$p['verified_until']){throw new RuntimeException('public verification validity must be canonical YYYY-MM-DD '.$consumer);}
+    if('00000000-0000-4000-8000-000000000001'!==$p['application_uuid']){throw new RuntimeException('current verified passport owner identifier unexpectedly removed '.$consumer);}
 }
 if(!gdo_file21_publishing_eligibility(42)['eligible']||!gdo_file23_dashboard_eligibility(42)['eligible']||!gdo_file26_search_eligibility(42)['eligible']){throw new RuntimeException('new consumer helper failed');}
 
