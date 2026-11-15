@@ -46,6 +46,7 @@ jobs:
           test -z "$(find . -type f \( -name '*.zip' -o -name '*.sql' -o -name '*.sqlite' -o -name '.env' -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -not -path './.git/*' -print -quit)"
           find . -type f -name '*.php' -not -path './.git/*' -print0 | sort -z | xargs -0 -n1 php -l
           node --check assets/js/onboarding.js
+          node tests/v123-autosave-inflight.js
           php tests/security-unit.php
           php tests/membership-adapter.php
           php tests/current-file00-1244-runtime.php
