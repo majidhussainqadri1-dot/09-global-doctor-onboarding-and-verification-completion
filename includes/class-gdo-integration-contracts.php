@@ -151,7 +151,7 @@ final class GDO_Integration_Contracts {
 			'consumer'                => $consumer,
 			'source_of_truth'          => 'file09',
 			'user_id'                 => absint( $user_id ),
-			'application_uuid'        => isset( $decision['application_uuid'] ) ? (string) $decision['application_uuid'] : '',
+			'application_uuid'        => $verified && isset( $decision['application_uuid'] ) ? (string) $decision['application_uuid'] : '',
 			'application_version'     => isset( $decision['version'] ) ? absint( $decision['version'] ) : 0,
 			'state'                   => $state,
 			'verified'                => $verified,
