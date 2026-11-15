@@ -60,6 +60,30 @@ try {
         && array_key_exists('verified', $one) && $one['verified'] === null
         && in_array('verified', $one['suppressed_fields'], true),
         'MariaDB complementary group of one is not inferable');
+    // A separate source of complementary inference: appeals resolved=20,
+    // overturned=19. These are actual MariaDB rows, not stubbed COUNT values.
+    for ($a = 0; $a < 20; ++$a) {
+        $appeal = array(
+            'appeal_uuid' => wp_generate_uuid4(),
+            'application_id' => $inserted[0],
+            'user_id' => 1,
+            'source_state' => 'rejected',
+            'status' => 'resolved',
+            'reason' => 'Synthetic CI appeal',
+            'decision' => $a < 19 ? 'reinstated' : 'rejected',
+            'created_at' => $now,
+            'resolved_at' => $now,
+        );
+        f09_db_check($wpdb->insert($appeals, $appeal) === 1,
+            'synthetic MariaDB appeal insert ' . ($a + 1));
+        $appeal_ids[] = absint($wpdb->insert_id);
+    }
+    $appeal_snapshot = GDO_Advanced_Trust::public_transparency_snapshot();
+    f09_db_check(!is_wp_error($appeal_snapshot)
+        && absint($appeal_snapshot['appeals_resolved']) === 20
+        && $appeal_snapshot['appeals_overturned'] === null
+        && in_array('appeals_overturned', $appeal_snapshot['suppressed_fields'], true),
+        'MariaDB complementary non-overturned appeal cell of one is hidden');
     // Open 4 additional decisions, so complement now equals minimum cell 5.
     foreach (array_slice($rejected_ids, 1) as $id) {
         f09_db_check($wpdb->update($table, array('decision_at' => $now),
